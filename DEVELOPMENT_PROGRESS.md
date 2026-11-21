@@ -5,17 +5,17 @@
 
 ## Phase courante
 
-**Phase 2 — Base de données et stockage local : implémentée et validée en local** (branche `phase/2-data`).
-Il reste à vérifier la CI GitHub (Linux et Windows) sur cette branche, puis à la fusionner dans `main`
-(voir « Action suivante exacte »). La Phase 1 a été validée par le porteur du projet le 2026-11-21 et
-fusionnée dans `main`.
+**Phase 3 — Vue d'ensemble et espaces de travail : en cours** (branche `phase/3-workspaces`).
+La Phase 2 est terminée : validée localement, CI Linux et Windows au vert (run 44904532543 et 44904532541,
+commit `739082f`), fusionnée dans `main` le 2026-11-21. Le porteur du projet a demandé l'enchaînement autonome des
+phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
 | 1 | Fondation et design system | ✅ Terminée et validée |
-| 2 | Base de données et stockage local | 🟡 Validée en local, CI à confirmer |
-| 3 | Vue d'ensemble et espaces de travail | ⏳ Prochaine |
+| 2 | Base de données et stockage local | ✅ Terminée |
+| 3 | Vue d'ensemble et espaces de travail | 🔄 En cours |
 | 4 | Bibliothèque | À faire |
 | 5 | Notes | À faire |
 | 6 | Recherche intelligente | À faire |
@@ -36,7 +36,7 @@ fusionnée dans `main`.
 
 ---
 
-## Phase 2 — Base de données et stockage local
+## Phase 2 — Base de données et stockage local (terminée le 2026-11-21)
 
 ### Tâches réalisées
 
@@ -76,7 +76,7 @@ fusionnée dans `main`.
 | `npm run test:e2e` (dont axe-core sur le mode sans échec et la page Stockage) | ✅ 37/37 |
 | `npm run test:visual` | ✅ captures revues ; deux défauts corrigés (vide sous les boutons du mode sans échec, double état actif dans la barre latérale) |
 | Build natif de production (`tauri build --no-bundle`) et trois lancements sous Xvfb | ✅ aucune erreur d'interface ni violation de CSP dans le journal |
-| CI GitHub (Linux et Windows) | ⏳ à vérifier après le push de la branche |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout, cœur natif (avec types générés à jour), build Windows et test de fumée (commit `739082f`) |
 
 ### Dépendances ajoutées
 
@@ -238,12 +238,7 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Clore la Phase 2** :
-   - vérifier que les workflows `CI` et `Windows build` de la branche `phase/2-data` sont au vert (API GitHub :
-     `/repos/Lebendo91/ARCHIVE/actions/runs?branch=phase/2-data`) ; corriger si nécessaire ;
-   - inscrire les résultats dans ce document, puis fusionner en avance rapide dans `main` et pousser (le porteur a
-     demandé l'enchaînement autonome des phases le 2026-11-21).
-2. **Phase 3 — Vue d'ensemble et espaces de travail**, branche `phase/3-workspaces` :
+**Phase 3 — Vue d'ensemble et espaces de travail**, branche `phase/3-workspaces`. Prochaine tâche : **3.1**.
 
 | # | Tâche |
 |---|---|
