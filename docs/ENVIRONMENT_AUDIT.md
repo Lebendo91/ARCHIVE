@@ -84,6 +84,7 @@ manuellement avec la commande ci-dessus.
 | `github.com` (pages et téléchargements de releases) | **Refusé** (403) | Aucun outil ne doit dépendre de binaires téléchargés depuis des releases GitHub dans le conteneur |
 | `aka.ms`, `download.visualstudio.microsoft.com` | **Injoignables** | Impossible de récupérer le CRT MSVC ou le SDK Windows : pas de compilation croisée Windows |
 | Polices | Aucun accès réseau requis | Polices embarquées via les paquets npm `@fontsource-variable/*` |
+| Artefacts GitHub Actions (`*.blob.core.windows.net`) | **Refusé** (403), constaté en Phase 1 | La session voit le statut des workflows via l'API, mais ne télécharge pas les artefacts. Le porteur les récupère sur GitHub |
 
 ## 6. Versions de référence des dépendances (registres, 2026-11-21)
 

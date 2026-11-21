@@ -77,14 +77,13 @@ Le travail est sur la branche `phase/1-foundation`. La phase sera close une fois
 
 | Critère | Résultat | Preuve |
 |---|---|---|
-| L'application démarre | ✅ | Binaire de production Linux lancé sous Xvfb : actif après 12 s, aucune erreur ni violation de CSP (capture `docs/screenshots/phase-1/native-linux-webkitgtk.png`). Windows : voir ci-dessous |
-| L'application se construit | ✅ | `npm run build` ; `npm run tauri build -- --no-bundle` (Linux, 2 min 29 s) ; installateurs Windows : voir ci-dessous |
+| L'application démarre | ✅ | **Windows** : test de fumée sur `windows-latest` (WebView2), application active après 20 s. **Linux** : binaire de production lancé sous Xvfb, actif après 12 s, sans erreur ni violation de CSP (capture `docs/screenshots/phase-1/native-linux-webkitgtk.png`) |
+| L'application se construit | ✅ | **Windows** : installateurs MSI et NSIS produits par la CI en 6 min (artefact de 5,3 Mo, run 44900350768). **Linux** : `npm run tauri build -- --no-bundle` en 2 min 29 s. Frontend : `npm run build` |
 | La navigation fonctionne | ✅ | Tests unitaires et de bout en bout sur tous les écrans, les liens, le fil d'Ariane et `Ctrl+,` |
 | La barre latérale fonctionne | ✅ | Repli à 64 px, infobulles, élément actif, mémorisation après rechargement (tests de bout en bout) |
 | Mise en page aux deux résolutions de référence | ✅ | 1440×900 et 1280×800, plus le minimum 1100×700 : aucun débordement horizontal (test), captures revues |
 | Aucun défaut visuel majeur | ✅ | Audit des captures. Un défaut mineur corrigé (carte « Guide » de l'aide) ; un faux positif expliqué (capture prise pendant une transition) |
 | Aucune erreur console critique | ✅ | Chaque test de bout en bout échoue sur toute erreur console ou diagnostic remonté |
-| **Build Windows (CI `windows-latest`)** | ⏳ | Résultat à reporter ici dès la fin du workflow « Windows build » |
 
 ### Tâches incomplètes et éléments reportés (volontairement, sans simulation)
 
@@ -147,7 +146,7 @@ Consignées dans [ARCHITECTURE.md §16, « Décisions prises en Phase 1 »](ARCH
 | Build de production | `npm run tauri build -- --no-bundle` | ✅ binaire Linux de 11,5 Mo |
 | Fumée native | binaire de production sous `xvfb-run` | ✅ actif après 12 s, sortie d'erreur sans erreur applicative |
 | CI GitHub (Ubuntu) | jobs frontend, end-to-end, natif | ✅ tous au vert (commit `d2367d4`) |
-| CI GitHub (Windows) | build MSI et NSIS et test de fumée | ⏳ en cours au moment de la rédaction |
+| CI GitHub (Windows) | build MSI et NSIS, test de fumée | ✅ succès en 6 min (run 44900350768, commit `d2367d4`) : installateurs et capture publiés en artefacts |
 
 ### Bugs connus
 
@@ -155,8 +154,11 @@ Aucun.
 
 ### Limites restantes
 
-- Le rendu sous **WebView2** et le comportement réel des raccourcis bloqués sous Windows ne sont vérifiables
-  que sur Windows : test de fumée et capture en CI, puis recette sur poste réel (audit C3, C11).
+- Le démarrage sous Windows est prouvé par la CI. En revanche, la **capture WebView2** et les
+  **installateurs** ne sont pas téléchargeables depuis la session cloud : GitHub les sert depuis un stockage
+  Azure (`*.blob.core.windows.net`) que la politique réseau refuse. Le porteur du projet les récupère depuis
+  l'onglet *Actions* de GitHub. Le comportement réel des raccourcis bloqués sous WebView2 reste à vérifier
+  lors de la recette sur un poste Windows (audit C3, C11).
 - Le bundle JavaScript tient en un seul fichier (493 Ko, 155 Ko compressé). C'est acceptable pour une
   application de bureau chargée depuis le disque ; le découpage par route sera envisagé en Phase 10.
 - Les polices embarquent tous leurs sous-ensembles (environ 400 Ko).
