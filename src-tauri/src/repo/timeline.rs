@@ -118,23 +118,57 @@ pub fn record(
     Ok(stored)
 }
 
+/// Filters of a timeline page.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export)]
+pub struct TimelineQuery {
+    /// Pagination: `created_at` of the last event already received.
+    #[serde(default)]
+    #[ts(optional)]
+    pub before: Option<i64>,
+    pub limit: u32,
+    /// Only the events of this workspace.
+    #[serde(default)]
+    #[ts(optional)]
+    pub workspace_id: Option<String>,
+}
+
 /// Most recent events first. `before` paginates: pass the `created_at` of the last event received.
 pub fn list(
     connection: &Connection,
     before: Option<i64>,
     limit: u32,
 ) -> AppResult<Vec<TimelineEvent>> {
-    if limit == 0 || limit > PAGE_MAX {
+    list_query(
+        connection,
+        &TimelineQuery {
+            before,
+            limit,
+            workspace_id: None,
+        },
+    )
+}
+
+pub fn list_query(connection: &Connection, query: &TimelineQuery) -> AppResult<Vec<TimelineEvent>> {
+    if query.limit == 0 || query.limit > PAGE_MAX {
         return Err(AppError::InvalidInput(format!(
             "limit must be between 1 and {PAGE_MAX}"
         )));
     }
+    if let Some(workspace_id) = &query.workspace_id {
+        validate_id(workspace_id, "workspace id")?;
+    }
     let mut statement = connection.prepare(
         "SELECT id, event_type, entity_type, entity_id, workspace_id, description, metadata_json, created_at
-         FROM timeline_events WHERE ?1 IS NULL OR created_at < ?1
-         ORDER BY created_at DESC, id DESC LIMIT ?2",
+         FROM timeline_events
+         WHERE (?1 IS NULL OR created_at < ?1) AND (?2 IS NULL OR workspace_id = ?2)
+         ORDER BY created_at DESC, id DESC LIMIT ?3",
     )?;
-    let rows = statement.query_map(params![before, limit], from_row)?;
+    let rows = statement.query_map(
+        params![query.before, query.workspace_id, query.limit],
+        from_row,
+    )?;
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
@@ -189,6 +223,41 @@ mod tests {
                 .read(|c| list(c, None, 10))
                 .expect("list")
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn events_can_be_filtered_by_workspace() {
+        let (_dir, database) = open_temporary();
+        let (first, second) = (new_id(), new_id());
+        for workspace in [&first, &second, &first] {
+            let entity = new_id();
+            database
+                .write(|tx| {
+                    record(
+                        tx,
+                        &NewTimelineEvent {
+                            event_type: TimelineEventType::NoteCreated,
+                            entity: (EntityKind::Note, &entity),
+                            workspace_id: Some(workspace),
+                            description: "Note",
+                            metadata: serde_json::json!({}),
+                        },
+                    )
+                })
+                .expect("record");
+        }
+        let query = TimelineQuery {
+            before: None,
+            limit: 10,
+            workspace_id: Some(first.clone()),
+        };
+        let events = database.read(|c| list_query(c, &query)).expect("list");
+        assert_eq!(events.len(), 2);
+        assert!(
+            events
+                .iter()
+                .all(|event| event.workspace_id.as_deref() == Some(first.as_str()))
         );
     }
 

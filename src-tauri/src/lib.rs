@@ -9,6 +9,7 @@ pub mod error;
 mod logging;
 pub mod paths;
 pub mod repo;
+pub mod services;
 pub mod state;
 pub mod storage;
 pub mod util;
@@ -43,6 +44,14 @@ pub fn run() {
             commands::storage::storage_overview,
             commands::storage::storage_open_folder,
             commands::storage::database_check_integrity,
+            commands::workspaces::workspaces_list,
+            commands::workspaces::workspaces_get,
+            commands::workspaces::workspaces_create,
+            commands::workspaces::workspaces_update,
+            commands::workspaces::workspaces_set_archived,
+            commands::workspaces::workspaces_delete,
+            commands::dashboard::dashboard_overview,
+            commands::dashboard::timeline_list,
         ])
         .run(tauri::generate_context!());
 

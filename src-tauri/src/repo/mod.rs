@@ -5,6 +5,7 @@ pub mod documents;
 pub mod folders;
 pub mod notes;
 pub mod relations;
+pub mod resources;
 pub mod settings;
 pub mod tags;
 pub mod timeline;

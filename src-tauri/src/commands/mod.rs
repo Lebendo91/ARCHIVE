@@ -4,9 +4,11 @@
 //! interface stays responsive (specification §4.2).
 
 pub mod app;
+pub mod dashboard;
 pub mod diagnostics;
 pub mod settings;
 pub mod storage;
+pub mod workspaces;
 
 use crate::error::{AppError, AppResult};
 

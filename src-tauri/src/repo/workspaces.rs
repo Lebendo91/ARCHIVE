@@ -61,6 +61,30 @@ pub struct WorkspacePatch {
     pub icon: Option<String>,
 }
 
+/// Resources held by a workspace (documents and notes in the trash are not counted).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ResourceCounts {
+    pub documents: i64,
+    pub notes: i64,
+    pub folders: i64,
+}
+
+impl ResourceCounts {
+    pub fn total(&self) -> i64 {
+        self.documents + self.notes + self.folders
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct WorkspaceSummary {
+    pub workspace: Workspace,
+    pub counts: ResourceCounts,
+}
+
 const COLUMNS: &str =
     "id, name, description, color, icon, is_archived, sort_order, created_at, updated_at";
 
@@ -96,6 +120,37 @@ pub fn list(connection: &Connection, include_archived: bool) -> AppResult<Vec<Wo
     ))?;
     let rows = statement.query_map([include_archived], from_row)?;
     Ok(rows.collect::<Result<_, _>>()?)
+}
+
+pub fn counts(connection: &Connection, id: &str) -> AppResult<ResourceCounts> {
+    validate_id(id, "workspace id")?;
+    Ok(connection.query_row(
+        "SELECT (SELECT count(*) FROM documents WHERE workspace_id = ?1 AND deleted_at IS NULL),
+                (SELECT count(*) FROM notes WHERE workspace_id = ?1 AND deleted_at IS NULL),
+                (SELECT count(*) FROM folders WHERE workspace_id = ?1)",
+        [id],
+        |row| {
+            Ok(ResourceCounts {
+                documents: row.get(0)?,
+                notes: row.get(1)?,
+                folders: row.get(2)?,
+            })
+        },
+    )?)
+}
+
+/// Workspaces with the number of resources each one holds.
+pub fn list_summaries(
+    connection: &Connection,
+    include_archived: bool,
+) -> AppResult<Vec<WorkspaceSummary>> {
+    list(connection, include_archived)?
+        .into_iter()
+        .map(|workspace| {
+            let counts = counts(connection, &workspace.id)?;
+            Ok(WorkspaceSummary { workspace, counts })
+        })
+        .collect()
 }
 
 pub fn create(transaction: &Transaction<'_>, input: &NewWorkspace) -> AppResult<Workspace> {
