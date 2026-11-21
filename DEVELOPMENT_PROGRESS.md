@@ -5,15 +5,14 @@
 
 ## Phase courante
 
-**Phase 1 — Fondation et design system : implémentée, en attente de validation par le porteur du projet.**
-Le travail est sur la branche `phase/1-foundation`. La phase sera close une fois cette branche fusionnée dans
-`main`.
+**Phase 2 — Base de données et stockage local : en cours** (branche `phase/2-data`).
+La Phase 1 a été validée par le porteur du projet le 2026-11-21 et fusionnée dans `main`.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
-| 1 | Fondation et design system | 🟡 Implémentée et testée, en attente de validation |
-| 2 | Base de données et stockage local | ⏳ Prochaine |
+| 1 | Fondation et design system | ✅ Terminée et validée |
+| 2 | Base de données et stockage local | 🔄 En cours |
 | 3 | Vue d'ensemble et espaces de travail | À faire |
 | 4 | Bibliothèque | À faire |
 | 5 | Notes | À faire |
@@ -27,18 +26,15 @@ Le travail est sur la branche `phase/1-foundation`. La phase sera close une fois
 
 ## Actions en attente du porteur du projet
 
-1. **Valider la Phase 1** : relire les captures de [`docs/screenshots/phase-1/`](docs/screenshots/phase-1)
-   ou installer l'application Windows produite par la CI, puis fusionner `phase/1-foundation` dans `main`
-   (via une pull request, sur demande).
-2. **Choisir l'identifiant d'application** avant toute diffusion. Il est provisoirement fixé à
+1. **Choisir l'identifiant d'application** avant toute diffusion. Il est provisoirement fixé à
    `io.github.lebendo91.archive` ; il détermine le dossier de données et ne pourra plus changer ensuite
    (ARCHITECTURE §16).
-3. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
+2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
 
 ---
 
-## Phase 1 — Fondation et design system
+## Phase 1 — Fondation et design system (terminée, validée le 2026-11-21)
 
 ### Tâches réalisées
 
