@@ -21,14 +21,16 @@ export function HelpPage() {
       </section>
 
       <div className="grid grid-cols-2 gap-4">
-        <Card>
+        <Card className="flex flex-col gap-4">
           <CardHeader
             icon={BookOpenText}
             title={t('help.guideTitle')}
             description={t('help.guideDescription')}
             headingLevel={2}
-            actions={<Badge>{t('common.comingSoon')}</Badge>}
           />
+          <div>
+            <Badge>{t('common.comingSoon')}</Badge>
+          </div>
         </Card>
         <Card className="flex flex-col gap-4">
           <CardHeader

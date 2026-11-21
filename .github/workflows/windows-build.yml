@@ -1,0 +1,75 @@
+name: Windows build
+
+# Windows runners consume the Actions quota faster: builds run when the native side or the dependencies
+# change, on demand, and on the main branch.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'phase/**']
+    paths:
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/windows-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and smoke-test the Windows installers
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - name: Build MSI and NSIS installers
+        run: npm run tauri build
+
+      - name: Smoke test (the application starts and stays up on Windows)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path src-tauri/target/release -Filter archive.exe | Select-Object -First 1
+          if (-not $exe) { throw 'archive.exe was not produced' }
+          $process = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "ARCHIVE exited prematurely with code $($process.ExitCode)" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save("$env:RUNNER_TEMP\archive-windows-smoke.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          Stop-Process -Id $process.Id -Force
+          Write-Host "ARCHIVE started and stayed up for 20 seconds."
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-windows-installers-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload smoke-test screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-windows-screenshot-${{ github.sha }}
+          path: ${{ runner.temp }}/archive-windows-smoke.png
+          if-no-files-found: warn
+          retention-days: 14

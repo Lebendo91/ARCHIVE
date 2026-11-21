@@ -18,6 +18,7 @@ import {
 } from '@/modules/settings/SettingsPages';
 import { NotFoundPage } from '@/modules/system/NotFoundPage';
 import { RouteErrorPage } from '@/modules/system/RouteErrorPage';
+import { RouteLoading } from '@/modules/system/RouteLoading';
 import { TimelinePage } from '@/modules/timeline/TimelinePage';
 import { WorkspacesPage } from '@/modules/workspaces/WorkspacesPage';
 import type { RouteHandle } from './handles';
@@ -43,6 +44,8 @@ export const appRoutes: RouteObject[] = [
     path: '/',
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
+    // Shown while a lazily loaded route (development gallery) is fetched on first load.
+    hydrateFallbackElement: <RouteLoading />,
     children: [
       {
         // Pathless layout: a page error is displayed inside the shell, which stays usable.

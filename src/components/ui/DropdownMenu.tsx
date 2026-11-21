@@ -4,7 +4,14 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/utils/cn';
 import { KeyCombo } from './Kbd';
 
-export const DropdownMenu = MenuPrimitive.Root;
+/**
+ * Non-modal menu (WAI-ARIA menu button pattern): the rest of the window is not hidden from assistive
+ * technologies while the menu is open; Escape, Tab or a click outside close it.
+ */
+export function DropdownMenu(props: ComponentProps<typeof MenuPrimitive.Root>) {
+  return <MenuPrimitive.Root modal={false} {...props} />;
+}
+
 export const DropdownMenuTrigger = MenuPrimitive.Trigger;
 
 export interface DropdownMenuContentProps {
