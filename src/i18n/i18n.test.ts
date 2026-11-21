@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
-import { formatFileSize, formatLongDate } from './format';
+import {
+  formatFileSize,
+  formatList,
+  formatLongDate,
+  formatNumber,
+  formatRelativeTime,
+} from './format';
 import { fr } from './fr';
-import { interpolate, translate, translateList } from './translate';
+import { interpolate, translate, translateList, translatePlural } from './translate';
 
 function collectLeaves(node: unknown, prefix = ''): Map<string, unknown> {
   const leaves = new Map<string, unknown>();
@@ -77,5 +83,45 @@ describe('formatters', () => {
 
   it('format long dates in French', () => {
     expect(formatLongDate(new Date(2026, 10, 21, 9, 0), 'fr')).toBe('samedi 21 novembre');
+  });
+});
+
+describe('plural forms', () => {
+  it('follow the plural rules of each language', () => {
+    expect(translatePlural(fr, 'fr', 'workspaces.counts.documents', 0)).toBe('0 document');
+    expect(translatePlural(fr, 'fr', 'workspaces.counts.documents', 1)).toBe('1 document');
+    expect(translatePlural(fr, 'fr', 'workspaces.counts.documents', 2)).toBe('2 documents');
+    expect(translatePlural(en, 'en', 'workspaces.counts.documents', 0)).toBe('0 documents');
+    expect(translatePlural(en, 'en', 'workspaces.counts.documents', 1)).toBe('1 document');
+    expect(translatePlural(en, 'en', 'workspaces.counts.folders', 3)).toBe('3 folders');
+  });
+
+  it('can display a formatted count', () => {
+    expect(translatePlural(fr, 'fr', 'dashboard.storageFiles', 1234, { count: '1\u202f234' })).toBe(
+      '1\u202f234 fichiers stockés',
+    );
+  });
+});
+
+describe('formatting', () => {
+  const now = Date.UTC(2026, 10, 21, 15, 0);
+
+  it('describes elapsed time in each language', () => {
+    expect(formatRelativeTime(now - 30_000, now, 'fr')).toBe('maintenant');
+    expect(formatRelativeTime(now - 5 * 60_000, now, 'fr')).toBe('il y a 5 minutes');
+    expect(formatRelativeTime(now - 24 * 3_600_000, now, 'fr')).toBe('hier');
+    expect(formatRelativeTime(now - 30_000, now, 'en')).toBe('now');
+    expect(formatRelativeTime(now - 2 * 3_600_000, now, 'en')).toBe('2 hours ago');
+  });
+
+  it('joins lists and groups digits as each language does', () => {
+    expect(formatList(['2 documents', '1 note', '3 dossiers'], 'fr')).toBe(
+      '2 documents, 1 note et 3 dossiers',
+    );
+    expect(formatList(['2 documents', '1 note', '3 folders'], 'en')).toBe(
+      '2 documents, 1 note, and 3 folders',
+    );
+    expect(formatNumber(12_345, 'fr')).toBe('12\u202f345');
+    expect(formatNumber(12_345, 'en')).toBe('12,345');
   });
 });

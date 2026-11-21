@@ -238,6 +238,11 @@ export function WorkspaceFormDialog({
     >
       <DialogContent
         title={workspace ? t('workspaces.form.editTitle') : t('workspaces.form.createTitle')}
+        onOpenAutoFocus={(event) => {
+          // The name is what people come to type: the focus starts there, not on « Close ».
+          event.preventDefault();
+          nameRef.current?.focus();
+        }}
         onCloseAutoFocus={onCloseAutoFocus}
         footer={
           <>

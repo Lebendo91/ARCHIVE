@@ -1,16 +1,15 @@
 import { ArrowLeft, Boxes, FileUp, NotebookPen, Pencil } from 'lucide-react';
 import { useParams } from 'react-router';
+import { QuickActionList } from '@/components/actions/QuickActionList';
 import { ActivityList } from '@/components/activity/ActivityList';
 import { ResourceList } from '@/components/activity/ResourceList';
 import { QueryError } from '@/components/feedback/QueryError';
 import { usePageTitle } from '@/app/router/pageTitle';
-import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
 import {
   Badge,
   Button,
   ButtonLink,
   EmptyState,
-  KeyCombo,
   SectionCard,
   Skeleton,
   Stat,
@@ -27,27 +26,15 @@ import { WorkspaceIcon } from './WorkspaceIcon';
 /** Actions of the Library and Notes modules, shown as upcoming: no dead button. */
 function UpcomingActions() {
   const { t } = useI18n();
-  const actions = [
-    { id: 'importDocument', icon: FileUp, label: t('shortcuts.importDocument') },
-    { id: 'newNote', icon: NotebookPen, label: t('shortcuts.newNote') },
-  ] as const;
   return (
     <div className="flex flex-col gap-3">
-      <ul className="flex flex-col gap-2">
-        {actions.map(({ id, icon: Icon, label }) => (
-          <li key={id}>
-            <button
-              type="button"
-              disabled
-              className="flex h-9 w-full items-center gap-3 rounded-control border border-line-subtle px-3 text-left text-sm text-fg-disabled"
-            >
-              <Icon size={16} className="shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-              <KeyCombo keys={formatCombination(getShortcut(id).combination, t)} />
-            </button>
-          </li>
-        ))}
-      </ul>
+      <QuickActionList
+        className="grid-cols-2"
+        actions={[
+          { id: 'document', icon: FileUp, label: t('shortcuts.importDocument') },
+          { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
+        ]}
+      />
       <p className="text-xs text-fg-secondary">{t('workspaces.detail.upcoming')}</p>
     </div>
   );
@@ -115,22 +102,27 @@ function WorkspaceDashboard({ detail }: { detail: WorkspaceDetail }) {
         </StatList>
       </section>
 
+      <section aria-labelledby="workspace-actions" className="flex flex-col gap-4">
+        <h3
+          id="workspace-actions"
+          className="text-2xs font-semibold tracking-label text-fg-secondary uppercase"
+        >
+          {t('workspaces.detail.actionsTitle')}
+        </h3>
+        <UpcomingActions />
+      </section>
+
       <div className="grid grid-cols-3 gap-6">
         <SectionCard title={t('workspaces.detail.activity')} className="col-span-2">
           <ActivityList events={recentActivity} emptyText={t('workspaces.detail.noActivity')} />
         </SectionCard>
-        <div className="flex flex-col gap-6">
-          <SectionCard title={t('workspaces.detail.favorites')}>
-            <ResourceList
-              items={favorites}
-              date="updated"
-              emptyText={t('workspaces.detail.noFavorites')}
-            />
-          </SectionCard>
-          <SectionCard title={t('workspaces.detail.actionsTitle')}>
-            <UpcomingActions />
-          </SectionCard>
-        </div>
+        <SectionCard title={t('workspaces.detail.favorites')}>
+          <ResourceList
+            items={favorites}
+            date="updated"
+            emptyText={t('workspaces.detail.noFavorites')}
+          />
+        </SectionCard>
       </div>
     </div>
   );

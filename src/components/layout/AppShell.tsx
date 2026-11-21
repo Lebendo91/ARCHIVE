@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useDesktopBehavior } from '@/app/shortcuts/useDesktopBehavior';
 import { useGlobalShortcuts } from '@/app/shortcuts/useGlobalShortcuts';
 import { Toaster } from '@/components/ui';
+import { useFocusRecovery } from '@/hooks/useFocusRecovery';
 import { useI18n } from '@/i18n';
 import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
@@ -29,6 +30,7 @@ export function AppShell() {
     },
   });
   useDesktopBehavior();
+  useFocusRecovery('main-content');
 
   useEffect(() => {
     if (mainRef.current) {

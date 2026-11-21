@@ -7,24 +7,14 @@ import {
   MessageSquareText,
   NotebookPen,
   Plus,
-  type LucideIcon,
 } from 'lucide-react';
-import type { MouseEvent } from 'react';
+import { useId } from 'react';
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
+import { QuickActionList, type QuickAction } from '@/components/actions/QuickActionList';
 import { ActivityList } from '@/components/activity/ActivityList';
 import { ResourceList } from '@/components/activity/ResourceList';
 import { QueryError } from '@/components/feedback/QueryError';
-import {
-  Badge,
-  Button,
-  ButtonLink,
-  Card,
-  KeyCombo,
-  SectionCard,
-  Skeleton,
-  Stat,
-  StatList,
-} from '@/components/ui';
+import { Button, ButtonLink, Card, SectionCard, Skeleton, Stat, StatList } from '@/components/ui';
 import { useNow } from '@/hooks/useNow';
 import { formatFileSize, formatLongDate, formatNumber, useI18n } from '@/i18n';
 import { WorkspaceIcon } from '@/modules/workspaces/WorkspaceIcon';
@@ -40,11 +30,18 @@ import { getGreetingPeriod } from './greeting';
  */
 function ExampleOrganization() {
   const { t, tList } = useI18n();
+  const captionId = useId();
   const [firstFolder, secondFolder] = tList('dashboard.onboarding.exampleFolders');
   const [documentTitle, noteTitle] = tList('dashboard.onboarding.exampleItems');
   return (
-    <figure className="flex w-72 shrink-0 flex-col gap-4 rounded-card border border-dashed border-line bg-obsidian p-5">
-      <figcaption className="text-2xs font-semibold tracking-label text-fg-secondary uppercase">
+    <figure
+      aria-labelledby={captionId}
+      className="flex w-72 shrink-0 flex-col gap-4 rounded-card border border-dashed border-line bg-obsidian p-5"
+    >
+      <figcaption
+        id={captionId}
+        className="text-2xs font-semibold tracking-label text-fg-secondary uppercase"
+      >
         {t('dashboard.onboarding.exampleLabel')}
       </figcaption>
       <div className="flex flex-col gap-2 text-sm text-fg">
@@ -120,25 +117,15 @@ function Onboarding({ workspaces }: { workspaces: number }) {
   );
 }
 
-interface QuickAction {
-  id: string;
-  icon: LucideIcon;
-  label: string;
-  keys?: string[];
-  onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
-}
-
 /** Quick actions of spec §6.1. Those of modules not delivered yet are visibly unavailable. */
 function QuickActions() {
   const { t } = useI18n();
-  const keys = (id: 'newWorkspace' | 'importDocument' | 'newNote') =>
-    formatCombination(getShortcut(id).combination, t);
   const actions: QuickAction[] = [
     {
       id: 'workspace',
       icon: Boxes,
       label: t('shortcuts.newWorkspace'),
-      keys: keys('newWorkspace'),
+      keys: formatCombination(getShortcut('newWorkspace').combination, t),
       onClick: (event) => {
         workspaceDialogs.create(event.currentTarget);
       },
@@ -147,27 +134,7 @@ function QuickActions() {
     { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
     { id: 'assistant', icon: MessageSquareText, label: t('dashboard.openAssistant') },
   ];
-  return (
-    <ul className="flex flex-col gap-2">
-      {actions.map(({ id, icon: Icon, label, keys: combo, onClick }) => (
-        <li key={id}>
-          <button
-            type="button"
-            disabled={!onClick}
-            onClick={onClick}
-            className="group flex h-10 w-full cursor-default items-center gap-3 rounded-control border border-line-subtle px-3 text-left text-sm text-fg transition-colors duration-150 ease-standard enabled:hover:border-line enabled:hover:bg-steel disabled:text-fg-disabled"
-          >
-            <Icon
-              size={16}
-              className="shrink-0 text-fg-secondary group-disabled:text-fg-disabled"
-            />
-            <span className="min-w-0 flex-1 truncate">{label}</span>
-            {onClick && combo ? <KeyCombo keys={combo} /> : <Badge>{t('common.comingSoon')}</Badge>}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
+  return <QuickActionList actions={actions} className="grid-cols-2 xl:grid-cols-4" />;
 }
 
 function StorageSummary() {
@@ -285,6 +252,15 @@ export function DashboardPage() {
         <>
           {firstSteps ? <Onboarding workspaces={data.workspaces} /> : null}
           <Statistics overview={data} />
+          <section aria-labelledby="dashboard-actions" className="flex flex-col gap-4">
+            <h3
+              id="dashboard-actions"
+              className="text-2xs font-semibold tracking-label text-fg-secondary uppercase"
+            >
+              {t('dashboard.actionsTitle')}
+            </h3>
+            <QuickActions />
+          </section>
           <div className="grid grid-cols-3 gap-6">
             <SectionCard title={t('dashboard.recentActivity')} className="col-span-2">
               {data ? (
@@ -297,11 +273,9 @@ export function DashboardPage() {
                 <Skeleton surface="raised" className="h-24" />
               )}
             </SectionCard>
-            <SectionCard title={t('dashboard.actionsTitle')}>
-              <QuickActions />
-            </SectionCard>
+            <StorageSummary />
           </div>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <SectionCard title={t('dashboard.recentlyOpened')}>
               {data ? (
                 <ResourceList
@@ -324,7 +298,6 @@ export function DashboardPage() {
                 <Skeleton surface="raised" className="h-16" />
               )}
             </SectionCard>
-            <StorageSummary />
           </div>
         </>
       )}

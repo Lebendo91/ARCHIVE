@@ -13,8 +13,9 @@ export interface StatProps {
 /** A figure of a statistics list (`StatList`). Never fed with estimated or invented values. */
 export function Stat({ label, value, detail }: StatProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-card border border-line-subtle bg-graphite p-5">
+    <div className="flex h-full flex-col justify-between gap-2 rounded-card border border-line-subtle bg-graphite p-5">
       <dt className="text-xs text-fg-secondary">{label}</dt>
+      {/* Values share a baseline across a row, even when a label wraps on two lines. */}
       <dd className="flex flex-col gap-1">
         {value === undefined ? (
           <Skeleton surface="raised" className="h-8 w-16" />
