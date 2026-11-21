@@ -12,7 +12,8 @@ use crate::error::{AppError, AppResult};
 use crate::import::ImportState;
 use crate::import::detect::SUPPORTED_EXTENSIONS;
 use crate::import::pipeline::{
-    self, ImportContext, ImportProgress, ImportSummary, ImportTarget, check_target_ids,
+    self, ImportContext, ImportOutcome, ImportProgress, ImportSummary, ImportTarget,
+    check_target_ids,
 };
 use crate::state::AppState;
 
@@ -27,18 +28,31 @@ async fn run_import(
     let store = state.storage.clone();
     let cancel = imports.cancel_flag();
     let _running = imports.start()?;
-    blocking("documents_import", move || {
+    let (summary, retryable) = blocking("documents_import", move || {
         let context = ImportContext {
             database: &database,
             store: &store,
             cancel: &cancel,
         };
-        pipeline::import_paths(&context, &paths, &target, |event| {
+        let mut retryable = Vec::new();
+        let summary = pipeline::import_paths(&context, &paths, &target, |event| {
+            if let ImportProgress::File {
+                index,
+                outcome: ImportOutcome::Failed { reason },
+            } = &event
+                && reason.is_retryable()
+                && let Some(path) = usize::try_from(*index).ok().and_then(|i| paths.get(i))
+            {
+                retryable.push(path.clone());
+            }
             // The window may have been closed meanwhile: the import goes on regardless.
             let _ = on_progress.send(event);
-        })
+        })?;
+        Ok((summary, retryable))
     })
-    .await
+    .await?;
+    imports.set_retryable(retryable);
+    Ok(summary)
 }
 
 /// Opens the native file picker and imports the chosen files. `None` when the user closes the picker.
@@ -89,6 +103,24 @@ pub async fn documents_import_dropped(
     let paths = imports
         .take_drop()
         .ok_or_else(|| AppError::InvalidInput("no recent drag and drop to import".to_owned()))?;
+    run_import(&state, &imports, paths, target, on_progress).await
+}
+
+/// Imports again the files of the latest import whose failure was temporary (file locked, disk full…).
+#[tauri::command]
+pub async fn documents_import_retry(
+    state: State<'_, AppState>,
+    imports: State<'_, ImportState>,
+    target: ImportTarget,
+    on_progress: Channel<ImportProgress>,
+) -> AppResult<ImportSummary> {
+    check_target_ids(&target)?;
+    let paths = imports.take_retryable();
+    if paths.is_empty() {
+        return Err(AppError::InvalidInput(
+            "no failed file to import again".to_owned(),
+        ));
+    }
     run_import(&state, &imports, paths, target, on_progress).await
 }
 

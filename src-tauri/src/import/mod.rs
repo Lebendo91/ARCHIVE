@@ -23,6 +23,8 @@ pub struct ImportState {
     running: AtomicBool,
     cancel: Arc<AtomicBool>,
     last_drop: Mutex<Option<(Vec<PathBuf>, Instant)>>,
+    /// Files of the latest import whose failure may disappear on a new attempt.
+    retryable: Mutex<Vec<PathBuf>>,
 }
 
 /// Marks an import as running for its lifetime; a second import is refused meanwhile.
@@ -56,6 +58,23 @@ impl ImportState {
         }
     }
 
+    pub fn set_retryable(&self, paths: Vec<PathBuf>) {
+        *self
+            .retryable
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = paths;
+    }
+
+    /// The files to try again, emptied: a new attempt records its own failures.
+    pub fn take_retryable(&self) -> Vec<PathBuf> {
+        std::mem::take(
+            &mut *self
+                .retryable
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner),
+        )
+    }
+
     pub fn start(&self) -> AppResult<RunningImport<'_>> {
         if self.running.swap(true, Ordering::SeqCst) {
             return Err(AppError::InUse {
@@ -87,6 +106,18 @@ mod tests {
         state.record_drop(vec![PathBuf::from("a.pdf")]);
         assert_eq!(state.take_drop(), Some(vec![PathBuf::from("a.pdf")]));
         assert_eq!(state.take_drop(), None);
+    }
+
+    #[test]
+    fn failed_files_are_retried_once_and_only_for_temporary_failures() {
+        use crate::import::pipeline::ImportFailure;
+        let state = ImportState::default();
+        state.set_retryable(vec![PathBuf::from("verrouillé.docx")]);
+        assert_eq!(state.take_retryable(), [PathBuf::from("verrouillé.docx")]);
+        assert!(state.take_retryable().is_empty());
+        assert!(ImportFailure::Unreadable.is_retryable());
+        assert!(!ImportFailure::ContentMismatch.is_retryable());
+        assert!(!ImportFailure::Unsupported.is_retryable());
     }
 
     #[test]

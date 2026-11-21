@@ -64,6 +64,7 @@ pub fn run() {
             commands::dashboard::timeline_list,
             commands::import::documents_import_pick,
             commands::import::documents_import_dropped,
+            commands::import::documents_import_retry,
             commands::import::documents_import_cancel,
             commands::documents::documents_list,
             commands::documents::documents_get,

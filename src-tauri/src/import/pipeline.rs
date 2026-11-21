@@ -72,6 +72,13 @@ pub enum ImportFailure {
     Database,
 }
 
+impl ImportFailure {
+    /// Failures that may disappear on a new attempt (file locked, disk full…), unlike a wrong format.
+    pub fn is_retryable(self) -> bool {
+        matches!(self, Self::Unreadable | Self::Storage | Self::Database)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
