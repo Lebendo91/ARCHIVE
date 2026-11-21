@@ -19,6 +19,8 @@ export interface DialogContentProps {
   size?: keyof typeof SIZE_CLASSES;
   /** Lets a dialog choose which element receives focus first (for example "Cancel" in a destructive dialog). */
   onOpenAutoFocus?: ComponentProps<typeof DialogPrimitive.Content>['onOpenAutoFocus'];
+  /** Lets a dialog opened without a trigger (from a menu or a shortcut) choose where the focus returns. */
+  onCloseAutoFocus?: ComponentProps<typeof DialogPrimitive.Content>['onCloseAutoFocus'];
 }
 
 /**
@@ -32,6 +34,7 @@ export function DialogContent({
   footer,
   size = 'md',
   onOpenAutoFocus,
+  onCloseAutoFocus,
 }: DialogContentProps) {
   const { t } = useI18n();
   return (
@@ -43,6 +46,7 @@ export function DialogContent({
           SIZE_CLASSES[size],
         )}
         {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
+        {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
         {...(description ? {} : { 'aria-describedby': undefined })}
       >
         <div className={cn('flex items-start gap-4 px-6 pt-6', !children && !footer && 'pb-6')}>

@@ -15,6 +15,7 @@ export const en: Dictionary = {
     confirm: 'Confirm',
     retry: 'Try again',
     loading: 'Loading…',
+    unavailable: 'Unavailable',
     backToOverview: 'Back to overview',
   },
   a11y: {
@@ -31,6 +32,7 @@ export const en: Dictionary = {
     assistant: 'AI Assistant',
     workspacesSection: 'Workspaces',
     allWorkspaces: 'All workspaces',
+    createWorkspace: 'New workspace',
     personalSection: 'Personal',
     favorites: 'Favorites',
     recent: 'Recently opened',
@@ -85,33 +87,45 @@ export const en: Dictionary = {
     },
     welcome: '{greeting}. Welcome to ARCHIVE.',
     subtitle: 'Your knowledge, organized in one place.',
-    pillarsTitle: 'What ARCHIVE will bring together here',
-    pillars: {
-      centralize: {
-        title: 'Centralize',
-        description:
-          'PDFs, Word documents, notes, text files and data: all your sources in one environment.',
-      },
-      retrieve: {
-        title: 'Retrieve',
-        description:
-          'Search inside your documents and notes without having to remember any file name.',
-      },
-      connect: {
-        title: 'Connect',
-        description:
-          'Links between your documents, notes and concepts, explorable in a knowledge graph.',
-      },
-      understand: {
-        title: 'Understand',
-        description:
-          'An optional AI assistant that answers from the sources you choose, with verifiable citations.',
-      },
-    },
     localFirst: {
-      title: 'Your data belongs to you',
       description:
         'ARCHIVE stores everything on this device. No account, no forced synchronization, nothing sent without your action.',
+    },
+    stats: {
+      title: 'Your knowledge base',
+      documents: 'Documents',
+      notes: 'Notes',
+      workspaces: 'Workspaces',
+      storage: 'Storage used',
+      indexed: 'Indexed in 7 days',
+    },
+    actionsTitle: 'Quick actions',
+    openAssistant: 'Open the AI assistant',
+    recentActivity: 'Recent activity',
+    noActivity: 'Your activity (imports, notes, workspaces) will appear here.',
+    recentlyOpened: 'Recently opened',
+    noRecentlyOpened: 'Documents and notes you open will appear here.',
+    favorites: 'Favorites',
+    noFavorites: 'Mark your essential documents and notes as favorites to find them here.',
+    storageTitle: 'Local storage',
+    storageSummary: 'ARCHIVE uses {used} on this device.',
+    storageFree: '{free} remain free on the disk.',
+    storageLink: 'Storage details',
+    storageFiles: { one: '{count} stored file', other: '{count} stored files' },
+    onboarding: {
+      title: 'Start by creating a workspace',
+      description:
+        'A workspace gathers the documents and notes of one context: your studies, a project, your work…',
+      action: 'Create a workspace',
+      upcoming: 'Document import and the note editor are coming soon.',
+      readyTitle: 'Your workspaces are ready',
+      readyDescription:
+        'They will soon hold your documents and notes. Until then, you can organize and customize them.',
+      viewWorkspaces: 'View workspaces',
+      exampleLabel: 'Example of organization',
+      exampleWorkspace: 'Electronics',
+      exampleFolders: ['Courses', 'Projects'],
+      exampleItems: ['NE555 course.pdf', 'Kirchhoff’s laws'],
     },
   },
   modules: {
@@ -146,9 +160,9 @@ export const en: Dictionary = {
       ],
     },
     timeline: {
-      title: 'No activity yet',
+      title: 'The full timeline is coming soon',
       description:
-        'The timeline will trace your imports, notes and workspaces as they are created.',
+        'Your activity is already recorded: its latest events appear on the overview. This page will let you browse all of it.',
       capabilities: [
         'Browse your activity day by day',
         'Filter by event type, workspace and period',
@@ -163,16 +177,6 @@ export const en: Dictionary = {
         'Use Anthropic, OpenAI or Google Gemini with your own key',
         'Choose exactly what is shared with the provider',
         'Verify every answer through its citations',
-      ],
-    },
-    workspaces: {
-      title: 'No workspaces yet',
-      description:
-        'Workspaces organize your knowledge by context: studies, work, research, personal projects…',
-      capabilities: [
-        'Create workspaces with their own icon, color and description',
-        'Store documents, notes and folders in them',
-        'Follow the recent activity of each workspace',
       ],
     },
     favorites: {
@@ -193,6 +197,9 @@ export const en: Dictionary = {
     },
     archived: {
       title: 'No archived items',
+      workspacesTitle: 'Archived workspaces',
+      workspacesHint:
+        'Restore a workspace to find it again in the sidebar. Archived documents and notes will appear here too.',
       description:
         'Archived items leave the main views without being deleted. You will find them here.',
       capabilities: [
@@ -200,6 +207,146 @@ export const en: Dictionary = {
         'Restore an archived item at any time',
       ],
     },
+  },
+  workspaces: {
+    intro: 'Organize your knowledge by context: studies, work, research, personal projects…',
+    create: 'New workspace',
+    showArchived: 'Show archived workspaces',
+    archivedBadge: 'Archived',
+    activeTitle: 'Active workspaces',
+    archivedTitle: 'Archived workspaces',
+    counts: {
+      documents: { one: '{count} document', other: '{count} documents' },
+      notes: { one: '{count} note', other: '{count} notes' },
+      folders: { one: '{count} folder', other: '{count} folders' },
+    },
+    actions: {
+      menu: 'Actions for the “{name}” workspace',
+      edit: 'Edit',
+      archive: 'Archive',
+      restore: 'Restore',
+      delete: 'Delete',
+    },
+    empty: {
+      title: 'No workspaces yet',
+      description:
+        'Create a first workspace to organize your documents and notes by context: your studies, a project, your work…',
+      action: 'Create a workspace',
+    },
+    emptyActive: {
+      title: 'No active workspace',
+      description: 'All your workspaces are archived. Show them to view or restore them.',
+    },
+    form: {
+      createTitle: 'New workspace',
+      editTitle: 'Edit workspace',
+      name: 'Name',
+      namePlaceholder: 'E.g. Electronics',
+      nameRequired: 'The name is required.',
+      nameTaken: 'A workspace, perhaps archived, already has this name.',
+      description: 'Description',
+      descriptionPlaceholder: 'What is this workspace for?',
+      descriptionHint: 'Optional.',
+      color: 'Color',
+      icon: 'Icon',
+      submitCreate: 'Create workspace',
+      submitSave: 'Save',
+    },
+    colors: {
+      amber: 'Amber',
+      blue: 'Blue',
+      cyan: 'Cyan',
+      purple: 'Purple',
+      success: 'Green',
+      warning: 'Yellow',
+      danger: 'Red',
+      neutral: 'Gray',
+    },
+    icons: {
+      folder: 'Folder',
+      'book-open': 'Book',
+      'graduation-cap': 'Studies',
+      briefcase: 'Work',
+      cpu: 'Electronics',
+      'flask-conical': 'Laboratory',
+      code: 'Programming',
+      lightbulb: 'Ideas',
+      rocket: 'Project',
+      landmark: 'Institution',
+      wrench: 'Engineering',
+      globe: 'World',
+      palette: 'Creative',
+      heart: 'Personal',
+      house: 'Home',
+      music: 'Music',
+    },
+    toasts: {
+      created: 'Workspace “{name}” created.',
+      saved: 'Changes saved.',
+      archived: 'Workspace “{name}” archived.',
+      restored: 'Workspace “{name}” restored.',
+      deleted: 'Workspace “{name}” deleted.',
+      moved: 'Its content was moved to “{target}”, folder “{folder}”.',
+      unassigned: 'Its documents and notes were kept without workspace.',
+    },
+    delete: {
+      title: 'Delete “{name}”?',
+      emptyDescription: 'This workspace is empty. Deleting it is permanent.',
+      strategy: 'What becomes of its content?',
+      contentDescription:
+        'This workspace holds {content}. None of it will be deleted: choose what becomes of it.',
+      moveOption: 'Move it to another workspace',
+      moveHint:
+        'Everything will be gathered in a “{name}” folder of the chosen workspace, with its sub-folders.',
+      target: 'Destination workspace',
+      noTarget: 'No other workspace is available.',
+      unassignOption: 'Keep it without workspace',
+      unassignHint: 'Documents and notes stay in your library; only the folders are removed.',
+      confirm: 'Delete workspace',
+    },
+    detail: {
+      fallbackTitle: 'Workspace',
+      createdOn: 'Created on {date}',
+      stats: {
+        title: 'Workspace content',
+        documents: 'Documents',
+        notes: 'Notes',
+        folders: 'Folders',
+      },
+      actionsTitle: 'Quick actions',
+      upcoming: 'You will soon be able to import documents and write notes in this workspace.',
+      activity: 'Recent activity',
+      favorites: 'Favorites',
+      noActivity: 'No activity in this workspace yet.',
+      noFavorites: 'Favorite documents and notes of this workspace will appear here.',
+      notFoundTitle: 'Workspace not found',
+      notFoundDescription: 'This workspace no longer exists.',
+      back: 'Back to workspaces',
+    },
+  },
+  quickCreate: {
+    label: 'Create',
+  },
+  activity: {
+    events: {
+      document_imported: 'Document imported',
+      note_created: 'Note created',
+      note_modified: 'Note modified',
+      resource_favorited: 'Added to favorites',
+      workspace_created: 'Workspace created',
+      relation_accepted: 'Relationship accepted',
+      resource_archived: 'Archived',
+      resource_restored: 'Restored',
+    },
+    kinds: {
+      document: 'Document',
+      note: 'Note',
+      concept: 'Concept',
+      workspace: 'Workspace',
+      tag: 'Tag',
+      relation: 'Relationship',
+    },
+    untitled: 'Untitled',
   },
   settings: {
     sectionsLabel: 'Settings sections',
@@ -336,6 +483,7 @@ export const en: Dictionary = {
     boundaryDescription: 'Your data is not affected. Reload the interface to continue.',
     reload: 'Reload the interface',
     details: 'Technical details',
+    loadTitle: 'This information cannot be displayed',
     notFoundTitle: 'Page not found',
     notFoundDescription: 'This page does not exist or has been moved.',
     codes: {

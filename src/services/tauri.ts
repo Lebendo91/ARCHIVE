@@ -2,11 +2,21 @@ import { invoke } from '@tauri-apps/api/core';
 import type { AppInfo } from '@/types/bindings/AppInfo';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
+import type { DashboardOverview } from '@/types/bindings/DashboardOverview';
 import type { ErrorCode } from '@/types/bindings/ErrorCode';
 import type { IntegrityReport } from '@/types/bindings/IntegrityReport';
+import type { NewWorkspace } from '@/types/bindings/NewWorkspace';
 import type { SettingsPatch } from '@/types/bindings/SettingsPatch';
 import type { StorageFolder } from '@/types/bindings/StorageFolder';
 import type { StorageOverview } from '@/types/bindings/StorageOverview';
+import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
+import type { TimelineQuery } from '@/types/bindings/TimelineQuery';
+import type { Workspace } from '@/types/bindings/Workspace';
+import type { WorkspaceDeletion } from '@/types/bindings/WorkspaceDeletion';
+import type { WorkspaceDeletionReport } from '@/types/bindings/WorkspaceDeletionReport';
+import type { WorkspaceDetail } from '@/types/bindings/WorkspaceDetail';
+import type { WorkspacePatch } from '@/types/bindings/WorkspacePatch';
+import type { WorkspaceSummary } from '@/types/bindings/WorkspaceSummary';
 
 export type DiagnosticLevel = 'error' | 'warn' | 'info';
 
@@ -24,6 +34,17 @@ export interface CommandSignatures {
   storage_overview: { args: undefined; result: StorageOverview };
   storage_open_folder: { args: { folder: StorageFolder }; result: null };
   database_check_integrity: { args: undefined; result: IntegrityReport };
+  workspaces_list: { args: { includeArchived: boolean }; result: WorkspaceSummary[] };
+  workspaces_get: { args: { id: string }; result: WorkspaceDetail };
+  workspaces_create: { args: { input: NewWorkspace }; result: Workspace };
+  workspaces_update: { args: { id: string; patch: WorkspacePatch }; result: Workspace };
+  workspaces_set_archived: { args: { id: string; archived: boolean }; result: Workspace };
+  workspaces_delete: {
+    args: { id: string; deletion: WorkspaceDeletion };
+    result: WorkspaceDeletionReport;
+  };
+  dashboard_overview: { args: undefined; result: DashboardOverview };
+  timeline_list: { args: { query: TimelineQuery }; result: TimelineEvent[] };
 }
 
 export type CommandName = keyof CommandSignatures;

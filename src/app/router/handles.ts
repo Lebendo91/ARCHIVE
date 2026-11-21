@@ -1,5 +1,6 @@
 import { useMatches } from 'react-router';
-import type { MessageKey } from '@/i18n';
+import { useI18n, type MessageKey } from '@/i18n';
+import { usePageTitleStore } from './pageTitle';
 
 /** Metadata attached to each route: page title and breadcrumb parent. */
 export interface RouteHandle {
@@ -21,4 +22,12 @@ export function useCurrentRouteHandle(): RouteHandle | undefined {
     }
   }
   return undefined;
+}
+
+/** Title of the current page: the one set by the page from its data, or else the title of its route. */
+export function useCurrentPageTitle(): { title: string; handle: RouteHandle | undefined } {
+  const { t } = useI18n();
+  const handle = useCurrentRouteHandle();
+  const dynamicTitle = usePageTitleStore((state) => state.title);
+  return { handle, title: dynamicTitle ?? (handle ? t(handle.titleKey) : t('app.name')) };
 }

@@ -49,7 +49,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'newWorkspace',
     combination: { key: 'n', ctrl: true, shift: true },
     labelKey: 'shortcuts.newWorkspace',
-    available: false,
+    available: true,
   },
   {
     id: 'save',

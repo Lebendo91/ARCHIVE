@@ -1,8 +1,19 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAppInfo, getAppStatus, retryDatabase } from './app';
+import { getDashboardOverview } from './dashboard';
 import { getSettings, updateSettings } from './settings';
 import { checkDatabaseIntegrity, getStorageOverview, openStorageFolder } from './storage';
 import { isNativeRuntime } from './tauri';
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getWorkspace,
+  listWorkspaces,
+  setWorkspaceArchived,
+  updateWorkspace,
+  type WorkspaceDeletion,
+  type WorkspacePatch,
+} from './workspaces';
 
 /** Query keys of the data provided by the native core. */
 export const queryKeys = {
@@ -10,6 +21,11 @@ export const queryKeys = {
   appStatus: ['app', 'status'] as const,
   settings: ['settings'] as const,
   storageOverview: ['storage', 'overview'] as const,
+  /** Prefix of every workspace query (lists and details). */
+  workspaces: ['workspaces'] as const,
+  workspaceList: ['workspaces', 'list'] as const,
+  workspace: (id: string) => ['workspaces', 'detail', id] as const,
+  dashboard: ['dashboard'] as const,
 };
 
 /**
@@ -73,4 +89,81 @@ export function useOpenStorageFolder() {
 
 export function useIntegrityCheck() {
   return useMutation({ mutationFn: checkDatabaseIntegrity });
+}
+
+export function useDashboardOverview() {
+  return useQuery({ queryKey: queryKeys.dashboard, queryFn: getDashboardOverview });
+}
+
+/**
+ * Every workspace, archived ones included, in display order. One list serves every view (sidebar, pages,
+ * dialogs), which filter it: they always agree with each other.
+ */
+export function useWorkspaces() {
+  return useQuery({ queryKey: queryKeys.workspaceList, queryFn: () => listWorkspaces(true) });
+}
+
+export function useWorkspace(id: string) {
+  return useQuery({ queryKey: queryKeys.workspace(id), queryFn: () => getWorkspace(id) });
+}
+
+/**
+ * Refreshes every view that shows workspaces, their counts or the activity they generate. The mutation
+ * stays pending until the displayed data is up to date, so a dialog never closes on stale content.
+ */
+async function refreshWorkspaceViews(
+  client: QueryClient,
+  except?: readonly unknown[],
+): Promise<void> {
+  const isExcepted = (key: readonly unknown[]) =>
+    except?.length === key.length && key.every((part, index) => part === except[index]);
+  await Promise.all([
+    client.invalidateQueries({
+      queryKey: queryKeys.workspaces,
+      predicate: (query) => !isExcepted(query.queryKey),
+    }),
+    client.invalidateQueries({ queryKey: queryKeys.dashboard }),
+  ]);
+}
+
+export function useCreateWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: createWorkspace,
+    onSuccess: () => refreshWorkspaceViews(client),
+  });
+}
+
+export function useUpdateWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: WorkspacePatch }) =>
+      updateWorkspace(id, patch),
+    onSuccess: () => refreshWorkspaceViews(client),
+  });
+}
+
+export function useSetWorkspaceArchived() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      setWorkspaceArchived(id, archived),
+    onSuccess: () => refreshWorkspaceViews(client),
+  });
+}
+
+export function useDeleteWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, deletion }: { id: string; deletion: WorkspaceDeletion }) =>
+      deleteWorkspace(id, deletion),
+    onSuccess: async (_report, { id }) => {
+      const detailKey = queryKeys.workspace(id);
+      // The page of the deleted workspace may still be displayed until the interface navigates away: its
+      // data is dropped once nothing shows it, and is never refetched in the meantime.
+      client.removeQueries({ queryKey: detailKey, type: 'inactive' });
+      await client.invalidateQueries({ queryKey: detailKey, refetchType: 'none' });
+      await refreshWorkspaceViews(client, detailKey);
+    },
+  });
 }

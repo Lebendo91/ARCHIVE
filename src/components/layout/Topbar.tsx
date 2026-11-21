@@ -1,10 +1,11 @@
 import { ChevronRight, Search } from 'lucide-react';
 import { Link } from 'react-router';
-import { useCurrentRouteHandle } from '@/app/router/handles';
+import { useCurrentPageTitle } from '@/app/router/handles';
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
 import { KeyCombo, Tooltip } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { ProfileMenu } from './ProfileMenu';
+import { QuickCreateMenu } from './QuickCreateMenu';
 
 /**
  * Entry point of the global search. Search needs indexed content (Phase 6): until then the entry point is
@@ -31,11 +32,10 @@ function SearchEntry() {
   );
 }
 
-/** Top bar (specification §3.4): current section and breadcrumb, search entry point, profile menu. */
+/** Top bar (specification §3.4): current section and breadcrumb, search entry point, Quick Create, profile menu. */
 export function Topbar() {
   const { t } = useI18n();
-  const handle = useCurrentRouteHandle();
-  const title = handle ? t(handle.titleKey) : t('app.name');
+  const { handle, title } = useCurrentPageTitle();
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-6 border-b border-line-subtle bg-obsidian px-8 select-none">
@@ -57,6 +57,7 @@ export function Topbar() {
         <h1 className="truncate font-display text-lg font-semibold text-fg">{title}</h1>
       </div>
       <SearchEntry />
+      <QuickCreateMenu />
       <ProfileMenu trigger="avatar" />
     </header>
   );

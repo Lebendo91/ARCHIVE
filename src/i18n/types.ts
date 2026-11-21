@@ -32,6 +32,15 @@ export type MessageKey = StringPaths<Dictionary>;
 /** Dot-separated key of a translated list of strings, for example `modules.library.capabilities`. */
 export type ListKey = ListPaths<Dictionary>;
 
+/** Base of a pluralized message: the dictionary holds `<base>.one` and `<base>.other`. */
+export type PluralKey = {
+  [K in MessageKey]: K extends `${infer Base}.one`
+    ? `${Base}.other` extends MessageKey
+      ? Base
+      : never
+    : never;
+}[MessageKey];
+
 export type Locale = 'fr' | 'en';
 
 export type MessageParams = Readonly<Record<string, string | number>>;

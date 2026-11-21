@@ -31,14 +31,15 @@ describe('application shell', () => {
     ['Bibliothèque', 'Aucun document pour l’instant'],
     ['Notes', 'Aucune note pour l’instant'],
     ['Graphe de connaissances', 'Aucune relation pour l’instant'],
-    ['Chronologie', 'Aucune activité pour l’instant'],
+    ['Chronologie', 'La chronologie complète arrive bientôt'],
     ['Assistant IA', 'Aucun fournisseur IA configuré'],
-    ['Tous les espaces', 'Aucun espace de travail pour l’instant'],
     ['Favoris', 'Aucun favori'],
     ['Récemment ouverts', 'Rien d’ouvert récemment'],
     ['Archives', 'Aucun élément archivé'],
   ])('navigates to "%s" and shows its honest empty state', async (label, emptyTitle) => {
+    mockNativeRuntime();
     const { user } = renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: 'Vue d’ensemble' });
     const link = within(mainNavigation()).getByRole('link', { name: label });
     await user.click(link);
     expect(link).toHaveAttribute('aria-current', 'page');

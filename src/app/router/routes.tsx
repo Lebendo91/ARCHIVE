@@ -20,10 +20,15 @@ import { NotFoundPage } from '@/modules/system/NotFoundPage';
 import { RouteErrorPage } from '@/modules/system/RouteErrorPage';
 import { RouteLoading } from '@/modules/system/RouteLoading';
 import { TimelinePage } from '@/modules/timeline/TimelinePage';
+import { WorkspacePage } from '@/modules/workspaces/WorkspacePage';
 import { WorkspacesPage } from '@/modules/workspaces/WorkspacesPage';
 import type { RouteHandle } from './handles';
 
 const SETTINGS_PARENT: RouteHandle['parent'] = { titleKey: 'nav.settings', to: '/settings' };
+const WORKSPACES_PARENT: RouteHandle['parent'] = {
+  titleKey: 'nav.workspacesSection',
+  to: '/workspaces',
+};
 
 /** Development-only routes: they are not part of production builds. */
 const devRoutes: RouteObject[] = import.meta.env.DEV
@@ -85,6 +90,15 @@ export const appRoutes: RouteObject[] = [
             path: 'workspaces',
             element: <WorkspacesPage />,
             handle: { titleKey: 'nav.workspacesSection' } satisfies RouteHandle,
+          },
+          {
+            // The page replaces this title with the workspace name once it is known.
+            path: 'workspaces/:id',
+            element: <WorkspacePage />,
+            handle: {
+              titleKey: 'workspaces.detail.fallbackTitle',
+              parent: WORKSPACES_PARENT,
+            } satisfies RouteHandle,
           },
           {
             path: 'favorites',

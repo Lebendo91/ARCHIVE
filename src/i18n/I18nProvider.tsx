@@ -2,8 +2,8 @@ import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { en } from './en';
 import { LOCALE_TAGS } from './format';
 import { fr } from './fr';
-import { translate, translateList } from './translate';
-import type { Dictionary, ListKey, Locale, MessageKey, MessageParams } from './types';
+import { translate, translateList, translatePlural } from './translate';
+import type { Dictionary, ListKey, Locale, MessageKey, MessageParams, PluralKey } from './types';
 
 const DICTIONARIES: Record<Locale, Dictionary> = { fr, en };
 
@@ -12,6 +12,8 @@ export interface I18nContextValue {
   localeTag: string;
   t: (key: MessageKey, params?: MessageParams) => string;
   tList: (key: ListKey) => readonly string[];
+  /** Pluralized message, with `{count}` set to `count`. */
+  tCount: (key: PluralKey, count: number, params?: MessageParams) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -30,6 +32,7 @@ export function I18nProvider({ locale = 'fr', children }: I18nProviderProps) {
       localeTag: LOCALE_TAGS[locale],
       t: (key, params) => translate(dictionary, key, params),
       tList: (key) => translateList(dictionary, key),
+      tCount: (key, count, params) => translatePlural(dictionary, locale, key, count, params),
     };
   }, [locale]);
 

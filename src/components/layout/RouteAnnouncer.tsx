@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useCurrentRouteHandle } from '@/app/router/handles';
+import { useCurrentPageTitle } from '@/app/router/handles';
 import { useI18n } from '@/i18n';
 
 /**
@@ -8,8 +8,7 @@ import { useI18n } from '@/i18n';
  */
 export function RouteAnnouncer() {
   const { t } = useI18n();
-  const handle = useCurrentRouteHandle();
-  const title = handle ? t(handle.titleKey) : t('app.name');
+  const { handle, title } = useCurrentPageTitle();
   const regionRef = useRef<HTMLDivElement>(null);
   const previousTitle = useRef<string | null>(null);
 

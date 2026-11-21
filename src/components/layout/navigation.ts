@@ -45,7 +45,8 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     id: 'workspaces',
     titleKey: 'nav.workspacesSection',
-    items: [{ to: '/workspaces', labelKey: 'nav.allWorkspaces', icon: Boxes }],
+    // Exact match: a workspace page activates the shortcut of that workspace, not « All workspaces ».
+    items: [{ to: '/workspaces', labelKey: 'nav.allWorkspaces', icon: Boxes, end: true }],
   },
   {
     id: 'personal',

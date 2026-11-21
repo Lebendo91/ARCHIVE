@@ -12,6 +12,7 @@ import type { CommandName } from '@/services/tauri';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
 import type { StorageOverview } from '@/types/bindings/StorageOverview';
+import { createCoreDouble, type CoreDoubleState } from './coreDouble';
 
 /** Renders the whole application at `path`, with a fresh in-memory router and data cache. */
 export function renderApp(path = '/') {
@@ -71,12 +72,17 @@ export const MOCK_STORAGE: StorageOverview = {
 type Handler = (args: Record<string, unknown> | undefined) => unknown;
 
 /**
- * Stands in for the native core: every command answers like a healthy installation unless overridden.
- * Returns the list of calls, to check what the interface sent.
+ * Stands in for the native core: every command answers like a healthy installation unless overridden. The
+ * workspace, overview and timeline commands work on an in-memory knowledge base (`core`, empty by default).
+ * Returns the list of calls, to check what the interface sent, and that knowledge base.
  */
-export function mockNativeRuntime(overrides: Partial<Record<CommandName, Handler>> = {}) {
+export function mockNativeRuntime(
+  overrides: Partial<Record<CommandName, Handler>> = {},
+  { core: seed = null }: { core?: Partial<CoreDoubleState> | null } = {},
+) {
   const settings: AppSettings = { language: 'fr' };
   const calls: { command: string; args: Record<string, unknown> | undefined }[] = [];
+  const core = createCoreDouble(seed);
   const handlers: Record<CommandName, Handler> = {
     app_info: () => MOCK_APP_INFO,
     app_status: () => MOCK_READY_STATUS,
@@ -94,6 +100,14 @@ export function mockNativeRuntime(overrides: Partial<Record<CommandName, Handler
       problems: [],
       checkedAt: Date.UTC(2026, 10, 21, 13, 5),
     }),
+    workspaces_list: core.handlers.workspaces_list as Handler,
+    workspaces_get: core.handlers.workspaces_get as Handler,
+    workspaces_create: core.handlers.workspaces_create as Handler,
+    workspaces_update: core.handlers.workspaces_update as Handler,
+    workspaces_set_archived: core.handlers.workspaces_set_archived as Handler,
+    workspaces_delete: core.handlers.workspaces_delete as Handler,
+    dashboard_overview: core.handlers.dashboard_overview as Handler,
+    timeline_list: core.handlers.timeline_list as Handler,
     ...overrides,
   };
   mockIPC((command, args) => {
@@ -104,5 +118,5 @@ export function mockNativeRuntime(overrides: Partial<Record<CommandName, Handler
     }
     return handler(args as Record<string, unknown> | undefined);
   });
-  return { calls, settings };
+  return { calls, settings, core: core.state };
 }

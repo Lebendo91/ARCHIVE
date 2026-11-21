@@ -3,15 +3,7 @@ import { Badge, Card, EmptyState, type IconTone } from '@/components/ui';
 import { useI18n } from '@/i18n';
 
 export type PlaceholderModule =
-  | 'library'
-  | 'notes'
-  | 'graph'
-  | 'timeline'
-  | 'assistant'
-  | 'workspaces'
-  | 'favorites'
-  | 'recent'
-  | 'archived';
+  'library' | 'notes' | 'graph' | 'timeline' | 'assistant' | 'favorites' | 'recent' | 'archived';
 
 export interface ModulePlaceholderProps {
   module: PlaceholderModule;

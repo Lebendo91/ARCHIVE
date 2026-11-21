@@ -1,5 +1,5 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { ArchiveMark, ArchiveWordmark } from '@/components/brand/ArchiveMark';
 import { IconButton } from '@/components/ui';
 import { useI18n } from '@/i18n';
@@ -9,9 +9,19 @@ import { cn } from '@/utils/cn';
 import { FOOTER_ITEMS, NAV_SECTIONS, type NavSection } from './navigation';
 import { ProfileMenu } from './ProfileMenu';
 import { SidebarLink } from './SidebarLink';
+import { SidebarWorkspaces } from './SidebarWorkspaces';
 import { StorageIndicator } from './StorageIndicator';
 
-function SidebarSection({ section, collapsed }: { section: NavSection; collapsed: boolean }) {
+function SidebarSection({
+  section,
+  collapsed,
+  children,
+}: {
+  section: NavSection;
+  collapsed: boolean;
+  /** Extra list items after the static ones (the workspace shortcuts). */
+  children?: ReactNode;
+}) {
   const { t } = useI18n();
   const titleId = useId();
   const title = section.titleKey ? t(section.titleKey) : undefined;
@@ -38,9 +48,16 @@ function SidebarSection({ section, collapsed }: { section: NavSection; collapsed
       <ul className="flex flex-col gap-1">
         {section.items.map((item) => (
           <li key={item.to}>
-            <SidebarLink item={item} collapsed={collapsed} />
+            <SidebarLink
+              to={item.to}
+              label={t(item.labelKey)}
+              icon={item.icon}
+              end={item.end}
+              collapsed={collapsed}
+            />
           </li>
         ))}
+        {children}
       </ul>
     </div>
   );
@@ -98,7 +115,9 @@ export function Sidebar() {
         className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-4"
       >
         {NAV_SECTIONS.map((section) => (
-          <SidebarSection key={section.id} section={section} collapsed={collapsed} />
+          <SidebarSection key={section.id} section={section} collapsed={collapsed}>
+            {section.id === 'workspaces' ? <SidebarWorkspaces collapsed={collapsed} /> : null}
+          </SidebarSection>
         ))}
       </nav>
 
@@ -107,7 +126,13 @@ export function Sidebar() {
         <ul className="flex flex-col gap-1">
           {FOOTER_ITEMS.map((item) => (
             <li key={item.to}>
-              <SidebarLink item={item} collapsed={collapsed} />
+              <SidebarLink
+                to={item.to}
+                label={t(item.labelKey)}
+                icon={item.icon}
+                end={item.end}
+                collapsed={collapsed}
+              />
             </li>
           ))}
         </ul>

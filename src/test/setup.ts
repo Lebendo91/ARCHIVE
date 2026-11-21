@@ -2,8 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+import { usePageTitleStore } from '@/app/router/pageTitle';
 import { useToastStore } from '@/stores/toasts';
 import { useUiStore } from '@/stores/ui';
+import { useWorkspaceDialogs } from '@/stores/workspaceDialogs';
 
 // Browser APIs that jsdom does not implement but Radix primitives rely on. The stubs do nothing on purpose.
 const doNothing = (): void => undefined;
@@ -35,4 +37,6 @@ afterEach(() => {
   localStorage.clear();
   useUiStore.setState({ sidebarCollapsed: false });
   useToastStore.setState({ toasts: [] });
+  useWorkspaceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
+  usePageTitleStore.setState({ title: null });
 });

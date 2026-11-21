@@ -4,6 +4,8 @@ import { useDesktopBehavior } from '@/app/shortcuts/useDesktopBehavior';
 import { useGlobalShortcuts } from '@/app/shortcuts/useGlobalShortcuts';
 import { Toaster } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
+import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { RouteAnnouncer } from './RouteAnnouncer';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -18,6 +20,12 @@ export function AppShell() {
   useGlobalShortcuts({
     openSettings: () => {
       void navigate('/settings');
+    },
+    newWorkspace: () => {
+      // Never replaces a dialog that is already open.
+      if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        workspaceDialogs.create();
+      }
     },
   });
   useDesktopBehavior();
@@ -50,6 +58,7 @@ export function AppShell() {
         </main>
       </div>
       <RouteAnnouncer />
+      <WorkspaceDialogs />
       <Toaster />
     </div>
   );

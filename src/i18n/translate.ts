@@ -1,4 +1,5 @@
-import type { Dictionary, ListKey, MessageKey, MessageParams } from './types';
+import { LOCALE_TAGS } from './format';
+import type { Dictionary, ListKey, Locale, MessageKey, MessageParams, PluralKey } from './types';
 
 function lookup(dictionary: Dictionary, key: string): unknown {
   let node: unknown = dictionary;
@@ -38,4 +39,20 @@ export function translate(dictionary: Dictionary, key: MessageKey, params?: Mess
 export function translateList(dictionary: Dictionary, key: ListKey): readonly string[] {
   const value = lookup(dictionary, key);
   return Array.isArray(value) ? (value as readonly string[]) : [];
+}
+
+/**
+ * Pluralized message: picks `<base>.one` or `<base>.other` with the plural rules of the language (in French,
+ * 0 and 1 are singular). `{count}` is available in the message.
+ */
+export function translatePlural(
+  dictionary: Dictionary,
+  locale: Locale,
+  base: PluralKey,
+  count: number,
+  params?: MessageParams,
+): string {
+  const category =
+    new Intl.PluralRules(LOCALE_TAGS[locale]).select(count) === 'one' ? 'one' : 'other';
+  return translate(dictionary, `${base}.${category}` as MessageKey, { count, ...params });
 }

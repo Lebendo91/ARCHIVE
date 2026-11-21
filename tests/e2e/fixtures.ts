@@ -1,4 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
+import { createCoreDouble, type CoreDoubleState } from '../../src/test/coreDouble';
 
 export const MOCK_APP_INFO = {
   name: 'ARCHIVE',
@@ -12,97 +13,150 @@ export const MOCK_APP_INFO = {
 
 export const MOCK_DATA_DIR = 'C:\\Users\\Alice\\AppData\\Local\\io.github.lebendo91.archive';
 
+const CORE_KEY = 'archive-e2e-core';
+
+/**
+ * The function that installs the double in the page. Like any init script, it is serialized: it only uses its
+ * arguments, among which the in-memory core shared with the unit tests (`src/test/coreDouble.ts`).
+ */
+function nativeRuntimeDouble(
+  {
+    appInfo,
+    dataDir,
+    coreKey,
+  }: { appInfo: typeof MOCK_APP_INFO; dataDir: string; coreKey: string },
+  createCore: typeof createCoreDouble,
+) {
+  const callbacks = new Map<number, (data: unknown) => void>();
+  let nextCallbackId = 1;
+  const diagnostics: unknown[] = [];
+  const readyStatus = {
+    database: 'ready',
+    schemaVersion: 1,
+    supportedSchemaVersion: 1,
+    lastMigration: null,
+    failure: null,
+    dataDir,
+  };
+  const status = () =>
+    sessionStorage.getItem('archive-e2e-scenario') === 'safe-mode'
+      ? {
+          ...readyStatus,
+          database: 'unavailable',
+          schemaVersion: null,
+          failure: {
+            code: 'database_too_new',
+            message: 'database created by a newer version of ARCHIVE (schema 3, supported 1)',
+            detail: 'database created by a newer version of ARCHIVE (schema 3, supported 1)',
+          },
+        }
+      : readyStatus;
+  const settings = () =>
+    JSON.parse(sessionStorage.getItem('archive-e2e-settings') ?? '{"language":"fr"}') as Record<
+      string,
+      unknown
+    >;
+  // Created on the first command, once every init script (seeds included) has run.
+  let core: ReturnType<typeof createCore> | undefined;
+  const coreHandlers = () => {
+    core ??= createCore(
+      JSON.parse(sessionStorage.getItem(coreKey) ?? 'null') as Partial<CoreDoubleState> | null,
+      (state) => {
+        sessionStorage.setItem(coreKey, JSON.stringify(state));
+      },
+    );
+    return core.handlers;
+  };
+  const handlers: Record<string, (args: Record<string, unknown> | undefined) => unknown> = {
+    app_info: () => appInfo,
+    app_status: status,
+    database_retry: status,
+    settings_get: settings,
+    settings_update: (args) => {
+      const next = { ...settings(), ...(args?.patch as Record<string, unknown>) };
+      sessionStorage.setItem('archive-e2e-settings', JSON.stringify(next));
+      return next;
+    },
+    storage_overview: () => ({
+      dataDir,
+      databaseFile: `${dataDir}\\archive.db`,
+      filesDir: `${dataDir}\\files`,
+      backupsDir: `${dataDir}\\backups`,
+      logsDir: `${dataDir}\\logs`,
+      databaseBytes: 98_304,
+      filesBytes: 0,
+      filesCount: 0,
+      backupsBytes: 0,
+      logsBytes: 4_096,
+      totalBytes: 102_400,
+      diskAvailableBytes: 128 * 1024 ** 3,
+      diskTotalBytes: 512 * 1024 ** 3,
+    }),
+    storage_open_folder: () => null,
+    database_check_integrity: () => ({ ok: true, problems: [], checkedAt: Date.now() }),
+    log_frontend_event: (args) => {
+      diagnostics.push(args);
+      return null;
+    },
+  };
+  for (const command of [
+    'workspaces_list',
+    'workspaces_get',
+    'workspaces_create',
+    'workspaces_update',
+    'workspaces_set_archived',
+    'workspaces_delete',
+    'dashboard_overview',
+    'timeline_list',
+  ]) {
+    handlers[command] = (args) => coreHandlers()[command]?.(args);
+  }
+  Object.assign(window, {
+    __ARCHIVE_E2E_DIAGNOSTICS__: diagnostics,
+    __TAURI_INTERNALS__: {
+      invoke: (command: string, args: Record<string, unknown> | undefined) => {
+        const handler = handlers[command];
+        return handler
+          ? new Promise((resolve) => {
+              resolve(handler(args));
+            })
+          : Promise.reject(new Error(`Unexpected command: ${command}`));
+      },
+      transformCallback: (callback: (data: unknown) => void) => {
+        const id = nextCallbackId;
+        nextCallbackId += 1;
+        callbacks.set(id, callback);
+        return id;
+      },
+      unregisterCallback: (id: number) => {
+        callbacks.delete(id);
+      },
+    },
+  });
+}
+
 /**
  * Stands in for the native runtime. It answers every command like a healthy installation, keeps the
- * settings in sessionStorage (so they survive a reload, like the real database), records the diagnostics
- * sent by the interface, and can simulate the safe mode (`sessionStorage['archive-e2e-scenario']`).
+ * settings and the knowledge base in sessionStorage (so they survive a reload, like the real database),
+ * records the diagnostics sent by the interface, and can simulate the safe mode
+ * (`sessionStorage['archive-e2e-scenario']`).
  */
 async function installNativeRuntimeDouble(page: Page): Promise<void> {
+  const options = { appInfo: MOCK_APP_INFO, dataDir: MOCK_DATA_DIR, coreKey: CORE_KEY };
+  await page.addInitScript({
+    content: `(${nativeRuntimeDouble.toString()})(${JSON.stringify(options)}, ${createCoreDouble.toString()});`,
+  });
+}
+
+/** Starts the test with this knowledge base (kept across reloads, like a real database). */
+export async function seedCore(page: Page, state: Partial<CoreDoubleState>): Promise<void> {
   await page.addInitScript(
-    ({ appInfo, dataDir }) => {
-      const callbacks = new Map<number, (data: unknown) => void>();
-      let nextCallbackId = 1;
-      const diagnostics: unknown[] = [];
-      const readyStatus = {
-        database: 'ready',
-        schemaVersion: 1,
-        supportedSchemaVersion: 1,
-        lastMigration: null,
-        failure: null,
-        dataDir,
-      };
-      const status = () =>
-        sessionStorage.getItem('archive-e2e-scenario') === 'safe-mode'
-          ? {
-              ...readyStatus,
-              database: 'unavailable',
-              schemaVersion: null,
-              failure: {
-                code: 'database_too_new',
-                message: 'database created by a newer version of ARCHIVE (schema 3, supported 1)',
-                detail: 'database created by a newer version of ARCHIVE (schema 3, supported 1)',
-              },
-            }
-          : readyStatus;
-      const settings = () =>
-        JSON.parse(sessionStorage.getItem('archive-e2e-settings') ?? '{"language":"fr"}') as Record<
-          string,
-          unknown
-        >;
-      const handlers: Record<string, (args: Record<string, unknown> | undefined) => unknown> = {
-        app_info: () => appInfo,
-        app_status: status,
-        database_retry: status,
-        settings_get: settings,
-        settings_update: (args) => {
-          const next = { ...settings(), ...(args?.patch as Record<string, unknown>) };
-          sessionStorage.setItem('archive-e2e-settings', JSON.stringify(next));
-          return next;
-        },
-        storage_overview: () => ({
-          dataDir,
-          databaseFile: `${dataDir}\\archive.db`,
-          filesDir: `${dataDir}\\files`,
-          backupsDir: `${dataDir}\\backups`,
-          logsDir: `${dataDir}\\logs`,
-          databaseBytes: 98_304,
-          filesBytes: 0,
-          filesCount: 0,
-          backupsBytes: 0,
-          logsBytes: 4_096,
-          totalBytes: 102_400,
-          diskAvailableBytes: 128 * 1024 ** 3,
-          diskTotalBytes: 512 * 1024 ** 3,
-        }),
-        storage_open_folder: () => null,
-        database_check_integrity: () => ({ ok: true, problems: [], checkedAt: Date.now() }),
-        log_frontend_event: (args) => {
-          diagnostics.push(args);
-          return null;
-        },
-      };
-      Object.assign(window, {
-        __ARCHIVE_E2E_DIAGNOSTICS__: diagnostics,
-        __TAURI_INTERNALS__: {
-          invoke: (command: string, args: Record<string, unknown> | undefined) => {
-            const handler = handlers[command];
-            return handler
-              ? Promise.resolve(handler(args))
-              : Promise.reject(new Error(`Unexpected command: ${command}`));
-          },
-          transformCallback: (callback: (data: unknown) => void) => {
-            const id = nextCallbackId;
-            nextCallbackId += 1;
-            callbacks.set(id, callback);
-            return id;
-          },
-          unregisterCallback: (id: number) => {
-            callbacks.delete(id);
-          },
-        },
-      });
+    ({ key, value }) => {
+      if (sessionStorage.getItem(key) === null) {
+        sessionStorage.setItem(key, value);
+      }
     },
-    { appInfo: MOCK_APP_INFO, dataDir: MOCK_DATA_DIR },
+    { key: CORE_KEY, value: JSON.stringify(state) },
   );
 }
 
