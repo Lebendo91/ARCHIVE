@@ -1,0 +1,160 @@
+/*
+ * ARCHIVE design tokens — art direction "Obsidian Knowledge Systems".
+ *
+ * Single source of truth for colours, typography, radii, shadows and motion (specification §2.3 and §3).
+ * Components use the generated Tailwind utilities (bg-obsidian, text-fg-secondary, rounded-card…).
+ * Hard-coded colours are forbidden anywhere else (enforced by ESLint for TypeScript sources).
+ * Contrast rules derived from this palette are documented in ARCHITECTURE.md §4.4 and verified by
+ * src/styles/contrast.test.ts.
+ */
+
+@theme {
+  /* Remove Tailwind's default palettes and scales so that only brand tokens are available. */
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /* Surfaces */
+  --color-obsidian: #090b0f; /* Obsidian: main application background */
+  --color-carbon: #10141a; /* Carbon: sidebar and secondary surfaces */
+  --color-graphite: #171d25; /* Graphite: cards and panels */
+  --color-steel: #222b36; /* Steel: hover and elevated surfaces */
+  --color-line: #2a3441; /* Border: dividers and borders */
+  --color-line-subtle: #202833; /* Border subtle: subtle separation */
+
+  /* Text */
+  --color-fg: #f1f4f8; /* Primary text */
+  --color-fg-secondary: #a3adba; /* Secondary text */
+  --color-fg-muted: #6f7b89; /* Muted text: AA for small text on Obsidian only */
+  --color-fg-disabled: #4d5865; /* Disabled text */
+
+  /* Brand accents */
+  --color-amber: #d6a45d; /* Archive Amber: primary brand accent */
+  --color-blue: #67a9e8; /* Electric Blue: interactive elements */
+  --color-cyan: #6fcbc7; /* Soft Cyan: intelligence features */
+  --color-purple: #a995e8; /* Purple: knowledge relationships */
+
+  /* Semantic */
+  --color-success: #43b989;
+  --color-warning: #e8b45b;
+  --color-danger: #e46c72;
+  --color-info: #67a9e8;
+
+  /* Typography */
+  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+
+  /* Type scale tuned for a dense desktop interface (13 px default UI text). */
+  --text-2xs: 0.6875rem; /* 11 px: overlines, keyboard keys, badges */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem; /* 12 px: metadata, labels */
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem; /* 13 px: default interface text */
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem; /* 14 px: reading text */
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1.0625rem; /* 17 px: section and card titles */
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem; /* 20 px */
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem; /* 24 px */
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem; /* 30 px: dashboard greeting */
+  --text-3xl--line-height: 2.375rem;
+  --text-4xl: 2.25rem; /* 36 px: statistics */
+  --text-4xl--line-height: 2.75rem;
+
+  --tracking-label: 0.08em; /* Uppercase section labels */
+  --tracking-brand: 0.16em; /* ARCHIVE wordmark */
+
+  /* Radii (specification §3.2) */
+  --radius-sm: 4px; /* Small inline elements: keyboard keys */
+  --radius-control: 7px; /* Buttons and inputs */
+  --radius-card: 10px; /* Cards and panels */
+  --radius-modal: 12px; /* Dialogs */
+  --radius-full: 9999px; /* Badges, avatars */
+
+  /* Restrained elevation: borders carry most of the separation on dark surfaces. */
+  --shadow-popover: 0 12px 32px -12px rgb(0 0 0 / 0.6);
+  --shadow-modal: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+
+  /* Motion (specification §3.6): hover 150 ms, transitions 150–200 ms, dialogs 200 ms. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --animate-fade-in: fade-in 200ms var(--ease-standard);
+  --animate-fade-out: fade-out 150ms var(--ease-exit);
+  --animate-dialog-in: dialog-in 200ms var(--ease-standard);
+  --animate-dialog-out: dialog-out 150ms var(--ease-exit);
+  --animate-popover-in: popover-in 150ms var(--ease-standard);
+  --animate-toast-in: toast-in 200ms var(--ease-standard);
+  --animate-toast-out: fade-out 150ms var(--ease-exit);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+    }
+    to {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+  @keyframes dialog-out {
+    from {
+      opacity: 1;
+      scale: 1;
+    }
+    to {
+      opacity: 0;
+      scale: 0.97;
+    }
+  }
+  @keyframes popover-in {
+    from {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+}
+
+/* Layout reference dimensions (specification §3.2). */
+:root {
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 64px;
+  --topbar-height: 64px;
+  --app-min-width: 1100px;
+  --app-min-height: 700px;
+}
