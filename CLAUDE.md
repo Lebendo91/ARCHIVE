@@ -35,6 +35,18 @@ ce dépôt est la seule source de vérité, et aucune machine locale n'est requi
 - Playwright : utiliser le Chromium préinstallé (`/opt/pw-browsers/chromium`) et **ne jamais lancer
   `playwright install`**.
 
+## Commandes de validation (à exécuter avant tout commit)
+
+```bash
+npm run typecheck && npm run lint && npm run format:check && npm test && npm run test:e2e
+```
+
+```bash
+cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+```
+
+Pour l'audit visuel : `npm run test:visual`, puis relire les captures dans `visual-audit/`.
+
 ## Conventions
 
 - **Langues** : interface en français (architecture i18n, `src/i18n/fr.ts` comme référence) ; documentation du
@@ -44,5 +56,9 @@ ce dépôt est la seule source de vérité, et aucune machine locale n'est requi
 - **Données** : la WebView n'accède jamais au disque, à la base ou au réseau. Tout passe par des commandes Rust
   qui valident leurs entrées.
 - **Design** : uniquement les jetons de la spec §2.3 (aucune couleur en dur), l'échelle d'espacement de 4 px,
-  Lucide pour les icônes, et les règles de contraste d'`ARCHITECTURE.md` §4.4.
+  Lucide pour les icônes, et les règles de contraste ; voir `docs/DESIGN_SYSTEM.md`. Réutiliser les
+  composants de `src/components/ui` avant d'en créer.
+- **Textes** : jamais de chaîne d'interface en dur. Tout texte passe par `src/i18n/fr.ts` et `en.ts`, qui
+  doivent rester en parité (vérifiée par test). Les espaces insécables s'écrivent avec la séquence
+  d'échappement `\u00a0`, jamais avec le caractère brut.
 - **Secrets** : jamais dans Git, ni dans le frontend, ni dans les journaux, ni en clair dans SQLite.

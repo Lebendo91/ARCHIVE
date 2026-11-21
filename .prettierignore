@@ -2,6 +2,7 @@ dist
 coverage
 playwright-report
 test-results
+visual-audit
 node_modules
 package-lock.json
 src-tauri/target

@@ -1,7 +1,7 @@
 # ARCHIVE — Architecture
 
-> **Statut : architecture cible définie en Phase 0. Aucun code applicatif n'existe encore.**
-> Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phase 1 implémentée (fondation et design system). Les sections des phases suivantes restent
+> l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -56,7 +56,9 @@ explicitement, qui valide ses entrées (spec §18.3).
 | PDF | `pdfjs-dist` | 6.5 | Aperçu, et candidat pour l'extraction (Phase 4) |
 | Polices | `@fontsource-variable` : Inter, Space Grotesk, JetBrains Mono | 5.3 | Fichiers embarqués, aucune requête réseau à l'exécution |
 | Tests | Vitest 5, React Testing Library 16, jsdom, Playwright, `cargo test` | — | Voir §13 |
-| Qualité | ESLint 10 + `typescript-eslint` + `react-hooks`, Prettier, `rustfmt`, `clippy` | — | |
+| Primitives accessibles | Radix UI (`radix-ui`) | 1.8 | Dialogues, menus, infobulles et notifications : focus, clavier et ARIA conformes, stylés avec les jetons. Ajouté en Phase 1 |
+| Qualité | ESLint 10 + `typescript-eslint` + `react-hooks`, Prettier, `rustfmt`, `clippy` | — | `eslint-plugin-jsx-a11y` écarté : il ne supporte pas ESLint 10, et ESLint 9 est en fin de vie |
+| Accessibilité | `@axe-core/playwright` | 4.14 | Audit WCAG 2.2 A/AA à l'exécution, sur chaque écran |
 | Paquets | npm | 10.9 | Universel, rien à installer en plus sur la CI Windows |
 | CI/CD | GitHub Actions | — | Ubuntu pour les contrôles, `windows-latest` pour les installateurs |
 
@@ -89,10 +91,11 @@ archive/
 │   ├── migrations/               # SQL versionné, embarqué à la compilation
 │   ├── capabilities/  icons/
 │   └── tauri.conf.json
-├── tests/e2e/                    # Playwright : parcours UI et captures d'écran
+├── tests/e2e/                    # Playwright : navigation, accessibilité (axe-core), captures d'audit visuel
 ├── tests/fixtures/               # Fichiers d'essai réels et générateurs de jeux de données
 ├── assets/brand/                 # Logo SVG source et déclinaisons
-├── docs/                         # SPECIFICATION.md, ENVIRONMENT_AUDIT.md, USER_GUIDE.md (Phase 10)
+├── docs/                         # SPECIFICATION.md, ENVIRONMENT_AUDIT.md, DESIGN_SYSTEM.md, screenshots/,
+│                                 # USER_GUIDE.md (Phase 10)
 ├── .github/workflows/            # ci.yml, windows-build.yml
 └── CLAUDE.md, DEVELOPMENT_PROGRESS.md, ARCHITECTURE.md, CHANGELOG.md, README.md
 ```
@@ -108,7 +111,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Prévu (Phase 1)*
+## 4. Frontend — *Implémenté (Phase 1)*
 
 ### 4.1 Responsabilités
 
@@ -133,6 +136,11 @@ archive/
 | `/settings/:section?` | Paramètres | 2 à 10 |
 | `/help` | Aide et raccourcis clavier | 1 |
 
+Chaque route déclare un `handle` (`RouteHandle` : titre, parent du fil d'Ariane) lu par la barre supérieure,
+qui affiche le titre `h1` de la page, et par `RouteAnnouncer` (titre de fenêtre, annonce aux lecteurs d'écran).
+Les erreurs de page s'affichent dans la coquille (`errorElement`). Un `ErrorBoundary` racine couvre le reste.
+En développement uniquement, la route `#/dev/ui` présente la galerie du design system.
+
 La recherche globale (`Ctrl+K`) est une surcouche (overlay), pas une route. En Phase 1, les écrans dont le
 module n'est pas encore livré affichent un **état vide conçu et honnête**, qui annonce la fonctionnalité sans la
 simuler. Les actions non disponibles sont absentes, ou désactivées avec une explication (spec §17.1 : aucun
@@ -141,8 +149,8 @@ bouton mort).
 ### 4.3 État
 
 - État local (`useState`, `useReducer`) pour les comportements isolés.
-- Zustand pour l'état d'interface transversal : barre latérale repliée, notifications (toasts), surcouches
-  actives, progression des imports.
+- Zustand pour l'état d'interface transversal : barre latérale repliée (persistée dans le `localStorage` de
+  la WebView, préférence non critique), notifications, puis progression des imports (Phase 4).
 - Les données viennent du cœur via les services. Une couche de cache (TanStack Query) sera évaluée en Phase 2 et
   adoptée seulement si elle supprime une duplication réelle (chargement, erreurs, invalidation).
 - Le cœur Rust est la source de vérité : aucun état métier n'est dupliqué dans les stores.
@@ -198,8 +206,12 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Prévu (Phases 1 à 2)*
+## 5. Cœur natif Rust — *Socle implémenté (Phase 1), données en Phase 2*
 
+- **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
+  Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
+  l'interface (erreurs non interceptées, promesses rejetées, violations de CSP), les assainit (une seule
+  ligne, 2 000 caractères au plus) et les écrit sur la sortie d'erreur, en attendant le journal de la Phase 2.
 - **Couches** : `commands` (frontière IPC) → `services` (règles métier, transactions) → `db` (dépôts SQL),
   `storage` et `pipeline`.
 - **Commandes** : nommées `domaine_action` (`documents_list`, `notes_save`…). Elles sont asynchrones dès qu'il y
@@ -375,15 +387,25 @@ Les tables de la spec §5.1, avec des ajouts justifiés :
   possible.
 - **Aucun appel sans action explicite de l'utilisateur**, test de connexion compris (spec §15.4).
 
-## 12. Modèle de sécurité — *Prévu (dès la Phase 1, renforcé à chaque phase)*
+## 12. Modèle de sécurité — *Socle implémenté (Phase 1), renforcé à chaque phase*
 
 - **Capabilities Tauri minimales** : aucune permission `fs`, `shell` ni `http` pour la WebView. Seuls les
   plugins nécessaires sont activés (dialogues d'ouverture et d'enregistrement, ouverture externe), avec la portée
   la plus étroite possible.
-- **CSP stricte** (finalisée en Phase 1) : `default-src 'self'`, `script-src 'self'`, `connect-src` limité à
-  l'IPC Tauri, `img-src 'self' archive: blob: data:`, `font-src 'self'`, `worker-src 'self' blob:`,
-  `object-src 'none'`, `frame-src 'none'`. Toute exception (par exemple pour des styles injectés par une
-  dépendance) est justifiée ici.
+- **CSP stricte** (`src-tauri/tauri.conf.json`, Phase 1) : `default-src 'self'`, `script-src 'self'`,
+  `connect-src ipc: http://ipc.localhost` (aucune connexion externe possible depuis la WebView),
+  `img-src 'self' data: blob:`, `font-src 'self' data:`, `worker-src 'self' blob:`, `object-src 'none'`,
+  `frame-src 'none'`, `base-uri 'self'`, `form-action 'none'`. Le schéma `archive:` s'ajoutera en Phase 4.
+  - **Exception justifiée** : `style-src 'self' 'unsafe-inline'`, accompagnée de
+    `dangerousDisableAssetCspModification: ["style-src"]`. Les primitives Radix et TipTap (Phase 5)
+    positionnent leurs éléments par styles en ligne. Si Tauri ajoutait ses empreintes à `style-src`, le
+    navigateur ignorerait `'unsafe-inline'`. Les scripts restent strictement contrôlés : Tauri y ajoute ses
+    nonces et empreintes, et aucun script en ligne n'est autorisé.
+  - `devCsp` relâche uniquement ce dont Vite a besoin en développement (script de rafraîchissement en ligne,
+    WebSocket de rechargement à chaud).
+  - Vérification : l'interface remonte toute violation au journal natif via `securitypolicyviolation`. Le
+    binaire de production lancé sous Xvfb n'en a remonté aucune.
+- **Capability** `main-window` : uniquement `core:event:default`. Le protocole `asset:` est désactivé.
 - **Entrées** : chaque commande valide ses paramètres (UUID, bornes, énumérations). Les chemins sont canonicalisés
   et doivent désigner des fichiers réguliers. Les chemins internes sont construits à partir des identifiants
   uniquement, ce qui empêche toute traversée de répertoire (spec §18.2).
@@ -395,16 +417,20 @@ Les tables de la spec §5.1, avec des ajouts justifiés :
   identifiants d'erreur pour la corrélation.
 - **Vie privée** : aucune télémétrie, aucune synchronisation, aucun envoi automatique. Le seul trafic réseau est
   celui des appels IA déclenchés par l'utilisateur (spec §18.1).
+- **Comportement d'application de bureau** (production) : les raccourcis de rechargement et d'impression
+  sont bloqués, et le menu contextuel natif est limité aux champs éditables et au texte sélectionné. L'effet
+  réel sous WebView2 sera vérifié sur Windows.
 - **Dépendances** : `cargo audit` et `npm audit` dans la CI (au plus tard en Phase 10).
 
 ## 13. Tests et assurance qualité
 
 | Niveau | Outils | Exécution | Dès |
 |---|---|---|---|
-| Statique | `tsc --noEmit`, ESLint, Prettier, `cargo fmt --check`, `clippy -D warnings` | Conteneur et CI | Phase 1 |
-| Unitaires frontend | Vitest + RTL + jsdom, IPC simulé (`@tauri-apps/api/mocks`) | Conteneur et CI | Phase 1 |
-| Unitaires et intégration Rust | `cargo test`, SQLite en mémoire, dossiers temporaires, fixtures réelles | Conteneur et CI | Phase 2 |
-| UI et visuel | Playwright (Chromium, même moteur que WebView2) sur Vite avec IPC simulé, captures 1440×900 et 1280×800 | Conteneur | Phase 1 |
+| Statique | `tsc -b`, ESLint, Prettier, `cargo fmt --check`, `clippy -D warnings` | Conteneur et CI | ✅ Phase 1 |
+| Unitaires frontend | Vitest + RTL + jsdom, IPC simulé (`@tauri-apps/api/mocks`), conformité des jetons à la spec et contrastes | Conteneur et CI | ✅ Phase 1 (78 tests) |
+| Unitaires et intégration Rust | `cargo test` ; en Phase 2, SQLite en mémoire, dossiers temporaires, fixtures réelles | Conteneur et CI | ✅ Phase 1 (7 tests) |
+| UI, accessibilité, visuel | Playwright (Chromium, même moteur que WebView2) sur Vite avec doublure du runtime natif. Échec sur toute erreur console. axe-core WCAG 2.2 A/AA sur chaque écran. Captures 1440×900, 1280×800 et 1100×700 (`npm run test:visual`, dossier `visual-audit/`) | Conteneur et CI | ✅ Phase 1 (33 tests) |
+| Fumée native | Binaire de production lancé sous Xvfb (Linux), et sur `windows-latest` avec capture d'écran WebView2 | Conteneur et CI Windows | ✅ Phase 1 |
 | E2E sur l'application réelle | `tauri-driver` : WebKitWebDriver sous Xvfb, msedgedriver sous Windows | Conteneur et CI Windows | à confirmer (Phase 2) |
 | Performance | Jeux synthétiques générés (100, 500 et 1 000 documents, 1 000 notes), jamais livrés par défaut | Conteneur | Phases 6 et 10 |
 
@@ -417,11 +443,16 @@ Règle absolue : un test n'est déclaré réussi que s'il a été exécuté, et 
   seule source de vérité, sans dépendance à une machine locale.
 - **Branches** : `main` ne contient que des phases validées. Chaque phase se développe sur une branche
   `phase/<n>-<nom>`, fusionnée dans `main` par pull request une fois validée.
-- **`ci.yml`** (Ubuntu, à chaque push et pull request) : dépendances système Tauri, `npm ci`, vérification des
-  types, lint, tests frontend, build frontend, `cargo fmt --check`, `clippy`, `cargo test`.
-- **`windows-build.yml`** (`windows-latest`, déclenchement manuel et tags `v*`) : `tauri build`, qui produit un
-  installateur MSI et un installateur NSIS (`setup.exe`), téléchargeables depuis GitHub. La signature de code est
-  traitée en Phase 10.
+- **`ci.yml`** (Ubuntu, à chaque push et pull request ; implémenté en Phase 1) comporte trois jobs :
+  - frontend : types, lint, formatage, tests unitaires, build ;
+  - end-to-end : Playwright et axe-core ;
+  - natif : `cargo fmt --check`, `clippy -D warnings`, `cargo test`, sans besoin de `dist/` puisque le profil
+    de développement n'embarque pas le frontend.
+- **`windows-build.yml`** (`windows-latest` ; implémenté en Phase 1) se déclenche à la demande, et sur
+  `main` ou `phase/**` lorsque le côté natif ou les dépendances changent. `tauri build` produit un MSI et un
+  installateur NSIS (`setup.exe`). Un test de fumée lance l'application, vérifie qu'elle reste active
+  20 secondes et capture l'écran (rendu WebView2 réel). Installateurs et capture sont téléchargeables en
+  artefacts. La signature de code et la publication sur tags `v*` relèvent de la Phase 10.
 - **Conteneur** : les dépendances système (audit §4) sont réinstallées par le script de configuration de
   l'environnement cloud.
 
@@ -453,3 +484,16 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Extraction PDF | pdf.js en worker, ou crate Rust | pdf.js | Phase 4 |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 1
+
+| Décision | Justification |
+|---|---|
+| Radix UI pour Dialog, Tooltip, DropdownMenu et Toast | Gestion correcte du focus, du clavier et d'ARIA, difficile à réécrire sans défaut ; primitives sans style, habillées par les jetons |
+| Menus non modaux | Motif WAI-ARIA « menu button ». Un menu modal masquait à axe-core des éléments encore focalisables |
+| ESLint 10 sans `jsx-a11y`, accessibilité vérifiée par axe-core | `jsx-a11y` ne supporte pas ESLint 10, et ESLint 9 est en fin de vie. L'audit à l'exécution est plus fiable |
+| Dictionnaires i18n maison typés (fr de référence) | Zéro dépendance ; une clé manquante est une erreur de compilation ; parité fr/en testée |
+| Champs de saisie sur Obsidian | Placeholders Muted conformes AA (4,57:1) |
+| Entrée de recherche visible mais indisponible jusqu'à la Phase 6 | Garder la mise en page cible sans simuler une recherche (spec §9.2) |
+| Préférences d'interface non critiques en `localStorage` | Repli de la barre latérale ; les paramètres applicatifs iront en SQLite (Phase 2) |
+| Identifiant provisoire `io.github.lebendo91.archive` | En attente de validation par le porteur avant toute diffusion |

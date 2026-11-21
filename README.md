@@ -1,3 +1,5 @@
+<p><img src="assets/brand/archive-mark.svg" width="56" height="56" alt="Symbole ARCHIVE"></p>
+
 # ARCHIVE
 
 **ARCHIVE — Your Second Brain.**
@@ -15,9 +17,17 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phase 0 (audit de l'environnement) terminée. Il n'existe pas encore d'application exécutable.**
+**Phase 1 (fondation et design system) implémentée et en attente de validation.** L'application s'ouvre
+sur une interface complète et navigable : identité visuelle, barre latérale, barre supérieure, design
+system, écrans de chaque module et paramètres. Les modules métier (bibliothèque, notes, recherche…) arrivent
+phase par phase et affichent pour l'instant un état vide honnête, sans contenu simulé.
+
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
+
+![Vue d'ensemble d'ARCHIVE](docs/screenshots/phase-1/overview-1440x900.png)
+
+D'autres captures sont dans [docs/screenshots/phase-1](docs/screenshots/phase-1).
 
 ## Fonctionnalités prévues
 
@@ -54,16 +64,50 @@ GitHub Actions : aucune machine locale n'est nécessaire pour compiler.
 
 ## Installation et commandes
 
-Le projet sera initialisé en Phase 1 (tâche 1.1). Les commandes d'installation, de développement
-(`npm run tauri dev`), de test et de build seront documentées ici à ce moment-là.
+### Obtenir l'application Windows sans rien compiler
+
+Chaque build Windows de la CI (workflow **Windows build**, onglet *Actions* du dépôt) publie en artefact un
+installateur NSIS (`ARCHIVE_x.y.z_x64-setup.exe`) et un installateur MSI. L'application n'est pas encore
+signée : Windows SmartScreen peut afficher un avertissement à l'installation (la signature est traitée en
+Phase 10).
+
+### Développer
+
+```bash
+npm ci
+```
+
+```bash
+npm run tauri dev
+```
+
+| Commande | Rôle |
+|---|---|
+| `npm run dev` | Interface seule dans un navigateur, sur http://localhost:1420 (les fonctions natives y sont indisponibles) |
+| `npm run tauri dev` | Application de bureau complète, avec rechargement à chaud |
+| `npm run tauri build` | Installateurs de production (MSI et NSIS sous Windows) |
+| `npm run typecheck` · `npm run lint` · `npm run format:check` | Contrôles statiques |
+| `npm test` | Tests unitaires et d'intégration (Vitest) |
+| `npm run test:e2e` | Tests de bout en bout et d'accessibilité (Playwright et axe-core) |
+| `npm run test:visual` | Captures d'audit visuel à trois résolutions, dans `visual-audit/` |
+| `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` | Contrôles du cœur natif (dossier `src-tauri/`) |
+
+La galerie du design system est accessible en développement à l'adresse `#/dev/ui`.
 
 ## Structure du dépôt
 
 ```text
 archive/
+├── src/                       # Interface React : app/, components/, modules/, i18n/, services/, stores/, styles/
+├── src-tauri/                 # Cœur natif Rust (commandes, configuration Tauri, icônes)
+├── tests/e2e/                 # Tests Playwright : navigation, accessibilité, audit visuel
+├── assets/brand/              # Logo et icône d'application (SVG sources)
 ├── docs/
 │   ├── SPECIFICATION.md       # Cahier des charges maître (référence du périmètre)
-│   └── ENVIRONMENT_AUDIT.md   # Audit de l'environnement de développement
+│   ├── ENVIRONMENT_AUDIT.md   # Audit de l'environnement de développement
+│   ├── DESIGN_SYSTEM.md       # Jetons, typographie, composants, règles d'interaction
+│   └── screenshots/           # Captures de chaque phase
+├── .github/workflows/         # CI Linux et build Windows
 ├── ARCHITECTURE.md            # Architecture et décisions techniques
 ├── DEVELOPMENT_PROGRESS.md    # Suivi de développement et prochaine action
 ├── CHANGELOG.md               # Journal des changements
@@ -71,7 +115,7 @@ archive/
 └── README.md
 ```
 
-La structure cible complète (`src/`, `src-tauri/`, `tests/`…) est décrite dans [ARCHITECTURE.md](ARCHITECTURE.md), §3.
+Le détail de la structure est décrit dans [ARCHITECTURE.md](ARCHITECTURE.md), §3.
 
 ## Licence
 

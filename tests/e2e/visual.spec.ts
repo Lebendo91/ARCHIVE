@@ -1,7 +1,7 @@
 import { expect, ROUTES, test, waitForFonts } from './fixtures';
 
 /**
- * Screenshots for the visual audit (specification §20). They are written to test-results/screenshots and
+ * Screenshots for the visual audit (specification §20). They are written to visual-audit/ (kept between runs) and
  * reviewed by a person; they are not compared automatically. Run with `npm run test:visual`.
  */
 const VIEWPORTS = [
@@ -27,7 +27,7 @@ test.describe('@visual screenshots', () => {
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(route.title);
         await waitForFonts(page);
         await page.mouse.move(0, viewport.height - 1);
-        await page.screenshot({ path: `test-results/screenshots/${size}/${route.name}.png` });
+        await page.screenshot({ path: `visual-audit/${size}/${route.name}.png` });
       }
     });
 
@@ -37,33 +37,33 @@ test.describe('@visual screenshots', () => {
       await waitForFonts(page);
       await page.getByRole('button', { name: 'Menu du profil' }).click();
       await expect(page.getByRole('menu')).toBeVisible();
-      await page.screenshot({ path: `test-results/screenshots/${size}/state-profile-menu.png` });
+      await page.screenshot({ path: `visual-audit/${size}/state-profile-menu.png` });
       await page.keyboard.press('Escape');
 
       await page.getByRole('button', { name: 'Replier la barre latérale' }).click();
       await page.getByRole('link', { name: 'Bibliothèque' }).hover();
       await expect(page.getByRole('tooltip')).toBeVisible();
       await page.screenshot({
-        path: `test-results/screenshots/${size}/state-sidebar-collapsed.png`,
+        path: `visual-audit/${size}/state-sidebar-collapsed.png`,
       });
       await page.getByRole('button', { name: 'Déplier la barre latérale' }).click();
 
       await page.getByRole('button', { name: /Rechercher dans ARCHIVE/ }).hover();
       await expect(page.getByRole('tooltip')).toBeVisible();
       await page.screenshot({
-        path: `test-results/screenshots/${size}/state-search-unavailable.png`,
+        path: `visual-audit/${size}/state-search-unavailable.png`,
       });
 
       await page.goto('/#/dev/ui');
       await waitForFonts(page);
       await page.getByRole('button', { name: 'Confirmation destructive' }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
-      await page.screenshot({ path: `test-results/screenshots/${size}/state-confirm-dialog.png` });
+      await page.screenshot({ path: `visual-audit/${size}/state-confirm-dialog.png` });
       await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Succès' }).click();
       await page.getByRole('button', { name: 'Erreur' }).click();
       await expect(page.getByText('Import impossible', { exact: true })).toBeVisible();
-      await page.screenshot({ path: `test-results/screenshots/${size}/state-toasts.png` });
+      await page.screenshot({ path: `visual-audit/${size}/state-toasts.png` });
     });
   }
 });
