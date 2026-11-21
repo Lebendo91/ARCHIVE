@@ -6,6 +6,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 2 : base de données et stockage local (2026-11-21)
+
+- Base SQLite locale (mode WAL) dans le dossier local de l'application, avec des migrations versionnées :
+  - copie de sécurité automatique avant chaque migration ;
+  - détection des migrations modifiées ;
+  - annulation complète en cas d'échec ;
+  - refus de toucher une base créée par une version plus récente.
+- Schéma des entités cœur : espaces de travail, dossiers, documents et texte extrait, notes, étiquettes,
+  relations avec provenance, événements de chronologie, fournisseurs IA et paramètres. Il comprend des noms
+  uniques insensibles à la casse et aux accents, une corbeille réversible pour les documents et les notes, et
+  des notes protégées contre l'écrasement d'une version plus récente.
+- Couche d'accès aux données validée, avec des règles de suppression sûres : un espace ou un dossier non vide
+  ne se supprime jamais implicitement.
+- Stockage géré des fichiers : copie atomique sans jamais modifier l'original, empreinte SHA-256, chemins
+  protégés contre la traversée de répertoires.
+- Mode sans échec : si la base ne peut pas être ouverte, ARCHIVE démarre quand même, explique la cause,
+  rassure sur l'intégrité des données et propose de réessayer ou d'ouvrir le dossier des données.
+- Paramètres persistés : la langue de l'interface (français ou anglais) s'applique immédiatement et est
+  conservée.
+- Paramètres › Stockage : emplacements réels, espace utilisé, espace disque libre, ouverture des dossiers et
+  vérification de l'intégrité de la base. Indicateur de stockage dans la barre latérale.
+- Journal applicatif rotatif (`logs/archive.log`), sans contenu de document ni secret.
+- Messages d'erreur traduits pour chaque code d'erreur du cœur natif.
+- Types TypeScript générés depuis Rust (`ts-rs`) et vérifiés par la CI.
+- Qualité : 98 tests Rust, 86 tests unitaires et d'intégration, 37 tests de bout en bout et d'accessibilité.
+
 ### Ajouté — Phase 1 : fondation et design system (2026-11-21)
 
 - Application de bureau Tauri 2 : cœur Rust (commandes `app_info` et `log_frontend_event`), CSP stricte,

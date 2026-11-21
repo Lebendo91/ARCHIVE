@@ -5,15 +5,17 @@
 
 ## Phase courante
 
-**Phase 2 — Base de données et stockage local : en cours** (branche `phase/2-data`).
-La Phase 1 a été validée par le porteur du projet le 2026-11-21 et fusionnée dans `main`.
+**Phase 2 — Base de données et stockage local : implémentée et validée en local** (branche `phase/2-data`).
+Il reste à vérifier la CI GitHub (Linux et Windows) sur cette branche, puis à la fusionner dans `main`
+(voir « Action suivante exacte »). La Phase 1 a été validée par le porteur du projet le 2026-11-21 et
+fusionnée dans `main`.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
 | 1 | Fondation et design system | ✅ Terminée et validée |
-| 2 | Base de données et stockage local | 🔄 En cours |
-| 3 | Vue d'ensemble et espaces de travail | À faire |
+| 2 | Base de données et stockage local | 🟡 Validée en local, CI à confirmer |
+| 3 | Vue d'ensemble et espaces de travail | ⏳ Prochaine |
 | 4 | Bibliothèque | À faire |
 | 5 | Notes | À faire |
 | 6 | Recherche intelligente | À faire |
@@ -31,6 +33,66 @@ La Phase 1 a été validée par le porteur du projet le 2026-11-21 et fusionnée
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 2 — Base de données et stockage local
+
+### Tâches réalisées
+
+- [x] **2.1** SQLite (`rusqlite` embarqué, WAL, une connexion d'écriture et deux en lecture seule), gestionnaire de
+      migrations (sommes de contrôle, copie `VACUUM INTO` avant migration, refus des bases plus récentes,
+      annulation complète en cas d'échec), migration `0001_initial.sql`, erreur centralisée `AppError`
+      (`{ code, message }`), journal rotatif `logs/archive.log`, mode sans échec.
+- [x] **2.2** Dépôts : workspaces, folders, tags, notes (révisions, corbeille), documents (doublons par empreinte,
+      corbeille, texte extrait séparé), relations (origine, statut, confiance, provenance), timeline, settings.
+- [x] **2.3** Stockage des fichiers : copie atomique en lecture seule de la source, SHA-256 en flux, chemins dérivés
+      d'identifiants validés, usage, nettoyage de `tmp/`, ouverture des dossiers (`tauri-plugin-opener`, côté
+      Rust), espace disque réel (`fs4`).
+- [x] **2.4** Frontend : types générés (`ts-rs` vers `src/types/bindings`), table de commandes typée, TanStack
+      Query, démarrage qui attend le statut et les paramètres, langue persistée, Paramètres › Stockage réels,
+      indicateur de stockage dans la barre latérale, écran du mode sans échec, messages d'erreur par code.
+- [x] **2.5** Validation locale complète (ci-dessous) et documentation (ARCHITECTURE, CHANGELOG, captures
+      `docs/screenshots/phase-2/`).
+
+### Validation (critères de la spec §21, Phase 2)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Créer, lire, modifier des enregistrements | ✅ | Tests Rust de chaque dépôt |
+| Supprimer de façon sûre | ✅ | Espace ou dossier non vide refusé, corbeille avant purge, relations nettoyées, original jamais touché |
+| Redémarrer l'application, vérifier la persistance | ✅ | Binaire natif relancé trois fois sous Xvfb avec `ARCHIVE_DATA_DIR` : langue enregistrée relue au démarrage (interface en anglais, capture `native-relaunch-english.png`), aucune migration ni copie inutile à la relance ; test Rust de réouverture |
+| Comportement des migrations | ✅ | 7 tests (base vide, idempotence, sauvegarde préalable, échec annulé, migration modifiée, base trop récente, fins de ligne) ; premier lancement natif : migration v1 appliquée, 13 tables |
+| Mode sans échec | ✅ | Base corrompue : l'application démarre, explique la cause et ne modifie pas le fichier (test Rust, test de bout en bout, capture native) |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` (dont les tests d'export `ts-rs`) | ✅ 98/98 |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 86/86 |
+| `npm run test:e2e` (dont axe-core sur le mode sans échec et la page Stockage) | ✅ 37/37 |
+| `npm run test:visual` | ✅ captures revues ; deux défauts corrigés (vide sous les boutons du mode sans échec, double état actif dans la barre latérale) |
+| Build natif de production (`tauri build --no-bundle`) et trois lancements sous Xvfb | ✅ aucune erreur d'interface ni violation de CSP dans le journal |
+| CI GitHub (Linux et Windows) | ⏳ à vérifier après le push de la branche |
+
+### Dépendances ajoutées
+
+- **crates** : `rusqlite` 0.43 (`bundled`), `uuid` 1.29 (`v7`), `sha2` 0.11, `hex`, `thiserror` 2, `log`, `fs4` 1.1,
+  `ts-rs` 12, `tauri-plugin-log` 2.10, `tauri-plugin-opener` 2.7 ; en développement, `tempfile`.
+  La version minimale de Rust passe à 1.90 (exigence de ces crates).
+- **npm** : `@tanstack/react-query` 5.108.
+
+### Limites restantes
+
+- L'ouverture des dossiers dans l'Explorateur n'a pas pu être exercée dans le conteneur, faute de gestionnaire de
+  fichiers. Le chemin d'erreur est testé (notification explicite) ; à vérifier sous Windows.
+- Les dépôts des documents, notes, étiquettes et relations ne sont pas encore exposés par des commandes. Ils le
+  seront avec leurs écrans (Phases 3 à 5).
+- Pas encore de tests de bout en bout pilotant l'application native (WebDriver) : la persistance est validée par
+  des lancements scriptés sous Xvfb.
 
 ---
 
@@ -176,19 +238,18 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Si la Phase 1 est validée** (fusion de `phase/1-foundation` dans `main`) : démarrer la **Phase 2 —
-   Base de données et stockage local** sur la branche `phase/2-data`, par la **tâche 2.1** :
-   - ajouter `rusqlite` (`bundled`) et un module `src-tauri/src/db/` : ouverture de `archive.db` dans le
-     dossier de données de l'application ; PRAGMA `foreign_keys`, `journal_mode=WAL`, `synchronous=NORMAL`,
-     `busy_timeout` ;
-   - écrire le gestionnaire de migrations : fichiers `src-tauri/migrations/NNNN_*.sql` embarqués, table
-     `schema_migrations` avec sommes de contrôle, une transaction par migration, copie de sauvegarde avant
-     toute migration, mode sans échec en cas d'erreur ;
-   - créer la migration `0001_initial.sql` avec les tables du schéma prévisionnel (ARCHITECTURE §6.3) qui
-     relèvent de la Phase 2 ;
-   - définir l'erreur applicative centralisée `AppError` (`{ code, message }`) ;
-   - **valider** avec des tests Rust (base vide, migrations successives, échec simulé, idempotence) et une
-     vérification de persistance après redémarrage.
-2. Compléter le script de l'environnement cloud par `npm ci` dans le dépôt (via `update_environment`), une fois
-   le script vérifié dans une nouvelle session.
-3. Décider en Phase 2 (ARCHITECTURE §16) : génération des types (`ts-rs`), cache de données frontend, corbeille.
+1. **Clore la Phase 2** :
+   - vérifier que les workflows `CI` et `Windows build` de la branche `phase/2-data` sont au vert (API GitHub :
+     `/repos/Lebendo91/ARCHIVE/actions/runs?branch=phase/2-data`) ; corriger si nécessaire ;
+   - inscrire les résultats dans ce document, puis fusionner en avance rapide dans `main` et pousser (le porteur a
+     demandé l'enchaînement autonome des phases le 2026-11-21).
+2. **Phase 3 — Vue d'ensemble et espaces de travail**, branche `phase/3-workspaces` :
+
+| # | Tâche |
+|---|---|
+| **3.1** | Commandes Rust `workspaces_*` : liste avec compteurs réels, création, modification, archivage et restauration, suppression avec réaffectation explicite des ressources vers un autre espace ou « sans espace » ; événements de chronologie (`workspace_created`, `resource_archived`, `resource_restored`) ; commande `dashboard_overview` (statistiques réelles : documents, notes, espaces, stockage, éléments indexés récemment, activité récente, favoris) |
+| 3.2 | Écran « Espaces de travail » : grille, création et édition (nom, description, couleur parmi les jetons, icône parmi une sélection Lucide), archivage, suppression protégée (explication, choix de destination, confirmation) |
+| 3.3 | Tableau de bord d'un espace (`/workspaces/:id`) : description, compteurs, activité récente, favoris, actions disponibles |
+| 3.4 | Barre latérale : raccourcis des espaces actifs et « Créer un espace » ; menu « Création rapide » dans la barre supérieure ; `Ctrl+Maj+N` disponible |
+| 3.5 | Vue d'ensemble réelle : statistiques, activité récente, récemment ouverts, favoris, avec des états vides honnêtes ; accueil d'une première installation (spec §6.2), sans contenu fictif |
+| 3.6 | Validation : tests Rust, unitaires, de bout en bout et d'accessibilité ; persistance native ; audit visuel ; documentation ; CI ; fusion |

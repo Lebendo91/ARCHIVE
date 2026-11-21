@@ -1,7 +1,7 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phase 1 implémentée (fondation et design system). Les sections des phases suivantes restent
-> l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phases 1 et 2 implémentées (fondation, design system, données et stockage local). Les sections
+> des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -59,6 +59,9 @@ explicitement, qui valide ses entrées (spec §18.3).
 | Primitives accessibles | Radix UI (`radix-ui`) | 1.8 | Dialogues, menus, infobulles et notifications : focus, clavier et ARIA conformes, stylés avec les jetons. Ajouté en Phase 1 |
 | Qualité | ESLint 10 + `typescript-eslint` + `react-hooks`, Prettier, `rustfmt`, `clippy` | — | `eslint-plugin-jsx-a11y` écarté : il ne supporte pas ESLint 10, et ESLint 9 est en fin de vie |
 | Accessibilité | `@axe-core/playwright` | 4.14 | Audit WCAG 2.2 A/AA à l'exécution, sur chaque écran |
+| Données côté interface | TanStack Query | 5.108 | Cache, états de chargement et d'erreur, invalidation après mutation (Phase 2) |
+| Types partagés | `ts-rs` | 12 | Types TypeScript générés depuis Rust par `cargo test` dans `src/types/bindings`, vérifiés par la CI (Phase 2) |
+| Journal, ouverture de dossiers, espace disque | `tauri-plugin-log`, `tauri-plugin-opener` (côté Rust uniquement), `fs4` | 2.10 / 2.7 / 1.1 | Journal rotatif dans `logs/`, ouverture des dossiers dans l'Explorateur, espace libre réel (Phase 2) |
 | Paquets | npm | 10.9 | Universel, rien à installer en plus sur la CI Windows |
 | CI/CD | GitHub Actions | — | Ubuntu pour les contrôles, `windows-latest` pour les installateurs |
 
@@ -206,7 +209,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Socle implémenté (Phase 1), données en Phase 2*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 et 2)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -224,19 +227,29 @@ Règles qui en découlent :
   `tauri::ipc::Channel`, annulation par jeton (`CancellationToken`) et une commande `*_cancel`.
 - **Invalidation** : des événements (`library:changed`, `notes:changed`…) signalent au frontend les données à
   recharger.
-- **Types partagés** : les DTO sont définis une seule fois en Rust et le TypeScript correspondant est **généré**
-  (`ts-rs` ou `specta`, décision en Phase 2), jamais recopié à la main.
+- **Types partagés** (Phase 2) : les DTO sont définis une seule fois en Rust (`#[derive(TS)]`) et le TypeScript
+  correspondant est **généré** par `ts-rs` lors de `cargo test`, dans `src/types/bindings`. Ces fichiers ne
+  sont jamais modifiés à la main, et la CI échoue s'ils ne sont pas à jour. Côté interface,
+  `src/services/tauri.ts` associe chaque commande à ses arguments et à son résultat générés.
+- **Exécution** (Phase 2) : les commandes qui touchent la base ou le disque s'exécutent via `spawn_blocking`,
+  jamais sur le fil principal. Les erreurs techniques sont journalisées en détail au moment de les renvoyer.
+- **Mode sans échec** (Phase 2) : si la base ne peut pas s'ouvrir (fichier endommagé, base issue d'une version
+  plus récente, migration en échec), l'application démarre quand même. `app_status` décrit la cause, et
+  l'interface affiche un écran explicatif avec « Réessayer » (`database_retry`) et l'accès au dossier des
+  données. La base n'est jamais modifiée dans ce cas.
 - **Concurrence** : SQLite en mode WAL, une connexion d'écriture sérialisée et des connexions de lecture. Un
   worker d'arrière-plan traite la file, les tâches lourdes passent par `spawn_blocking` : l'interface n'est
   jamais bloquée (spec §25, Performance).
 
-## 6. Base de données — *Prévu (Phase 2)*
+## 6. Base de données — *Implémentée (Phase 2)*
 
 ### 6.1 Configuration
 
-- Fichier `archive.db` dans le dossier de données de l'application.
-- À chaque connexion : `PRAGMA foreign_keys = ON`, `journal_mode = WAL`, `synchronous = NORMAL`,
-  `busy_timeout = 5000`.
+- Fichier `archive.db` dans le dossier de données de l'application. Une connexion d'écriture (transactions
+  `IMMEDIATE`) et deux connexions en lecture seule (`query_only`), en mode WAL : les lectures n'attendent jamais
+  une écriture longue.
+- À chaque connexion : `PRAGMA foreign_keys = ON`, `busy_timeout = 5000` ; pour l'écriture,
+  `journal_mode = WAL` (vérifié) et `synchronous = NORMAL`.
 - Contrôles d'intégrité (`PRAGMA integrity_check`, `foreign_key_check`) exposés dans Paramètres › Stockage.
 
 ### 6.2 Conventions
@@ -249,9 +262,11 @@ Règles qui en découlent :
   une réaffectation explicite de ses ressources (clé étrangère `RESTRICT` et parcours guidé, spec §12.3). Seules
   les tables de liaison (étiquettes) utilisent `CASCADE`.
 
-### 6.3 Schéma prévisionnel
+### 6.3 Schéma
 
-Les tables de la spec §5.1, avec des ajouts justifiés :
+Le schéma v1 (`src-tauri/migrations/0001_initial.sql`) crée les tables marquées « 2 ». Les autres arriveront
+par de nouvelles migrations, dans leurs phases. Ce sont les tables de la spec §5.1, avec des ajouts
+justifiés :
 
 | Table | Rôle | Phase |
 |---|---|---|
@@ -271,6 +286,19 @@ Les tables de la spec §5.1, avec des ajouts justifiés :
 | `conversations`, `messages`, `message_citations` | Assistant IA | 9 |
 | `backups` | Historique des sauvegardes | 10 |
 
+**Écarts assumés par rapport à la spec §5.1 (Phase 2) :**
+- `app_settings` utilise la clé (`setting_key`) comme clé primaire, sans colonne `id` : la clé est l'identité
+  naturelle d'un paramètre.
+- Colonnes ajoutées :
+  - `name_key` (noms normalisés) pour interdire les doublons malgré la casse et les espaces ; SQLite ne sait
+    pas comparer la casse des lettres accentuées ;
+  - `deleted_at` sur les documents et les notes (corbeille réversible) ;
+  - `revision` et `content_text` sur les notes (enregistrement sans écrasement, texte pour la recherche) ;
+  - `workspace_id` sur les événements de chronologie (filtre par espace, spec §13.2) ;
+  - `origin`, `status` et `provenance_json` sur les relations (spec §10.4).
+- Les couleurs sont stockées sous forme de noms de jetons (`amber`, `cyan`…), jamais de valeurs : la palette
+  reste la source unique.
+
 ### 6.4 Migrations
 
 - Les fichiers `src-tauri/migrations/NNNN_description.sql` sont embarqués à la compilation et appliqués dans
@@ -280,17 +308,29 @@ Les tables de la spec §5.1, avec des ajouts justifiés :
   `backups/pre-migration-<version>-<horodatage>.db`.
 - En cas d'échec, la transaction est annulée et l'application s'ouvre en **mode sans échec**. Un écran explique
   le problème et propose d'ouvrir le dossier de données ou de restaurer la copie. Jamais de migration partielle.
-- Tests : migration depuis une base vide, puis depuis chaque version antérieure avec des données d'essai.
+- Tests (Phase 2, tous en place) :
+  - base vide ;
+  - réouverture sans effet ;
+  - sauvegarde avant migration contenant les données ;
+  - échec annulé entièrement ;
+  - migration modifiée détectée ;
+  - base plus récente laissée intacte ;
+  - persistance après réouverture.
+- Le `PRAGMA user_version` reflète aussi la version, pour les outils externes.
 
-## 7. Stockage des fichiers — *Prévu (Phases 2 et 4)*
+## 7. Stockage des fichiers — *Service implémenté (Phase 2), import en Phase 4*
+
+Le dossier de données est le **dossier local** de l'application (`%LOCALAPPDATA%\<identifiant>` sous Windows),
+et non `%APPDATA%` (Roaming). Une collection de documents volumineuse ne doit pas suivre un profil itinérant.
+La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
 
 ```text
-<dossier de données de l'application>/        ex. %APPDATA%\<identifiant>\ sous Windows
+<dossier de données de l'application>/        ex. %LOCALAPPDATA%\<identifiant>\ sous Windows
 ├── archive.db (+ -wal, -shm)
 ├── files/<2 derniers caractères hex de l'id>/<id>.<ext>   # répartition sur la partie aléatoire de l'UUID v7
 ├── thumbnails/                                            # aperçus générés (optionnel)
-├── backups/
-├── logs/
+├── backups/                                               # dont les copies prises avant chaque migration
+├── logs/                                                  # archive.log, rotation à 5 Mo, 5 fichiers gardés
 └── tmp/                                                   # préparation des imports, nettoyé au démarrage
 ```
 
@@ -478,12 +518,20 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 |---|---|---|---|
 | **Identifiant d'application** (il fixe le dossier de données et ne peut plus changer après diffusion) | domaine possédé par le porteur, ou `io.github.lebendo91.archive` | domaine du porteur s'il en a un, sinon `io.github.lebendo91.archive` | Phase 1, **validation du porteur** |
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
-| Génération des types Rust → TS | `ts-rs` ou `specta` | `ts-rs` (plus simple, stable) | Phase 2 |
-| Cache de données frontend | TanStack Query, ou services + Zustand | évaluer sur des cas réels | Phase 2 |
-| Corbeille (suppression différée et réversible) | oui ou non | oui : renforce « ne jamais supprimer silencieusement » | Phase 2 (schéma) |
 | Extraction PDF | pdf.js en worker, ou crate Rust | pdf.js | Phase 4 |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 2
+
+| Décision | Justification |
+|---|---|
+| Types générés avec `ts-rs`, vérifiés par la CI | Une seule définition des données ; une divergence entre Rust et TypeScript devient impossible |
+| TanStack Query | Les écrans lisent et modifient des données natives (paramètres, stockage) : cache, états et invalidation unifiés, sans réécrire ce mécanisme dans chaque écran |
+| Corbeille dans le schéma (`deleted_at`), interface en Phases 4 et 5 | « Ne jamais supprimer silencieusement » : la suppression d'un document ou d'une note est réversible jusqu'à une purge explicite |
+| Données dans `%LOCALAPPDATA%` | Les gros volumes ne doivent pas suivre un profil itinérant |
+| Journal dans `logs/` du dossier de données | Un seul emplacement à sauvegarder et à consulter ; rotation pour borner la taille |
+| L'interface attend le statut et les paramètres avant de s'afficher | Elle apparaît directement dans la langue choisie, sans flash de texte français |
 
 ### Décisions prises en Phase 1
 

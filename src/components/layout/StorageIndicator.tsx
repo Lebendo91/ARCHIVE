@@ -1,5 +1,5 @@
 import { HardDrive } from 'lucide-react';
-import { NavLink } from 'react-router';
+import { Link } from 'react-router';
 import { Tooltip } from '@/components/ui';
 import { formatFileSize, useI18n } from '@/i18n';
 import { errorMessageKey } from '@/services/errors';
@@ -20,17 +20,15 @@ export function StorageIndicator({ collapsed }: { collapsed: boolean }) {
       : t('common.loading');
   const label = t('sidebar.storage');
 
+  // A status widget, not a navigation item: it never takes the « current page » state.
   const link = (
-    <NavLink
+    <Link
       to="/settings/storage"
       aria-label={collapsed ? `${label} — ${detail}` : undefined}
-      className={({ isActive }) =>
-        cn(
-          'group flex cursor-default items-center gap-3 rounded-control transition-colors duration-150 ease-standard',
-          collapsed ? 'mx-auto h-10 w-10 justify-center' : 'px-3 py-2',
-          isActive ? 'bg-graphite text-fg' : 'text-fg-secondary hover:bg-graphite/60 hover:text-fg',
-        )
-      }
+      className={cn(
+        'group flex cursor-default items-center gap-3 rounded-control text-fg-secondary transition-colors duration-150 ease-standard hover:bg-graphite/60 hover:text-fg',
+        collapsed ? 'mx-auto h-10 w-10 justify-center' : 'px-3 py-2',
+      )}
     >
       <HardDrive size={18} className="shrink-0" />
       {collapsed ? null : (
@@ -39,7 +37,7 @@ export function StorageIndicator({ collapsed }: { collapsed: boolean }) {
           <span className="truncate text-2xs text-fg-secondary">{detail}</span>
         </span>
       )}
-    </NavLink>
+    </Link>
   );
 
   return collapsed ? (

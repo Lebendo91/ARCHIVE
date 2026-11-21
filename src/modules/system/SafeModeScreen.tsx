@@ -53,43 +53,46 @@ export function SafeModeScreen({ status, error }: SafeModeScreenProps) {
             <code className="font-mono text-xs break-all text-fg">{status.dataDir}</code>
           </div>
         ) : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="primary"
-            icon={RotateCcw}
-            loading={retry.isPending}
-            onClick={() => {
-              setNotice(null);
-              retry.mutate(undefined, {
-                onSuccess: (next) => {
-                  if (next.database === 'unavailable') {
-                    setNotice(t('safeMode.stillUnavailable'));
-                  }
-                },
-                onError: (failure) => {
-                  setNotice(t(errorMessageKey(failure)));
-                },
-              });
-            }}
-          >
-            {t('safeMode.retry')}
-          </Button>
-          <Button
-            icon={FolderOpen}
-            onClick={() => {
-              openFolder.mutate('data', {
-                onError: (failure) => {
-                  setNotice(t(errorMessageKey(failure)));
-                },
-              });
-            }}
-          >
-            {t('safeMode.openDataFolder')}
-          </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="primary"
+              icon={RotateCcw}
+              loading={retry.isPending}
+              onClick={() => {
+                setNotice(null);
+                retry.mutate(undefined, {
+                  onSuccess: (next) => {
+                    if (next.database === 'unavailable') {
+                      setNotice(t('safeMode.stillUnavailable'));
+                    }
+                  },
+                  onError: (failure) => {
+                    setNotice(t(errorMessageKey(failure)));
+                  },
+                });
+              }}
+            >
+              {t('safeMode.retry')}
+            </Button>
+            <Button
+              icon={FolderOpen}
+              onClick={() => {
+                openFolder.mutate('data', {
+                  onError: (failure) => {
+                    setNotice(t(errorMessageKey(failure)));
+                  },
+                });
+              }}
+            >
+              {t('safeMode.openDataFolder')}
+            </Button>
+          </div>
+          {/* Live region kept in the page so that its messages are announced; empty, it takes no space. */}
+          <p role="status" className="text-sm text-warning">
+            {notice}
+          </p>
         </div>
-        <p role="status" className="min-h-5 text-sm text-warning">
-          {notice}
-        </p>
         {detail ? (
           <details className="rounded-card border border-line-subtle bg-obsidian p-4">
             <summary className="cursor-default text-xs font-medium text-fg-secondary">
