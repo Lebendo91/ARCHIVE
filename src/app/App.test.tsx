@@ -1,8 +1,7 @@
-import { mockIPC } from '@tauri-apps/api/mocks';
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useUiStore } from '@/stores/ui';
-import { MOCK_APP_INFO, renderApp } from '@/test/render';
+import { mockNativeRuntime, renderApp } from '@/test/render';
 
 function pageTitle() {
   return screen.getByRole('heading', { level: 1 });
@@ -86,7 +85,7 @@ describe('application shell', () => {
   });
 
   it('shows the real build information in About when the native runtime answers', async () => {
-    mockIPC((command) => (command === 'app_info' ? MOCK_APP_INFO : undefined));
+    mockNativeRuntime();
     renderApp('/settings/about');
     expect(await screen.findByText('0.1.0')).toBeInTheDocument();
     expect(screen.getByText('abc1234def')).toBeInTheDocument();
@@ -101,7 +100,7 @@ describe('application shell', () => {
         'Les informations de version ne sont disponibles que dans l’application de bureau.',
       ),
     ).toBeInTheDocument();
-    mockIPC((command) => (command === 'app_info' ? MOCK_APP_INFO : undefined));
+    mockNativeRuntime();
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
     expect(await screen.findByText('0.1.0')).toBeInTheDocument();
   });

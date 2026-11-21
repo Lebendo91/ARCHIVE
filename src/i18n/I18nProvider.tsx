@@ -40,6 +40,11 @@ export function I18nProvider({ locale = 'fr', children }: I18nProviderProps) {
   return <I18nContext value={value}>{children}</I18nContext>;
 }
 
+/** Translates a key in a given language, independently of the language currently displayed. */
+export function translateFor(locale: Locale, key: MessageKey, params?: MessageParams): string {
+  return translate(DICTIONARIES[locale], key, params);
+}
+
 export function useI18n(): I18nContextValue {
   const context = use(I18nContext);
   if (!context) {

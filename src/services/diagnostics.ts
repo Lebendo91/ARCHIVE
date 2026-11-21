@@ -1,6 +1,4 @@
-import { callCommand, isNativeRuntime } from './tauri';
-
-export type DiagnosticLevel = 'error' | 'warn' | 'info';
+import { callCommand, isNativeRuntime, type DiagnosticLevel } from './tauri';
 
 /** Longest message sent to the native log (the native side truncates as well). */
 const MAX_MESSAGE_LENGTH = 2_000;

@@ -42,6 +42,27 @@ export const fr = {
   sidebar: {
     collapse: 'Replier la barre latérale',
     expand: 'Déplier la barre latérale',
+    storage: 'Stockage local',
+    storageUsed: '{size} utilisés',
+  },
+  boot: {
+    loading: 'Chargement d’ARCHIVE…',
+  },
+  safeMode: {
+    title: 'ARCHIVE n’a pas pu ouvrir vos données',
+    reassurance: 'Vos données n’ont pas été modifiées.',
+    causes: {
+      databaseTooNew:
+        'Votre base de données a été créée par une version plus récente d’ARCHIVE. Installez la dernière version pour y accéder.',
+      migrationFailed:
+        'La mise à jour de la structure de la base de données a échoué. La copie de sécurité prise juste avant se trouve dans le dossier des sauvegardes.',
+      other:
+        'La base de données est inaccessible. Elle est peut-être utilisée par un autre programme ou endommagée, ou le disque est plein.',
+    },
+    retry: 'Réessayer',
+    openDataFolder: 'Ouvrir le dossier des données',
+    dataDir: 'Dossier des données',
+    stillUnavailable: 'La base de données est toujours inaccessible.',
   },
   topbar: {
     breadcrumb: 'Fil d’Ariane',
@@ -198,12 +219,15 @@ export const fr = {
     upcomingTitle: 'Réglages à venir',
     general: {
       description: 'Préférences générales de l’application.',
-      current: {
-        language: 'Langue de l’interface',
-        languageValue: 'Français',
+      languageTitle: 'Langue de l’interface',
+      languageDescription:
+        'La langue s’applique immédiatement et reste en place lors des prochains démarrages.',
+      languages: {
+        fr: 'Français',
+        en: 'English',
       },
+      languageSaved: 'Langue de l’interface mise à jour.',
       upcoming: [
-        'Langue de l’interface',
         'Comportement au démarrage',
         'Espace de travail par défaut',
         'Préférences de notification',
@@ -221,12 +245,42 @@ export const fr = {
     },
     storage: {
       description: 'Emplacement et protection de vos données locales.',
-      upcoming: [
-        'Dossiers de données, de fichiers et de sauvegardes',
-        'Espace utilisé par ARCHIVE',
-        'Ouverture des dossiers dans l’Explorateur',
-        'Sauvegarde, restauration et export',
-      ],
+      locationsTitle: 'Emplacements',
+      locations: {
+        data: 'Dossier des données',
+        database: 'Base de données',
+        files: 'Fichiers importés',
+        backups: 'Sauvegardes',
+        logs: 'Journaux',
+      },
+      open: 'Ouvrir',
+      openLabel: 'Ouvrir le dossier «\u00a0{folder}\u00a0»',
+      usageTitle: 'Espace utilisé',
+      usage: {
+        database: 'Base de données',
+        files: 'Fichiers importés',
+        filesCount: '{count} fichier(s)',
+        backups: 'Sauvegardes',
+        logs: 'Journaux',
+        total: 'Total utilisé par ARCHIVE',
+        diskFree: 'Espace libre sur le disque',
+        diskFreeValue: '{free} sur {total}',
+        unknown: 'Information indisponible',
+      },
+      integrityTitle: 'Intégrité de la base de données',
+      integrityDescription:
+        'Vérifie la structure de la base et la cohérence des liens entre les éléments.',
+      integrityRun: 'Vérifier l’intégrité',
+      integrityOk: 'Aucun problème détecté.',
+      integrityProblems: 'Problèmes détectés\u00a0: {count}',
+      integrityCheckedAt: 'Vérification effectuée le {date}.',
+      backupsTitle: 'Sauvegardes',
+      backupsAutomatic:
+        'Avant chaque mise à jour de la structure de la base, ARCHIVE en dépose automatiquement une copie dans le dossier des sauvegardes.',
+      backupsUpcoming:
+        'La sauvegarde complète, la restauration et l’export arrivent avec un prochain module.',
+      unavailable:
+        'Les informations de stockage ne sont disponibles que dans l’application de bureau.',
     },
     ai: {
       description: 'Fournisseur d’intelligence artificielle facultatif.',
@@ -296,6 +350,24 @@ export const fr = {
     details: 'Détails techniques',
     notFoundTitle: 'Page introuvable',
     notFoundDescription: 'Cette page n’existe pas ou a été déplacée.',
+    codes: {
+      invalid_input: 'Certaines informations saisies ne sont pas valides.',
+      not_found: 'Cet élément n’existe plus.',
+      name_taken: 'Ce nom est déjà utilisé.',
+      in_use: 'Cet élément est encore utilisé et ne peut pas être supprimé.',
+      stale_revision: 'Ce contenu a été modifié entre-temps. Rechargez-le avant d’enregistrer.',
+      duplicate_content: 'Un document identique existe déjà dans votre bibliothèque.',
+      database_unavailable: 'La base de données est indisponible.',
+      database_too_new: 'Votre base de données provient d’une version plus récente d’ARCHIVE.',
+      migration_failed: 'La mise à jour de la base de données a échoué.',
+      storage: 'Une opération sur les fichiers a échoué.',
+      database: 'Une opération sur la base de données a échoué.',
+      io: 'Un fichier ou un dossier est inaccessible.',
+      internal: 'Une erreur inattendue s’est produite.',
+      native_runtime_unavailable:
+        'Cette fonction n’est disponible que dans l’application de bureau.',
+      unknown: 'Une erreur inattendue s’est produite.',
+    },
   },
   toasts: {
     region: 'Notifications',

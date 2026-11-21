@@ -1,9 +1,9 @@
 import { CircleAlert, CircleHelp, RotateCcw } from 'lucide-react';
 import { ArchiveMark } from '@/components/brand/ArchiveMark';
 import { Button, ButtonLink, Card, Skeleton } from '@/components/ui';
-import { useAppInfo } from '@/hooks/useAppInfo';
 import { useI18n, type MessageKey } from '@/i18n';
 import type { AppInfo } from '@/services/app';
+import { useAppInfo } from '@/services/queries';
 import { CREDITS } from './credits';
 import { SettingsSection } from './SettingsPanels';
 
@@ -57,14 +57,14 @@ export function AboutSettings() {
         <h3 className="text-2xs font-semibold tracking-label text-fg-secondary uppercase">
           {t('about.buildTitle')}
         </h3>
-        <div className="mt-2" aria-busy={appInfo.status === 'loading'}>
-          {appInfo.status === 'loading' ? (
+        <div className="mt-2" aria-busy={appInfo.isPending}>
+          {appInfo.isPending ? (
             <div className="flex flex-col gap-3 py-3">
               <Skeleton surface="raised" className="h-4 w-3/4" />
               <Skeleton surface="raised" className="h-4 w-1/2" />
               <Skeleton surface="raised" className="h-4 w-2/3" />
             </div>
-          ) : appInfo.status === 'error' ? (
+          ) : appInfo.isError ? (
             <div className="flex items-start justify-between gap-4 py-3">
               <p className="flex items-start gap-2 text-sm text-fg-secondary">
                 <span className="flex h-5 shrink-0 items-center text-warning">
@@ -72,7 +72,13 @@ export function AboutSettings() {
                 </span>
                 {t('about.unavailable')}
               </p>
-              <Button size="sm" icon={RotateCcw} onClick={appInfo.retry}>
+              <Button
+                size="sm"
+                icon={RotateCcw}
+                onClick={() => {
+                  void appInfo.refetch();
+                }}
+              >
                 {t('common.retry')}
               </Button>
             </div>

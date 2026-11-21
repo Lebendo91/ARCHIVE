@@ -19,6 +19,14 @@ describe('callCommand', () => {
     await expect(getAppInfo()).resolves.toEqual(MOCK_APP_INFO);
   });
 
+  it('keeps unknown error codes from leaking as trusted codes', async () => {
+    mockIPC(() => {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw { code: 'something_new', message: 'Unexpected' };
+    });
+    await expect(callCommand('app_info')).rejects.toMatchObject({ code: 'unknown' });
+  });
+
   it('normalizes native errors into CommandError', async () => {
     mockIPC(() => {
       // Tauri rejects with the serialized error value of the command: a plain object, not an Error.

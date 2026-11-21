@@ -29,6 +29,9 @@ for (const method of ['scrollIntoView', 'hasPointerCapture', 'releasePointerCapt
 afterEach(() => {
   cleanup();
   clearMocks();
+  // clearMocks empties the Tauri internals but leaves the object: remove it so that the next test starts
+  // outside the desktop runtime unless it installs a runtime double.
+  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
   localStorage.clear();
   useUiStore.setState({ sidebarCollapsed: false });
   useToastStore.setState({ toasts: [] });

@@ -68,6 +68,13 @@ jobs:
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
-      - name: Tests
+      - name: Tests (also regenerates the TypeScript bindings)
         working-directory: src-tauri
         run: cargo test
+      - name: TypeScript bindings are up to date
+        run: |
+          git add --intent-to-add src/types/bindings
+          git diff --exit-code -- src/types/bindings || {
+            echo "::error::src/types/bindings is out of date: run 'cargo test' in src-tauri and commit the result."
+            exit 1
+          }

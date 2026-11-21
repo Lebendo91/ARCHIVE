@@ -64,6 +64,24 @@ test.describe('@visual screenshots', () => {
       await page.getByRole('button', { name: 'Erreur' }).click();
       await expect(page.getByText('Import impossible', { exact: true })).toBeVisible();
       await page.screenshot({ path: `visual-audit/${size}/state-toasts.png` });
+
+      await page.goto('/#/settings/storage');
+      await page.getByRole('button', { name: 'Vérifier l’intégrité' }).click();
+      await expect(page.getByText('Aucun problème détecté.')).toBeVisible();
+      await page.screenshot({ path: `visual-audit/${size}/state-storage-integrity.png` });
+    });
+
+    test(`safe mode at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.addInitScript(() => {
+        sessionStorage.setItem('archive-e2e-scenario', 'safe-mode');
+      });
+      await page.goto('/');
+      await expect(
+        page.getByRole('heading', { name: 'ARCHIVE n’a pas pu ouvrir vos données' }),
+      ).toBeVisible();
+      await waitForFonts(page);
+      await page.screenshot({ path: `visual-audit/${size}/safe-mode.png` });
     });
   }
 });

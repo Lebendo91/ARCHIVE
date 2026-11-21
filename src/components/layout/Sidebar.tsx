@@ -3,11 +3,13 @@ import { useId } from 'react';
 import { ArchiveMark, ArchiveWordmark } from '@/components/brand/ArchiveMark';
 import { IconButton } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { isNativeRuntime } from '@/services/tauri';
 import { useUiStore } from '@/stores/ui';
 import { cn } from '@/utils/cn';
 import { FOOTER_ITEMS, NAV_SECTIONS, type NavSection } from './navigation';
 import { ProfileMenu } from './ProfileMenu';
 import { SidebarLink } from './SidebarLink';
+import { StorageIndicator } from './StorageIndicator';
 
 function SidebarSection({ section, collapsed }: { section: NavSection; collapsed: boolean }) {
   const { t } = useI18n();
@@ -101,6 +103,7 @@ export function Sidebar() {
       </nav>
 
       <div className="flex shrink-0 flex-col gap-1 border-t border-line-subtle px-3 py-3">
+        {isNativeRuntime() ? <StorageIndicator collapsed={collapsed} /> : null}
         <ul className="flex flex-col gap-1">
           {FOOTER_ITEMS.map((item) => (
             <li key={item.to}>

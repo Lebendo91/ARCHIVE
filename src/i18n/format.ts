@@ -35,3 +35,11 @@ export function formatLongDate(date: Date, locale: Locale): string {
     month: 'long',
   }).format(date);
 }
+
+/** Formats a date and time, for example « 21 novembre 2026 à 14:05 ». */
+export function formatDateTime(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(LOCALE_TAGS[locale], {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(date);
+}

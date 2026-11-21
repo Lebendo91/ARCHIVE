@@ -12,6 +12,8 @@ export default defineConfig([
     'test-results',
     'src-tauri/target',
     'src-tauri/gen',
+    // Generated from the Rust types by ts-rs (`cargo test`).
+    'src/types/bindings',
   ]),
   {
     files: ['**/*.{ts,tsx}'],

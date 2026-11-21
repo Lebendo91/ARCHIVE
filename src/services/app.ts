@@ -1,16 +1,17 @@
+import type { AppInfo } from '@/types/bindings/AppInfo';
+import type { AppStatus } from '@/types/bindings/AppStatus';
 import { callCommand } from './tauri';
 
-/** Mirrors `AppInfo` in src-tauri/src/commands/app.rs (generated bindings replace it in Phase 2). */
-export interface AppInfo {
-  name: string;
-  version: string;
-  tauriVersion: string;
-  commit: string;
-  buildProfile: 'debug' | 'release';
-  targetOs: string;
-  targetArch: string;
-}
+export type { AppInfo, AppStatus };
 
 export function getAppInfo(): Promise<AppInfo> {
-  return callCommand<AppInfo>('app_info');
+  return callCommand('app_info');
+}
+
+export function getAppStatus(): Promise<AppStatus> {
+  return callCommand('app_status');
+}
+
+export function retryDatabase(): Promise<AppStatus> {
+  return callCommand('database_retry');
 }

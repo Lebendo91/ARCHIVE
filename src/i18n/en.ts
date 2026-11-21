@@ -41,6 +41,27 @@ export const en: Dictionary = {
   sidebar: {
     collapse: 'Collapse sidebar',
     expand: 'Expand sidebar',
+    storage: 'Local storage',
+    storageUsed: '{size} used',
+  },
+  boot: {
+    loading: 'Loading ARCHIVE…',
+  },
+  safeMode: {
+    title: 'ARCHIVE could not open your data',
+    reassurance: 'Your data has not been modified.',
+    causes: {
+      databaseTooNew:
+        'Your database was created by a newer version of ARCHIVE. Install the latest version to access it.',
+      migrationFailed:
+        'Updating the database structure failed. The safety copy taken just before is in the backups folder.',
+      other:
+        'The database cannot be opened. It may be used by another program or damaged, or the disk may be full.',
+    },
+    retry: 'Try again',
+    openDataFolder: 'Open the data folder',
+    dataDir: 'Data folder',
+    stillUnavailable: 'The database is still unavailable.',
   },
   topbar: {
     breadcrumb: 'Breadcrumb',
@@ -194,16 +215,14 @@ export const en: Dictionary = {
     upcomingTitle: 'Upcoming settings',
     general: {
       description: 'General application preferences.',
-      current: {
-        language: 'Interface language',
-        languageValue: 'English',
+      languageTitle: 'Interface language',
+      languageDescription: 'The language applies immediately and is kept for the next launches.',
+      languages: {
+        fr: 'Français',
+        en: 'English',
       },
-      upcoming: [
-        'Interface language',
-        'Startup behavior',
-        'Default workspace',
-        'Notification preferences',
-      ],
+      languageSaved: 'Interface language updated.',
+      upcoming: ['Startup behavior', 'Default workspace', 'Notification preferences'],
     },
     appearance: {
       description: 'Theme and visual comfort.',
@@ -217,12 +236,40 @@ export const en: Dictionary = {
     },
     storage: {
       description: 'Location and protection of your local data.',
-      upcoming: [
-        'Data, file and backup folders',
-        'Space used by ARCHIVE',
-        'Opening folders in File Explorer',
-        'Backup, restore and export',
-      ],
+      locationsTitle: 'Locations',
+      locations: {
+        data: 'Data folder',
+        database: 'Database',
+        files: 'Imported files',
+        backups: 'Backups',
+        logs: 'Logs',
+      },
+      open: 'Open',
+      openLabel: 'Open the “{folder}” folder',
+      usageTitle: 'Space used',
+      usage: {
+        database: 'Database',
+        files: 'Imported files',
+        filesCount: '{count} file(s)',
+        backups: 'Backups',
+        logs: 'Logs',
+        total: 'Total used by ARCHIVE',
+        diskFree: 'Free disk space',
+        diskFreeValue: '{free} of {total}',
+        unknown: 'Information unavailable',
+      },
+      integrityTitle: 'Database integrity',
+      integrityDescription:
+        'Checks the structure of the database and the consistency of the links between items.',
+      integrityRun: 'Check integrity',
+      integrityOk: 'No problem found.',
+      integrityProblems: 'Problems found: {count}',
+      integrityCheckedAt: 'Checked on {date}.',
+      backupsTitle: 'Backups',
+      backupsAutomatic:
+        'Before each update of the database structure, ARCHIVE automatically places a copy of it in the backups folder.',
+      backupsUpcoming: 'Full backup, restore and export will come with an upcoming module.',
+      unavailable: 'Storage information is only available in the desktop application.',
     },
     ai: {
       description: 'Optional artificial intelligence provider.',
@@ -291,6 +338,23 @@ export const en: Dictionary = {
     details: 'Technical details',
     notFoundTitle: 'Page not found',
     notFoundDescription: 'This page does not exist or has been moved.',
+    codes: {
+      invalid_input: 'Some of the information entered is not valid.',
+      not_found: 'This item no longer exists.',
+      name_taken: 'This name is already used.',
+      in_use: 'This item is still in use and cannot be deleted.',
+      stale_revision: 'This content was modified in the meantime. Reload it before saving.',
+      duplicate_content: 'An identical document already exists in your library.',
+      database_unavailable: 'The database is unavailable.',
+      database_too_new: 'Your database comes from a newer version of ARCHIVE.',
+      migration_failed: 'Updating the database failed.',
+      storage: 'A file operation failed.',
+      database: 'A database operation failed.',
+      io: 'A file or folder cannot be accessed.',
+      internal: 'An unexpected error occurred.',
+      native_runtime_unavailable: 'This feature is only available in the desktop application.',
+      unknown: 'An unexpected error occurred.',
+    },
   },
   toasts: {
     region: 'Notifications',

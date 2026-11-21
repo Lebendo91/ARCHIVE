@@ -56,6 +56,7 @@ test.describe('navigation', () => {
 
   test('opens the settings with Ctrl+,', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vue d’ensemble');
     await page.keyboard.press('Control+Comma');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Général');
   });
@@ -68,6 +69,7 @@ test.describe('navigation', () => {
 
   test('offers keyboard navigation with a visible focus indicator', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Vue d’ensemble');
     await page.keyboard.press('Tab');
     const skip = page.getByRole('button', { name: 'Aller au contenu principal' });
     await expect(skip).toBeFocused();

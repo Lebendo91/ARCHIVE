@@ -14,8 +14,8 @@ import {
   AppearanceSettings,
   GeneralSettings,
   ShortcutsSettings,
-  StorageSettings,
 } from '@/modules/settings/SettingsPages';
+import { StorageSettings } from '@/modules/settings/StorageSettings';
 import { NotFoundPage } from '@/modules/system/NotFoundPage';
 import { RouteErrorPage } from '@/modules/system/RouteErrorPage';
 import { RouteLoading } from '@/modules/system/RouteLoading';

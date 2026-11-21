@@ -1,4 +1,5 @@
 import { ShortcutsTable } from '@/components/shortcuts/ShortcutsTable';
+import { LanguageSettings } from './LanguageSettings';
 import { CurrentValues, SettingsSection, UpcomingSettings } from './SettingsPanels';
 
 export function GeneralSettings() {
@@ -7,14 +8,7 @@ export function GeneralSettings() {
       titleKey="settings.sections.general"
       descriptionKey="settings.general.description"
     >
-      <CurrentValues
-        rows={[
-          {
-            labelKey: 'settings.general.current.language',
-            valueKey: 'settings.general.current.languageValue',
-          },
-        ]}
-      />
+      <LanguageSettings />
       <UpcomingSettings listKey="settings.general.upcoming" />
     </SettingsSection>
   );
@@ -39,17 +33,6 @@ export function AppearanceSettings() {
         ]}
       />
       <UpcomingSettings listKey="settings.appearance.upcoming" />
-    </SettingsSection>
-  );
-}
-
-export function StorageSettings() {
-  return (
-    <SettingsSection
-      titleKey="settings.sections.storage"
-      descriptionKey="settings.storage.description"
-    >
-      <UpcomingSettings listKey="settings.storage.upcoming" />
     </SettingsSection>
   );
 }
