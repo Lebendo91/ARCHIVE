@@ -17,17 +17,18 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phase 1 (fondation et design system) implémentée et en attente de validation.** L'application s'ouvre
-sur une interface complète et navigable : identité visuelle, barre latérale, barre supérieure, design
-system, écrans de chaque module et paramètres. Les modules métier (bibliothèque, notes, recherche…) arrivent
-phase par phase et affichent pour l'instant un état vide honnête, sans contenu simulé.
+**Phases 1 à 3 implémentées** : fondation et design system, base de données et stockage local, vue
+d'ensemble et espaces de travail. L'application s'ouvre sur une vue d'ensemble alimentée par la base locale ;
+on y crée, personnalise, archive et supprime (sans jamais perdre de contenu) des espaces de travail. Les modules
+suivants (bibliothèque, notes, recherche…) arrivent phase par phase ; en attendant, leurs écrans affichent un
+état vide honnête, sans contenu simulé.
 
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
 
-![Vue d'ensemble d'ARCHIVE](docs/screenshots/phase-1/overview-1440x900.png)
+![Vue d'ensemble d'ARCHIVE](docs/screenshots/phase-3/overview.png)
 
-D'autres captures sont dans [docs/screenshots/phase-1](docs/screenshots/phase-1).
+D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 
 ## Fonctionnalités prévues
 

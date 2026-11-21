@@ -5,17 +5,18 @@
 
 ## Phase courante
 
-**Phase 3 — Vue d'ensemble et espaces de travail : en cours** (branche `phase/3-workspaces`).
-La Phase 2 est terminée : validée localement, CI Linux et Windows au vert (run 44904532543 et 44904532541,
-commit `739082f`), fusionnée dans `main` le 2026-11-21. Le porteur du projet a demandé l'enchaînement autonome des
-phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
+**Phase 3 — Vue d'ensemble et espaces de travail : terminée** (branche `phase/3-workspaces`), validée localement
+(tests, application native, audit visuel). Il reste à confirmer la CI Linux et Windows sur le dernier commit, puis à
+fusionner dans `main`, avant de commencer la **Phase 4 — Bibliothèque**.
+Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après
+chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
 | 1 | Fondation et design system | ✅ Terminée et validée |
 | 2 | Base de données et stockage local | ✅ Terminée |
-| 3 | Vue d'ensemble et espaces de travail | 🔄 En cours |
+| 3 | Vue d'ensemble et espaces de travail | ✅ Terminée (CI et fusion en cours) |
 | 4 | Bibliothèque | À faire |
 | 5 | Notes | À faire |
 | 6 | Recherche intelligente | À faire |
@@ -33,6 +34,81 @@ phases ; une reprise automatique est programmée après chaque réinitialisation
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 3 — Vue d'ensemble et espaces de travail (terminée le 2026-11-21)
+
+### Tâches réalisées
+
+- [x] **3.1** Cœur natif : commandes `workspaces_list` (compteurs réels), `workspaces_get` (tableau de bord d'un
+      espace), `workspaces_create`, `workspaces_update`, `workspaces_set_archived`, `workspaces_delete` avec trois
+      stratégies explicites (`empty`, `move_to`, `unassign`), `dashboard_overview`, `timeline_list` ; événements
+      `workspace_created`, `resource_archived`, `resource_restored`.
+- [x] **3.2** Écran « Espaces de travail » : grille avec compteurs, création et modification (nom, description,
+      couleur, icône), archivage et restauration, affichage des espaces archivés, suppression protégée.
+- [x] **3.3** Tableau de bord d'un espace (`/workspaces/:id`) : nom dans le titre et le fil d'Ariane, description,
+      date de création, contenu (documents, notes, dossiers), activité récente, favoris, actions à venir.
+- [x] **3.4** Navigation : raccourcis des espaces actifs et « Nouvel espace » dans la barre latérale (repliée ou
+      non), menu « Créer » dans la barre supérieure, `Ctrl+Maj+N` disponible ; page « Archives » alimentée par les
+      espaces archivés.
+- [x] **3.5** Vue d'ensemble réelle : statistiques issues de la base, actions rapides, activité récente,
+      récemment ouverts, favoris, stockage local ; accueil d'une première installation avec un exemple
+      d'organisation clairement identifié, qui n'est jamais enregistré comme donnée.
+- [x] **3.6** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-3/`.
+
+### Validation (critères de la spec §21, Phase 3)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Vue d'ensemble | ✅ | Chiffres et listes calculés par `dashboard_overview` (tests Rust, unitaires, bout en bout) ; accueil de première installation sans donnée fictive |
+| Création d'un espace | ✅ | Au clavier seul (`Ctrl+Maj+N`, saisie, `Entrée`) en bout en bout ; dans l'application native, deux espaces créés puis relus dans SQLite |
+| Modification | ✅ | Seuls les champs modifiés sont envoyés ; nom déjà pris (même archivé, casse ignorée) signalé sur le champ |
+| Garde-fous de suppression | ✅ | Explication du contenu, déplacement vers l'espace choisi (dans un dossier au nom de l'espace supprimé) ou conservation « sans espace », confirmation explicite, focus initial sur « Annuler » ; **natif** : notes et dossiers déplacés, aucun supprimé (vérifié dans la base) |
+| Tableau de bord d'un espace | ✅ | Tests unitaires et de bout en bout, capture native |
+| Compteurs de ressources | ✅ | Comptages SQL (corbeille exclue) dans les cartes, le tableau de bord d'un espace et la vue d'ensemble |
+| Structure de l'activité récente | ✅ | Chronologie réelle (création, archivage, restauration), liens vers les espaces existants, dates relatives |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 117/117 |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 100/100 (14 fichiers) |
+| `npm run test:e2e` (dont axe-core sur les nouveaux écrans, dialogues et menus) | ✅ 43/43 |
+| `npm run test:visual` (15 scénarios, 3 résolutions) | ✅ captures revues ; deux défauts corrigés : actions rapides tronquées à 1100 px (passées en tuiles), valeurs des statistiques désalignées quand un libellé passe sur deux lignes |
+| `scripts/validate-native-phase3.py` : binaire de production, vraie base SQLite, trois lancements sous Xvfb pilotés par xdotool | ✅ 9/9 vérifications (création, chronologie, suppression avec déplacement, persistance, journal sans erreur ni violation de CSP) |
+
+### Défaut corrigé en cours de phase
+
+- **Barre latérale repliée** (présent depuis la Phase 1) : le déclencheur d'infobulle (Radix `Slot`) fusionne les
+  classes en texte et transformait la fonction `className` de `NavLink` en chaîne. Les liens perdaient leur style :
+  icônes décentrées, cibles de 39×18 px. Le test axe `target-size` l'a révélé. L'état actif est désormais calculé
+  avec `useMatch`.
+
+### Dépendances ajoutées
+
+Aucune.
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Gestion des dossiers** et affectation de documents et de notes (spec §12.1) → Phases 4 et 5 : elles exigent
+  la Bibliothèque et l'éditeur. Les compteurs et la suppression protégée les prennent déjà en charge.
+- **Notes liées** du tableau de bord d'un espace (spec §12.2) → Phase 5.
+- **Actions « Importer un document », « Nouvelle note », « Ouvrir l'assistant IA »** : visibles, désactivées et
+  marquées « Bientôt disponible » jusqu'aux Phases 4, 5 et 9.
+- **Chronologie complète** (filtres, regroupement par date, effacement) → Phase 8 ; la page l'annonce sans
+  prétendre qu'il n'y a aucune activité.
+
+### Limites restantes
+
+- La validation native pilote l'interface par coordonnées et par le clavier (xdotool) : elle est fiable à
+  1440×900 mais doit être adaptée si la mise en page change.
+- xdotool ne sait pas taper une majuscule accentuée (« É » devient « é ») : le scénario natif utilise des noms à
+  accents minuscules. L'interface et la base traitent correctement les majuscules accentuées (tests unitaires et
+  de bout en bout).
 
 ---
 
@@ -238,13 +314,17 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 3 — Vue d'ensemble et espaces de travail**, branche `phase/3-workspaces`. Prochaine tâche : **3.1**.
+1. Vérifier la CI du dernier commit de `phase/3-workspaces` (Linux, et build Windows lancé à la main), puis fusionner
+   en avance rapide dans `main` et noter les numéros de run ci-dessus.
+2. Créer la branche `phase/4-library` et commencer la **Phase 4 — Bibliothèque** (spec §7), tâche **4.1**.
 
 | # | Tâche |
 |---|---|
-| **3.1** | Commandes Rust `workspaces_*` : liste avec compteurs réels, création, modification, archivage et restauration, suppression avec réaffectation explicite des ressources vers un autre espace ou « sans espace » ; événements de chronologie (`workspace_created`, `resource_archived`, `resource_restored`) ; commande `dashboard_overview` (statistiques réelles : documents, notes, espaces, stockage, éléments indexés récemment, activité récente, favoris) |
-| 3.2 | Écran « Espaces de travail » : grille, création et édition (nom, description, couleur parmi les jetons, icône parmi une sélection Lucide), archivage, suppression protégée (explication, choix de destination, confirmation) |
-| 3.3 | Tableau de bord d'un espace (`/workspaces/:id`) : description, compteurs, activité récente, favoris, actions disponibles |
-| 3.4 | Barre latérale : raccourcis des espaces actifs et « Créer un espace » ; menu « Création rapide » dans la barre supérieure ; `Ctrl+Maj+N` disponible |
-| 3.5 | Vue d'ensemble réelle : statistiques, activité récente, récemment ouverts, favoris, avec des états vides honnêtes ; accueil d'une première installation (spec §6.2), sans contenu fictif |
-| 3.6 | Validation : tests Rust, unitaires, de bout en bout et d'accessibilité ; persistance native ; audit visuel ; documentation ; CI ; fusion |
+| **4.1** | Choisir et justifier les dépendances : sélecteur de fichiers natif (`tauri-plugin-dialog`, appelé **côté Rust** : l'interface ne reçoit jamais d'accès libre au disque), extraction DOCX (`zip` + `quick-xml`), PDF (pdf.js en worker pour l'aperçu et le texte, ou crate Rust ; décision ARCHITECTURE §16), CSP adaptée |
+| 4.2 | Pipeline d'import natif : validation (taille, type réel par signature et extension, fichiers ordinaires seulement), métadonnées, empreinte SHA-256 et doublons, copie dans le stockage géré (original intact), extraction du texte (TXT, MD, CSV, JSON, DOCX, PDF), événement `document_imported` ; progression par `Channel`, annulation, rapport d'erreur par fichier, nouvel essai |
+| 4.3 | Commandes documents : liste paginée (filtres : type, espace, dossier, étiquette, dates, favoris, état d'indexation ; tris : nom, ajout, modification, taille, ouverture), lecture, renommage, espace, dossier, favori, archivage, restauration, corbeille et purge explicites, export, « Afficher dans l'Explorateur », ouverture externe |
+| 4.4 | Dossiers et étiquettes : commandes et interface (arborescence par espace, création, renommage, suppression protégée ; étiquettes et affectation) |
+| 4.5 | Interface Bibliothèque : vues liste et grille, recherche dans les titres et métadonnées, filtres, tris, menu contextuel, glisser-déposer, sélecteur de fichiers, panneau de progression, `Ctrl+O` |
+| 4.6 | Aperçu d'un document : métadonnées, texte extrait, PDF (pages et zoom), images, repli clair pour les autres formats, étiquettes, espace, ouverture externe |
+| 4.7 | Intégration : vue d'ensemble (récemment ouverts, favoris, indexés en 7 jours), espaces (compteurs, favoris), pages Favoris, Récents et Archives, création rapide « Importer un document » |
+| 4.8 | Validation (spec §21) : import de vrais fichiers de test de chaque format, contenu extrait vérifié, originaux intacts (empreinte avant et après), doublons ; tests Rust, unitaires, de bout en bout, accessibilité ; validation native ; audit visuel ; documentation ; CI ; fusion |

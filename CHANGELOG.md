@@ -6,6 +6,32 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 3 : vue d'ensemble et espaces de travail (2026-11-21)
+
+- Espaces de travail :
+  - création, modification (nom, description, couleur d'accent, icône), archivage et restauration ;
+  - grille avec le nombre réel de documents, de notes et de dossiers, et affichage des espaces archivés ;
+  - noms uniques sans tenir compte de la casse, même parmi les espaces archivés, signalés sur le champ.
+- Suppression protégée : le dialogue explique ce que contient l'espace et propose de déplacer ce contenu vers un
+  autre espace (regroupé dans un dossier à son nom) ou de le conserver sans espace. Rien n'est jamais supprimé,
+  et une confirmation explicite est demandée.
+- Tableau de bord de chaque espace : description, contenu, activité récente, favoris et actions à venir.
+- Navigation : raccourcis des espaces actifs et « Nouvel espace » dans la barre latérale, menu « Créer » dans la
+  barre supérieure, raccourci `Ctrl+Maj+N`. La page Archives liste les espaces archivés.
+- Vue d'ensemble réelle :
+  - statistiques calculées depuis la base (documents, notes, espaces, stockage, éléments indexés) ;
+  - actions rapides, activité récente, récemment ouverts, favoris et stockage local ;
+  - accueil d'une première installation avec un exemple d'organisation clairement identifié, jamais enregistré.
+- Pluriels corrects en français et en anglais (« 0 document », « 2 notes »), formats de nombres, de listes et de
+  dates relatives selon la langue.
+- Accessibilité : focus placé sur le nom à l'ouverture du formulaire et sur « Annuler » pour une suppression,
+  rendu à l'élément d'origine à la fermeture, ou au contenu principal si cet élément a disparu.
+
+### Corrigé — Phase 3
+
+- Barre latérale repliée : les liens perdaient leur style (icônes décentrées, cibles trop petites).
+- Chronologie : la page n'annonce plus « aucune activité » alors que des événements sont enregistrés.
+
 ### Ajouté — Phase 2 : base de données et stockage local (2026-11-21)
 
 - Base SQLite locale (mode WAL) dans le dossier local de l'application, avec des migrations versionnées :
@@ -15,7 +41,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
   - refus de toucher une base créée par une version plus récente.
 - Schéma des entités cœur : espaces de travail, dossiers, documents et texte extrait, notes, étiquettes,
   relations avec provenance, événements de chronologie, fournisseurs IA et paramètres. Il comprend des noms
-  uniques insensibles à la casse et aux accents, une corbeille réversible pour les documents et les notes, et
+  uniques insensibles à la casse (lettres accentuées comprises) et aux espaces multiples, une corbeille réversible pour les documents et les notes, et
   des notes protégées contre l'écrasement d'une version plus récente.
 - Couche d'accès aux données validée, avec des règles de suppression sûres : un espace ou un dossier non vide
   ne se supprime jamais implicitement.

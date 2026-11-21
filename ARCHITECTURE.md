@@ -1,7 +1,7 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phases 1 et 2 implémentées (fondation, design system, données et stockage local). Les sections
-> des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phases 1 à 3 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
+> espaces de travail). Les sections des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -114,7 +114,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phase 1)*
+## 4. Frontend — *Implémenté (Phases 1 à 3)*
 
 ### 4.1 Responsabilités
 
@@ -141,6 +141,7 @@ archive/
 
 Chaque route déclare un `handle` (`RouteHandle` : titre, parent du fil d'Ariane) lu par la barre supérieure,
 qui affiche le titre `h1` de la page, et par `RouteAnnouncer` (titre de fenêtre, annonce aux lecteurs d'écran).
+Une page dont le titre dépend des données (le nom d'un espace) le remplace avec `usePageTitle` (Phase 3).
 Les erreurs de page s'affichent dans la coquille (`errorElement`). Un `ErrorBoundary` racine couvre le reste.
 En développement uniquement, la route `#/dev/ui` présente la galerie du design system.
 
@@ -153,9 +154,11 @@ bouton mort).
 
 - État local (`useState`, `useReducer`) pour les comportements isolés.
 - Zustand pour l'état d'interface transversal : barre latérale repliée (persistée dans le `localStorage` de
-  la WebView, préférence non critique), notifications, puis progression des imports (Phase 4).
-- Les données viennent du cœur via les services. Une couche de cache (TanStack Query) sera évaluée en Phase 2 et
-  adoptée seulement si elle supprime une duplication réelle (chargement, erreurs, invalidation).
+  la WebView, préférence non critique), notifications, dialogues d'espace (Phase 3), titre dynamique de page,
+  puis progression des imports (Phase 4).
+- Les données viennent du cœur via les services et TanStack Query (adopté en Phase 2). Chaque mutation reste en
+  attente jusqu'à ce que les vues concernées soient rafraîchies : un dialogue ne se ferme jamais sur des données
+  périmées.
 - Le cœur Rust est la source de vérité : aucun état métier n'est dupliqué dans les stores.
 
 ### 4.4 Design system
@@ -521,6 +524,20 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Extraction PDF | pdf.js en worker, ou crate Rust | pdf.js | Phase 4 |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 3
+
+| Décision | Justification |
+|---|---|
+| Une seule requête pour la liste des espaces (archivés compris), filtrée par chaque vue | Barre latérale, pages, dialogues et archives sont toujours cohérents ; une seule invalidation |
+| Dialogues d'espace rendus une seule fois par la coquille (store `workspaceDialogs`) | Ils s'ouvrent depuis la barre latérale, la barre supérieure, `Ctrl+Maj+N` ou les pages, et rendent le focus à l'élément d'origine |
+| Couleurs d'espace proposées : Amber, Blue, Purple et Neutre | Spec §2.3 : Cyan est réservé à l'intelligence et les couleurs sémantiques aux états. Une couleur stockée hors de ce choix reste affichée correctement |
+| Suppression d'un espace : vide, déplacement ou « sans espace », jamais de suppression de contenu | Spec §12.3. Le contenu déplacé est regroupé dans un dossier au nom de l'espace supprimé, pour rester identifiable |
+| Actions des modules non livrés visibles, désactivées et marquées « Bientôt disponible » | Aucune action morte ; l'utilisateur voit ce qui arrive |
+| Récupération du focus (`useFocusRecovery`) | Quand l'élément ciblé disparaît (carte archivée, page supprimée), le focus va au contenu principal au lieu de se perdre sur `body` |
+| État actif des liens de la barre latérale calculé avec `useMatch` | Le déclencheur d'infobulle (Radix `Slot`) fusionne les classes en texte et cassait la fonction `className` de `NavLink` en mode replié |
+| Un seul cœur natif simulé pour les tests (`src/test/coreDouble.ts`) | Mêmes règles (noms uniques, chronologie, stratégies de suppression) dans les tests unitaires et de bout en bout ; Playwright l'injecte dans la page |
+| Validation native scriptée (`scripts/validate-native-phase3.py`) | Binaire de production et vraie base SQLite, pilotés sous Xvfb ; la base est vérifiée après chaque lancement |
 
 ### Décisions prises en Phase 2
 
