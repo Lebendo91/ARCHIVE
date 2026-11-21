@@ -198,6 +198,13 @@ def main() -> int:
     if not BINARY.exists():
         print(f"Missing {BINARY}: run `npm run tauri build -- --no-bundle` first.", file=sys.stderr)
         return 2
+    missing = [tool for tool in ("Xvfb", "xdotool", "import") if shutil.which(tool) is None]
+    if missing:
+        print(
+            f"Missing tools: {', '.join(missing)}. On Ubuntu: apt-get install -y xvfb xdotool imagemagick",
+            file=sys.stderr,
+        )
+        return 2
     shutil.rmtree(OUT, ignore_errors=True)
     OUT.mkdir(parents=True)
     xvfb = subprocess.Popen(["Xvfb", DISPLAY, "-screen", "0", "1440x900x24", "-nolisten", "tcp"])

@@ -5,9 +5,9 @@
 
 ## Phase courante
 
-**Phase 3 — Vue d'ensemble et espaces de travail : terminée** (branche `phase/3-workspaces`), validée localement
-(tests, application native, audit visuel). Il reste à confirmer la CI Linux et Windows sur le dernier commit, puis à
-fusionner dans `main`, avant de commencer la **Phase 4 — Bibliothèque**.
+**Phase 4 — Bibliothèque : en cours** (branche `phase/4-library`), prochaine tâche **4.1**.
+La Phase 3 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
+au vert (run 44942226134 et 44942224957, commit `ff9dd96`), fusionnée dans `main` le 2026-11-21.
 Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après
 chaque réinitialisation de sa limite d'utilisation.
 
@@ -16,8 +16,8 @@ chaque réinitialisation de sa limite d'utilisation.
 | 0 | Audit de l'environnement | ✅ Terminée |
 | 1 | Fondation et design system | ✅ Terminée et validée |
 | 2 | Base de données et stockage local | ✅ Terminée |
-| 3 | Vue d'ensemble et espaces de travail | ✅ Terminée (CI et fusion en cours) |
-| 4 | Bibliothèque | À faire |
+| 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
+| 4 | Bibliothèque | 🔄 En cours |
 | 5 | Notes | À faire |
 | 6 | Recherche intelligente | À faire |
 | 7 | Moteur de mémoire | À faire |
@@ -80,6 +80,7 @@ chaque réinitialisation de sa limite d'utilisation.
 | `npm run test:e2e` (dont axe-core sur les nouveaux écrans, dialogues et menus) | ✅ 43/43 |
 | `npm run test:visual` (15 scénarios, 3 résolutions) | ✅ captures revues ; deux défauts corrigés : actions rapides tronquées à 1100 px (passées en tuiles), valeurs des statistiques désalignées quand un libellé passe sur deux lignes |
 | `scripts/validate-native-phase3.py` : binaire de production, vraie base SQLite, trois lancements sous Xvfb pilotés par xdotool | ✅ 9/9 vérifications (création, chronologie, suppression avec déplacement, persistance, journal sans erreur ni violation de CSP) |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout, cœur natif, build Windows MSI et NSIS avec test de fumée (run 44942226134 et 44942224957, commit `ff9dd96`) |
 
 ### Défaut corrigé en cours de phase
 
@@ -106,6 +107,8 @@ Aucune.
 
 - La validation native pilote l'interface par coordonnées et par le clavier (xdotool) : elle est fiable à
   1440×900 mais doit être adaptée si la mise en page change.
+- xdotool n'est pas installé par le script de l'environnement cloud : `apt-get install -y xdotool` avant la
+  validation native (le script vérifie ses prérequis et l'indique).
 - xdotool ne sait pas taper une majuscule accentuée (« É » devient « é ») : le scénario natif utilise des noms à
   accents minuscules. L'interface et la base traitent correctement les majuscules accentuées (tests unitaires et
   de bout en bout).
@@ -314,9 +317,7 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. Vérifier la CI du dernier commit de `phase/3-workspaces` (Linux, et build Windows lancé à la main), puis fusionner
-   en avance rapide dans `main` et noter les numéros de run ci-dessus.
-2. Créer la branche `phase/4-library` et commencer la **Phase 4 — Bibliothèque** (spec §7), tâche **4.1**.
+**Phase 4 — Bibliothèque** (spec §7), branche `phase/4-library`. Prochaine tâche : **4.1**.
 
 | # | Tâche |
 |---|---|
