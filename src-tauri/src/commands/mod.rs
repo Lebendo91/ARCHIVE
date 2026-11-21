@@ -6,7 +6,9 @@
 pub mod app;
 pub mod dashboard;
 pub mod diagnostics;
+pub mod documents;
 pub mod import;
+pub mod library;
 pub mod settings;
 pub mod storage;
 pub mod workspaces;

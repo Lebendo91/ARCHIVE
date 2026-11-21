@@ -32,6 +32,17 @@ fn lock(mutex: &Mutex<Connection>) -> MutexGuard<'_, Connection> {
 fn configure(connection: &Connection, read_only: bool) -> AppResult<()> {
     connection.busy_timeout(std::time::Duration::from_millis(u64::from(BUSY_TIMEOUT_MS)))?;
     connection.pragma_update(None, "foreign_keys", "ON")?;
+    // Case- and accent-insensitive matching for Library searches (SQLite folds ASCII letters only).
+    connection.create_scalar_function(
+        "archive_fold",
+        1,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8
+            | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |context| {
+            let text: Option<String> = context.get(0)?;
+            Ok(text.map(|text| crate::util::fold_for_search(&text)))
+        },
+    )?;
     if read_only {
         connection.pragma_update(None, "query_only", "ON")?;
     } else {

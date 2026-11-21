@@ -347,10 +347,16 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   suppression de la copie gérée, et rappelle que le **fichier d'origine n'est jamais touché** (spec §7.5).
 - **« Afficher dans l'Explorateur »** : commande Rust qui résout le chemin à partir de l'identifiant. Le frontend
   ne manipule jamais de chemin.
-- **Aperçus** (PDF, images) : un schéma d'URI personnalisé `archive://document/<id>`, servi par Rust, n'expose
-  que les fichiers gérés, avec le bon type MIME. Pas de protocole `asset:` à portée large.
-- **Limites** : taille maximale par fichier (valeur par défaut fixée en Phase 4), cohérence vérifiée entre
-  l'extension et les octets magiques.
+- **Aperçus** (PDF, images) : la commande `documents_read_range` renvoie, en binaire, une plage d'octets (16 Mo au
+  plus) de la copie gérée d'un document désigné par son identifiant. pdf.js lit ainsi les PDF par morceaux
+  (`PDFDataRangeTransport`), et les images deviennent des URL `blob:`. Aucun protocole `asset:` ni schéma d'URI
+  personnalisé : pas de CORS à configurer, CSP inchangée (décision de la Phase 4, qui remplace le schéma
+  `archive://` envisagé).
+- **Limites** : 512 Mo par fichier importé ; texte extrait borné à 16 Mo ; parties DOCX décompressées bornées à
+  64 Mo. La cohérence entre l'extension et les octets magiques est vérifiée.
+- **Recherche dans la Bibliothèque** (Phase 4, avant la recherche plein texte de la Phase 6) : titre et nom
+  d'origine, sans tenir compte de la casse ni des accents, grâce à la fonction SQL `archive_fold` enregistrée
+  par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
 
 ## 8. Pipeline d'import et moteur de mémoire — *Prévu (Phases 4 et 7)*
@@ -536,6 +542,8 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | PDF : pdf.js 6.5 pour l'aperçu et l'extraction du texte, sans WebAssembly | Moteur éprouvé sur les fichiers mal formés (Firefox), un seul moteur PDF, CSP inchangée hors du nouveau schéma |
 | DOCX : `zip` 9.8 (décompression *deflate* seule, en Rust pur) et `quick-xml` 0.42 | Lecture de `word/document.xml` et `docProps/core.xml` bornée en taille (archives piégées) ; aucun autre format de compression n'est compilé |
 | Détection du type par extension autorisée **et** signature des octets, sans dépendance | Huit signatures simples ; un fichier dont le contenu contredit l'extension est refusé |
+| Aperçus par la commande `documents_read_range`, plutôt qu'un schéma d'URI personnalisé | Lecture bornée et désignée par identifiant ; ni CORS ni modification de CSP ; pdf.js charge les gros PDF par plages |
+| Suppression définitive : l'entrée d'abord, la copie gérée ensuite | Une copie impossible à effacer devient un fichier orphelin, jamais une entrée cassée |
 
 ### Décisions prises en Phase 3
 
