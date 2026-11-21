@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-labelledby="title">
+  <title id="title">ARCHIVE</title>
+  <!-- Variant for light backgrounds: strata in Obsidian, apex in Archive Amber. -->
+  <polygon fill="#D6A45D" points="24,5 29,15 19,15"/>
+  <g fill="#090B0F">
+    <polygon points="17,19 31,19 36,29 12,29"/>
+    <polygon points="10,33 22,33 17,43 5,43"/>
+    <polygon points="26,33 38,33 43,43 31,43"/>
+  </g>
+</svg>

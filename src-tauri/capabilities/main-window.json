@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Minimal permissions for the ARCHIVE main window. The webview receives no filesystem, shell or HTTP permission: every data operation goes through validated application commands.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}
