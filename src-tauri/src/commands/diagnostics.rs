@@ -1,6 +1,5 @@
 //! Diagnostics reported by the interface: uncaught errors, unhandled promise rejections and Content
-//! Security Policy violations. They are written to the process error stream; Phase 2 routes them to the
-//! application log file.
+//! Security Policy violations. They are written to the application log file.
 
 use serde::Deserialize;
 
@@ -16,27 +15,18 @@ pub enum FrontendLogLevel {
     Info,
 }
 
-impl FrontendLogLevel {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Error => "error",
-            Self::Warn => "warn",
-            Self::Info => "info",
-        }
-    }
-}
-
 /// Records a diagnostic event raised by the interface.
 ///
 /// The interface only reports its own technical errors, never document content. Messages are reduced to
 /// a single line and truncated so that a faulty caller cannot flood the log.
 #[tauri::command]
 pub fn log_frontend_event(level: FrontendLogLevel, message: String) {
-    eprintln!(
-        "[frontend:{}] {}",
-        level.as_str(),
-        sanitize_message(&message)
-    );
+    let message = sanitize_message(&message);
+    match level {
+        FrontendLogLevel::Error => log::error!(target: "frontend", "{message}"),
+        FrontendLogLevel::Warn => log::warn!(target: "frontend", "{message}"),
+        FrontendLogLevel::Info => log::info!(target: "frontend", "{message}"),
+    }
 }
 
 /// Replaces control characters (including line breaks) with spaces, trims and truncates the message.

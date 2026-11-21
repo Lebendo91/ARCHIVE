@@ -1,13 +1,18 @@
-//! Application identity and build information.
+//! Application identity, build information and startup status.
 
 use serde::Serialize;
+use tauri::State;
+use ts_rs::TS;
+
+use crate::state::{AppState, AppStatus};
 
 /// Product name, as displayed in the interface.
 pub const PRODUCT_NAME: &str = "ARCHIVE";
 
 /// Version and build information displayed in Settings › About.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct AppInfo {
     pub name: &'static str,
     pub version: &'static str,
@@ -39,6 +44,18 @@ pub fn current_app_info() -> AppInfo {
 #[tauri::command]
 pub fn app_info() -> AppInfo {
     current_app_info()
+}
+
+/// Startup status: database ready, or safe mode with the reason (ARCHITECTURE.md §6.4).
+#[tauri::command]
+pub fn app_status(state: State<'_, AppState>) -> AppStatus {
+    state.status()
+}
+
+/// Tries again to open the database after a startup failure.
+#[tauri::command]
+pub async fn database_retry(state: State<'_, AppState>) -> Result<AppStatus, ()> {
+    Ok(state.retry_database())
 }
 
 #[cfg(test)]
