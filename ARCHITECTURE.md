@@ -369,8 +369,11 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   - CSV : texte structuré (en-têtes et lignes, borné). JSON : valeurs textuelles aplaties avec leur chemin de clé.
   - DOCX : `zip` + `quick-xml` (`word/document.xml` pour les paragraphes, titres et tableaux,
     `docProps/core.xml` pour l'auteur, les dates et le titre).
-  - PDF : **décision en Phase 4**, sur un corpus réel (cours, fiches techniques, scans). Option A : pdf.js
-    (déjà requis pour l'aperçu) dans un Web Worker, texte par page. Option B : crate Rust isolée.
+  - PDF : **pdf.js** (décidé en Phase 4), déjà requis pour l'aperçu. L'extraction s'exécute dans son Web
+    Worker, page par page ; le texte est envoyé au cœur, qui le valide (taille bornée) et l'enregistre. Un PDF
+    importé reste « en attente » jusqu'à cette étape, reprise au lancement suivant si l'application est fermée
+    entre-temps. pdf.js tourne **sans WebAssembly** (`useWasm: false`, décodeurs JavaScript de repli) : la CSP
+    n'a pas besoin de `wasm-unsafe-eval`, au prix d'un décodage plus lent des rares images JBIG2 et JPEG 2000.
   - Images : stockage et aperçu uniquement. **Aucune extraction de texte sans moteur OCR réellement intégré**
     (spec §7.1).
 - **Métadonnées** : jamais inventées. Un champ indisponible reste vide ou marqué « inconnu » (spec §10.2).
@@ -521,9 +524,18 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 |---|---|---|---|
 | **Identifiant d'application** (il fixe le dossier de données et ne peut plus changer après diffusion) | domaine possédé par le porteur, ou `io.github.lebendo91.archive` | domaine du porteur s'il en a un, sinon `io.github.lebendo91.archive` | Phase 1, **validation du porteur** |
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
-| Extraction PDF | pdf.js en worker, ou crate Rust | pdf.js | Phase 4 |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 4
+
+| Décision | Justification |
+|---|---|
+| Sélecteur de fichiers natif appelé **côté Rust** (`tauri-plugin-dialog`), sans permission accordée à l'interface | L'interface ne reçoit jamais de chemin choisi par elle-même ni d'accès au système de fichiers ; le cœur ouvre le dialogue et importe ce que l'utilisateur a choisi |
+| Glisser-déposer : le cœur mémorise les chemins du dépôt natif, la commande d'import n'accepte aucun chemin | Une interface compromise ne peut pas demander l'import d'un fichier arbitraire |
+| PDF : pdf.js 6.5 pour l'aperçu et l'extraction du texte, sans WebAssembly | Moteur éprouvé sur les fichiers mal formés (Firefox), un seul moteur PDF, CSP inchangée hors du nouveau schéma |
+| DOCX : `zip` 9.8 (décompression *deflate* seule, en Rust pur) et `quick-xml` 0.42 | Lecture de `word/document.xml` et `docProps/core.xml` bornée en taille (archives piégées) ; aucun autre format de compression n'est compilé |
+| Détection du type par extension autorisée **et** signature des octets, sans dépendance | Huit signatures simples ; un fichier dont le contenu contredit l'extension est refusé |
 
 ### Décisions prises en Phase 3
 
