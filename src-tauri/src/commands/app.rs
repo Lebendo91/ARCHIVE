@@ -55,7 +55,10 @@ pub fn app_status(state: State<'_, AppState>) -> AppStatus {
 /// Tries again to open the database after a startup failure.
 #[tauri::command]
 pub async fn database_retry(state: State<'_, AppState>) -> Result<AppStatus, ()> {
-    Ok(state.retry_database())
+    let status = state.retry_database();
+    // The memory engine resumes at once if the database is back.
+    crate::memory::worker::wake();
+    Ok(status)
 }
 
 #[cfg(test)]

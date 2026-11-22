@@ -8,6 +8,7 @@ pub mod db;
 pub mod error;
 pub mod import;
 mod logging;
+pub mod memory;
 pub mod paths;
 pub mod repo;
 pub mod search;
@@ -47,6 +48,8 @@ pub fn run() {
                 paths.data_dir.display()
             );
             app.manage(AppState::initialize(paths));
+            // The memory engine works in the background from the start (it waits in safe mode).
+            memory::worker::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -118,6 +121,15 @@ pub fn run() {
             commands::search::search_history_record,
             commands::search::search_history_delete,
             commands::search::search_history_clear,
+            commands::memory::memory_item,
+            commands::memory::memory_retry,
+            commands::memory::memory_overview,
+            commands::memory::memory_retry_all,
+            commands::memory::relations_list,
+            commands::memory::relations_create,
+            commands::memory::relations_set_type,
+            commands::memory::relations_decide,
+            commands::memory::relations_remove,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

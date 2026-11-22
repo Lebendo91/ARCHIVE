@@ -123,17 +123,25 @@ impl Database {
         let mut connection = lock(&self.writer);
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         crate::search::index::discard_pending();
+        crate::memory::queue::discard_queued();
         let result = operation(&transaction).and_then(|value| {
-            crate::search::index::flush_pending(&transaction)?;
+            // The derived data follows in the same transaction: the search index, then the queue of the
+            // memory engine for the documents and notes changed.
+            let changed = crate::search::index::flush_pending(&transaction)?;
+            crate::memory::queue::on_changed(&transaction, &changed)?;
             Ok(value)
         });
         match result {
             Ok(value) => {
                 transaction.commit()?;
+                if crate::memory::queue::take_queued() {
+                    crate::memory::worker::wake();
+                }
                 Ok(value)
             }
             Err(error) => {
                 crate::search::index::discard_pending();
+                crate::memory::queue::discard_queued();
                 Err(error)
             }
         }

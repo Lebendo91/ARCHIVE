@@ -123,10 +123,19 @@ pub enum LinkKind {
 }
 
 impl LinkKind {
-    fn entity(self) -> EntityKind {
+    pub(crate) fn entity(self) -> EntityKind {
         match self {
             LinkKind::Note => EntityKind::Note,
             LinkKind::Document => EntityKind::Document,
+        }
+    }
+
+    /// The kind of a document or a note; `None` for any other entity.
+    pub(crate) fn from_entity(kind: EntityKind) -> Option<Self> {
+        match kind {
+            EntityKind::Note => Some(LinkKind::Note),
+            EntityKind::Document => Some(LinkKind::Document),
+            _ => None,
         }
     }
 }
@@ -316,7 +325,8 @@ pub fn list(connection: &Connection, query: &NoteQuery) -> AppResult<NotePage> {
 }
 
 /// Title and availability of a link target, or `None` if it no longer exists.
-fn resource(
+/// A document or a note with its current title, if it exists (in the trash or not).
+pub(crate) fn resource(
     connection: &Connection,
     kind: LinkKind,
     id: &str,
@@ -571,6 +581,14 @@ pub fn move_to(
     if affected != 1 {
         return Err(AppError::NotFound { entity: "note" });
     }
+    // Sharing a workspace counts in the relations the engine suggests.
+    crate::memory::queue::enqueue(
+        transaction,
+        LinkKind::Note,
+        id,
+        crate::memory::queue::JobStage::Relations,
+        now_ms(),
+    )?;
     notes::get(transaction, id)
 }
 

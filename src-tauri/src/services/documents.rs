@@ -311,6 +311,14 @@ pub fn move_to(
     if affected != 1 {
         return Err(AppError::NotFound { entity: "document" });
     }
+    // Sharing a workspace counts in the relations the engine suggests.
+    crate::memory::queue::enqueue(
+        transaction,
+        crate::memory::ItemKind::Document,
+        id,
+        crate::memory::queue::JobStage::Relations,
+        now_ms(),
+    )?;
     documents::get(transaction, id)
 }
 
@@ -411,9 +419,71 @@ pub enum PdfExtraction {
         #[serde(rename = "pageCount")]
         #[ts(rename = "pageCount")]
         page_count: u32,
+        /// What the file declares about itself (its information dictionary and catalog).
+        #[serde(default)]
+        #[ts(optional)]
+        info: Option<PdfInfo>,
     },
     /// pdf.js could not read the file.
     Failed { reason: PdfFailure },
+}
+
+/// Title, author, dates and language a PDF declares, read by pdf.js. Dates are ISO 8601.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[ts(export)]
+pub struct PdfInfo {
+    #[serde(default)]
+    #[ts(optional)]
+    pub title: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub author: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub created: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub modified: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub language: Option<String>,
+}
+
+/// Longest text kept from the information of a PDF.
+const INFO_MAX_CHARS: usize = 500;
+
+/// The information a PDF declares, as metadata of the document: what cannot be read is left out.
+fn pdf_info_metadata(info: &PdfInfo, metadata: &mut serde_json::Map<String, Value>) {
+    let text = |value: &Option<String>| -> Option<String> {
+        let cleaned: String = value
+            .as_deref()?
+            .chars()
+            .filter(|character| !character.is_control())
+            .collect::<String>()
+            .trim()
+            .chars()
+            .take(INFO_MAX_CHARS)
+            .collect();
+        (!cleaned.is_empty()).then_some(cleaned)
+    };
+    let date = |value: &Option<String>| {
+        text(value).filter(|date| crate::memory::normalize::parse_iso_date(date).is_some())
+    };
+    let language = text(&info.language)
+        .filter(|tag| tag.len() <= 35 && crate::memory::normalize::primary_language(tag).is_some());
+    for (key, value) in [
+        ("documentTitle", text(&info.title)),
+        ("author", text(&info.author)),
+        ("authoredAt", date(&info.created)),
+        ("revisedAt", date(&info.modified)),
+        ("declaredLanguage", language),
+    ] {
+        metadata.remove(key);
+        if let Some(value) = value {
+            metadata.insert(key.to_owned(), Value::from(value));
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
@@ -440,8 +510,13 @@ pub fn save_pdf_extraction(
     let mut metadata = document.metadata.as_object().cloned().unwrap_or_default();
     metadata.remove("extractionIssue");
     let (status, issue) = match extraction {
-        PdfExtraction::Text { text, page_count } => {
+        PdfExtraction::Text {
+            text,
+            page_count,
+            info,
+        } => {
             metadata.insert("pageCount".to_owned(), Value::from(page_count));
+            pdf_info_metadata(&info.unwrap_or_default(), &mut metadata);
             let normalized = text.replace('\0', "");
             let (text, truncated) = truncate_utf8(normalized, CONTENT_MAX_BYTES);
             if text.trim().is_empty() {
@@ -810,12 +885,25 @@ mod tests {
                     PdfExtraction::Text {
                         text: "Timer NE555\n\u{0}Brochage".to_owned(),
                         page_count: 12,
+                        info: Some(PdfInfo {
+                            title: Some("  Fiche technique\u{7} NE555 ".to_owned()),
+                            author: Some("   ".to_owned()),
+                            created: Some("2026-09-01T08:00:00.000Z".to_owned()),
+                            modified: Some("hier".to_owned()),
+                            language: Some("fr-FR".to_owned()),
+                        }),
                     },
                 )
             })
             .expect("save");
         assert_eq!(saved.indexing_status, ProcessingStatus::Completed);
         assert_eq!(saved.metadata["pageCount"], 12);
+        // What the file declares, cleaned; what cannot be read is left out.
+        assert_eq!(saved.metadata["documentTitle"], "Fiche technique NE555");
+        assert_eq!(saved.metadata["authoredAt"], "2026-09-01T08:00:00.000Z");
+        assert_eq!(saved.metadata["declaredLanguage"], "fr-FR");
+        assert!(saved.metadata.get("author").is_none());
+        assert!(saved.metadata.get("revisedAt").is_none());
         assert_eq!(
             database
                 .read(|c| documents::content(c, &pdf.id))
@@ -832,6 +920,7 @@ mod tests {
                     PdfExtraction::Text {
                         text: "  \n ".to_owned(),
                         page_count: 3,
+                        info: None,
                     },
                 )
             })

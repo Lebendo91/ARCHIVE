@@ -4,7 +4,7 @@
 use crate::util::fold_for_search;
 
 /// Words too common to narrow a search; left out when other words remain (French and English).
-const STOP_WORDS: &[&str] = &[
+pub(crate) const STOP_WORDS: &[&str] = &[
     "a", "au", "aux", "avec", "ce", "ces", "cet", "cette", "d", "dans", "de", "des", "du", "elle",
     "en", "et", "il", "l", "la", "le", "les", "leur", "leurs", "ma", "mes", "mon", "ne", "nos",
     "notre", "on", "ou", "par", "pas", "pour", "qu", "que", "qui", "sa", "sans", "se", "ses",
