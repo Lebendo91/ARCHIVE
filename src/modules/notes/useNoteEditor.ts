@@ -1,6 +1,7 @@
 import type { Editor, JSONContent } from '@tiptap/core';
 import { useEditor } from '@tiptap/react';
 import { useEffect, useRef } from 'react';
+import { useI18n } from '@/i18n';
 import { noteExtensions } from './editorExtensions';
 
 export type NoteEditorOptions =
@@ -25,7 +26,12 @@ export type NoteEditorOptions =
 
 /** The TipTap editor of a note: its schema, its accessible name, and links that open when clicked. */
 export function useNoteEditor(options: NoteEditorOptions): Editor {
+  const { t } = useI18n();
   const { content, onOpenLink } = options;
+  const taskLabel = (text: string) =>
+    text.trim() === ''
+      ? t('notes.editor.emptyTask')
+      : t('notes.editor.task', { text: text.trim() });
   const onChange = options.mode === 'edit' ? options.onChange : undefined;
   const editable = options.mode === 'edit' && options.editable;
   const handlers = useRef({ onChange, onOpenLink, editable });
@@ -33,7 +39,9 @@ export function useNoteEditor(options: NoteEditorOptions): Editor {
     handlers.current = { onChange, onOpenLink, editable };
   });
   const editor = useEditor({
-    extensions: noteExtensions(options.mode === 'edit' ? { placeholder: options.placeholder } : {}),
+    extensions: noteExtensions(
+      options.mode === 'edit' ? { placeholder: options.placeholder, taskLabel } : { taskLabel },
+    ),
     content,
     editable,
     editorProps: {
@@ -79,6 +87,26 @@ export function useNoteEditor(options: NoteEditorOptions): Editor {
       handlers.current.editable = editable;
       editor.setEditable(editable, false);
     }
+  }, [editor, editable]);
+  useEffect(() => {
+    // Tasks of a read-only note are shown, not ticked: TipTap only undoes the click, so the checkboxes are
+    // disabled (out of the tab order, announced as such).
+    const sync = () => {
+      let root: HTMLElement;
+      try {
+        root = editor.view.dom;
+      } catch {
+        return; // Not mounted yet: the next transaction catches up.
+      }
+      for (const box of root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+        box.disabled = !editor.isEditable;
+      }
+    };
+    sync();
+    editor.on('transaction', sync);
+    return () => {
+      editor.off('transaction', sync);
+    };
   }, [editor, editable]);
   return editor;
 }

@@ -98,7 +98,10 @@ describe('note editor', () => {
     await user.keyboard('Diode au silicium. ');
 
     const alert = await screen.findByRole('alert', {}, SAVED);
-    expect(alert).toHaveTextContent('Échec de l’enregistrement');
+    expect(alert).toHaveTextContent(
+      'Vos modifications n’ont pas été enregistrées : elles restent ici et dans un brouillon de récupération.',
+    );
+    expect(screen.getByText('Échec de l’enregistrement')).toBeInTheDocument();
     expect(entry.contentText).toBe('Seuil de 0,6 V.');
     await user.click(within(alert).getByRole('button', { name: 'Réessayer' }));
     await waitFor(() => {
@@ -187,13 +190,32 @@ describe('note editor', () => {
   });
 
   it('keeps a note in the trash read-only until it is restored', async () => {
-    const entry = seedNote('Ancienne note', { text: 'Texte.', deletedAt: Date.now() - DAY });
+    const entry = seedNote('Ancienne note', {
+      deletedAt: Date.now() - DAY,
+      content: JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'taskList',
+            content: [
+              {
+                type: 'taskItem',
+                attrs: { checked: false },
+                content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Relire' }] }],
+              },
+            ],
+          },
+        ],
+      }),
+    });
     mockNativeRuntime({}, { core: { notes: [entry] } });
     const { user } = renderApp(`/notes/${entry.note.id}`);
     const body = await noteBody();
     expect(body).toHaveAttribute('contenteditable', 'false');
     expect(body).toHaveAttribute('aria-readonly', 'true');
     expect(titleField()).toHaveAttribute('readonly');
+    const task = within(body).getByRole('checkbox', { name: quoted('Tâche', 'Relire') });
+    expect(task).toBeDisabled();
     expect(
       screen.getByText('Cette note est dans la corbeille : restaurez-la pour la modifier.'),
     ).toBeInTheDocument();
@@ -204,6 +226,7 @@ describe('note editor', () => {
     });
     expect(body).not.toHaveAttribute('aria-readonly');
     expect(titleField()).not.toHaveAttribute('readonly');
+    expect(task).toBeEnabled();
     expect(entry.note.deletedAt).toBeNull();
   });
 });

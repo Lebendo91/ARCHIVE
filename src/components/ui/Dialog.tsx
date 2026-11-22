@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import type { ComponentProps, ReactNode } from 'react';
+import { useRef, type ComponentProps, type ReactNode } from 'react';
 import { useI18n } from '@/i18n';
 import { cn } from '@/utils/cn';
 import { IconButton } from './IconButton';
@@ -11,13 +11,19 @@ export const DialogClose = DialogPrimitive.Close;
 
 const SIZE_CLASSES = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl' } as const;
 
+const FIELD =
+  'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
+
 export interface DialogContentProps {
   title: string;
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
   size?: keyof typeof SIZE_CLASSES;
-  /** Lets a dialog choose which element receives focus first (for example "Cancel" in a destructive dialog). */
+  /**
+   * Lets a dialog choose which element receives focus first (for example "Cancel" in a destructive dialog).
+   * By default, a form starts in its first field (its text selected), any other dialog on its first control.
+   */
   onOpenAutoFocus?: ComponentProps<typeof DialogPrimitive.Content>['onOpenAutoFocus'];
   /** Lets a dialog opened without a trigger (from a menu or a shortcut) choose where the focus returns. */
   onCloseAutoFocus?: ComponentProps<typeof DialogPrimitive.Content>['onCloseAutoFocus'];
@@ -37,6 +43,7 @@ export function DialogContent({
   onCloseAutoFocus,
 }: DialogContentProps) {
   const { t } = useI18n();
+  const bodyRef = useRef<HTMLDivElement>(null);
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-obsidian/75 data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in" />
@@ -45,7 +52,23 @@ export function DialogContent({
           'fixed inset-0 z-50 m-auto flex h-fit max-h-[85vh] w-[calc(100%-64px)] flex-col rounded-modal border border-line bg-graphite shadow-modal outline-none data-[state=closed]:animate-dialog-out data-[state=open]:animate-dialog-in',
           SIZE_CLASSES[size],
         )}
-        {...(onOpenAutoFocus ? { onOpenAutoFocus } : {})}
+        onOpenAutoFocus={(event) => {
+          if (onOpenAutoFocus) {
+            onOpenAutoFocus(event);
+            return;
+          }
+          const field = bodyRef.current?.querySelector<HTMLElement>(FIELD);
+          if (field) {
+            event.preventDefault();
+            field.focus();
+            if (
+              field instanceof HTMLInputElement &&
+              ['text', 'search', 'url'].includes(field.type)
+            ) {
+              field.select();
+            }
+          }
+        }}
         {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
         {...(description ? {} : { 'aria-describedby': undefined })}
       >
@@ -65,7 +88,7 @@ export function DialogContent({
           </DialogPrimitive.Close>
         </div>
         {children ? (
-          <div className={cn('min-h-0 overflow-y-auto px-6 pt-5', !footer && 'pb-6')}>
+          <div ref={bodyRef} className={cn('min-h-0 overflow-y-auto px-6 pt-5', !footer && 'pb-6')}>
             {children}
           </div>
         ) : null}

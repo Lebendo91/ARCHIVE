@@ -1,9 +1,17 @@
-import { creationEvent, seedDocument, seedWorkspace } from '../../src/test/coreDouble';
+import {
+  creationEvent,
+  seedDocument,
+  seedFolder,
+  seedTag,
+  seedWorkspace,
+} from '../../src/test/coreDouble';
 import {
   emitNativeEvent,
   expect,
+  failNextCommand,
   pickFiles,
   ROUTES,
+  saveNoteElsewhere,
   seedCore,
   test,
   waitForFonts,
@@ -336,6 +344,82 @@ test.describe('@visual screenshots', () => {
       await page.getByRole('button', { name: 'Nouvelle note' }).click();
       await expect(page.getByRole('textbox', { name: 'Titre de la note' })).toBeFocused();
       await shot('new-note');
+    });
+
+    test(`notes management at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const notes = notesState();
+      const lecture = seedTag('Cours');
+      const lab = seedTag('TP', 'blue');
+      const summary = seedTag('Fiches de révision', 'purple');
+      notes.notes.kirchhoff.tagIds = [lecture.id, summary.id];
+      notes.notes.ohm.tagIds = [lecture.id];
+      const archives = seedFolder(notes.electronics, 'Archives');
+      const lectures = seedFolder(notes.electronics, 'Cours');
+      const practice = seedFolder(notes.electronics, 'TP', lectures);
+      const memo = seedDocument('mesures-tp3.md', {
+        content:
+          '# Mesures du TP 3\n\nRelevés effectués sur le **montage astable** à NE555.\n\n## Résistances\n\n| Composant | Valeur | Tolérance |\n| --- | --- | --- |\n| R1 | 10 kΩ | 5 % |\n| R2 | 47 kΩ | 5 % |\n\n## À vérifier\n\n- [x] Fréquence d’oscillation\n- [ ] Rapport cyclique\n\n> La période vaut T = 0,693 × (R1 + 2 R2) × C.\n',
+      });
+      await seedCore(page, {
+        ...notes.state,
+        tags: [lecture, lab, summary],
+        folders: [archives, lectures, practice],
+        documents: [...notes.state.documents, memo],
+      });
+      const shot = async (name: string) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase5-${name}.png` });
+      };
+
+      await page.goto('/#/notes');
+      await page.getByRole('button', { name: 'Filtres' }).click();
+      await page.getByRole('button', { name: 'Gérer les étiquettes…' }).click();
+      const manager = page.getByRole('dialog', { name: 'Étiquettes' });
+      await expect(manager.getByText('0 document · 2 notes')).toBeVisible();
+      await shot('tag-manager');
+      await manager.getByRole('button', { name: /^Supprimer\s«\sCours\s»$/ }).click();
+      await shot('tag-delete');
+      await manager.getByRole('button', { name: 'Annuler' }).click();
+      await manager.getByRole('button', { name: /^Renommer\s«\sTP\s»$/ }).click();
+      await page.keyboard.press('Control+a');
+      await page.keyboard.type('Cours');
+      await page.keyboard.press('Enter');
+      await expect(manager.getByText('Une étiquette porte déjà ce nom.')).toBeVisible();
+      await shot('tag-rename-error');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/#/notes?workspace=${notes.electronics.workspace.id}`);
+      await page.getByRole('button', { name: /^Actions du dossier\s«\sCours\s»$/ }).click();
+      await page.getByRole('menuitem', { name: 'Déplacer…' }).click();
+      await expect(page.getByRole('dialog', { name: /^Déplacer le dossier/ })).toBeVisible();
+      await shot('folder-move');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/#/library/${memo.document.id}`);
+      await expect(
+        page
+          .getByRole('region', { name: 'Aperçu' })
+          .getByRole('heading', { name: 'Mesures du TP 3' }),
+      ).toBeVisible();
+      await shot('markdown-preview');
+
+      // The banners of the editor: a failed save, then a note saved elsewhere.
+      await page.goto(`/#/notes/${notes.notes.ohm.note.id}`);
+      await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
+      await failNextCommand(page, 'notes_save', 'io');
+      await page.getByRole('textbox', { name: 'Contenu de la note' }).click();
+      await page.keyboard.press('Control+End');
+      await page.keyboard.type(' Puissance : P = U × I.');
+      await expect(page.getByRole('alert').filter({ hasText: 'Réessayer' })).toBeVisible();
+      await shot('save-failed');
+      await page.getByRole('button', { name: 'Réessayer' }).click();
+      await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
+      await saveNoteElsewhere(page, notes.notes.ohm.note.id, 'Version d’une autre fenêtre.');
+      await page.keyboard.type(' Fin.');
+      await expect(page.getByRole('alert').filter({ hasText: 'modifiée ailleurs' })).toBeVisible();
+      await shot('save-conflict');
     });
 
     test(`first run at ${size}`, async ({ page }) => {

@@ -728,6 +728,7 @@ export const fr = {
       title: 'Import Markdown',
       failed: '{name}\u00a0: {reason}',
       noneImported: 'Aucune note importée.',
+      tooLarge: 'Fichier trop volumineux (16\u00a0Mo au plus)',
     },
     editor: {
       titleLabel: 'Titre de la note',
@@ -761,6 +762,8 @@ export const fr = {
       deleteColumn: 'Supprimer la colonne',
       toggleHeaderRow: 'Ligne d’en-tête',
       deleteTable: 'Supprimer le tableau',
+      task: 'Tâche «\u00a0{text}\u00a0»',
+      emptyTask: 'Tâche sans texte',
       readOnly: 'Cette note est dans la corbeille\u00a0: restaurez-la pour la modifier.',
     },
     save: {
@@ -768,6 +771,8 @@ export const fr = {
       saving: 'Enregistrement…',
       dirty: 'Modifications non enregistrées',
       error: 'Échec de l’enregistrement',
+      errorDetail:
+        'Vos modifications n’ont pas été enregistrées\u00a0: elles restent ici et dans un brouillon de récupération.',
       retry: 'Réessayer',
       conflict: 'Cette note a été modifiée ailleurs depuis son ouverture.',
       reload: 'Recharger la version enregistrée',

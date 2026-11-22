@@ -711,6 +711,7 @@ export const en: Dictionary = {
       title: 'Markdown import',
       failed: '{name}: {reason}',
       noneImported: 'No note imported.',
+      tooLarge: 'File too large (16 MB at most)',
     },
     editor: {
       titleLabel: 'Note title',
@@ -744,6 +745,8 @@ export const en: Dictionary = {
       deleteColumn: 'Delete the column',
       toggleHeaderRow: 'Header row',
       deleteTable: 'Delete the table',
+      task: 'Task “{text}”',
+      emptyTask: 'Empty task',
       readOnly: 'This note is in the trash: restore it to edit it.',
     },
     save: {
@@ -751,6 +754,7 @@ export const en: Dictionary = {
       saving: 'Saving…',
       dirty: 'Unsaved changes',
       error: 'Save failed',
+      errorDetail: 'Your changes were not saved: they stay here and in a recovery draft.',
       retry: 'Try again',
       conflict: 'This note was changed elsewhere since you opened it.',
       reload: 'Reload the saved version',

@@ -28,7 +28,11 @@ export function useImportMarkdown(): (target?: NoteTarget) => Promise<void> {
             toast.error(
               t('notes.import.failed', {
                 name: file.name,
-                reason: t(`library.import.failures.${file.failure ?? 'unreadable'}`),
+                // Markdown is read as text, with its own limit (`TEXT_READ_MAX` of the core).
+                reason:
+                  file.failure === 'too_large'
+                    ? t('notes.import.tooLarge')
+                    : t(`library.import.failures.${file.failure ?? 'unreadable'}`),
               }),
             );
             continue;

@@ -7,6 +7,7 @@ import { errorMessageKey } from '@/services/errors';
 import { deleteTag, renameTag, tagUsage, type TagUsage } from '@/services/library';
 import { refreshLibraryViews } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
+import { cn } from '@/utils/cn';
 
 const USAGE_KEY = ['tags', 'usage'] as const;
 
@@ -273,14 +274,12 @@ export function TagManagerDialog({
             </ul>
           )}
           {/* Live regions, present before their message so that it is announced. */}
-          <div className="mt-3 min-h-5 text-sm">
-            <p role="status" className="text-fg-secondary">
-              {feedback?.tone === 'success' ? feedback.message : null}
-            </p>
-            <p role="alert" className="text-danger">
-              {feedback?.tone === 'error' ? feedback.message : null}
-            </p>
-          </div>
+          <p role="status" className={cn('text-sm text-fg-secondary', feedback && 'mt-3')}>
+            {feedback?.tone === 'success' ? feedback.message : null}
+          </p>
+          <p role="alert" className="text-sm text-danger">
+            {feedback?.tone === 'error' ? feedback.message : null}
+          </p>
         </div>
       </DialogContent>
     </Dialog>

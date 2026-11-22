@@ -396,7 +396,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
               </Button>
             }
           >
-            {t('notes.save.error')}
+            {t('notes.save.errorDetail')}
           </Banner>
         </div>
       ) : null}

@@ -10,7 +10,7 @@ import { collectLinks } from './noteContent';
 const DEBOUNCE_MS = 800;
 /** Longest delay before a save while the user keeps typing. */
 const MAX_WAIT_MS = 5000;
-/** Delay before the recovery draft follows the latest change. */
+/** Longest delay before the recovery draft follows the changes, even while typing goes on. */
 const DRAFT_DELAY_MS = 1000;
 
 /**
@@ -80,18 +80,11 @@ export class NoteAutosaver {
       }
       this.schedule();
     }
-    // The recovery draft follows the latest change, a moment later.
-    window.clearTimeout(this.draftTimer);
-    this.draftTimer = window.setTimeout(() => {
-      const snapshot = this.callbacks.current.read();
-      if (snapshot && this.dirty) {
-        writeDraft(this.noteId, {
-          revision: this.revision,
-          title: snapshot.title,
-          content: snapshot.content,
-          savedAt: Date.now(),
-        });
-      }
+    // The recovery draft follows the changes at most a second behind: throttled, not debounced, so that
+    // a crash during a long stretch of typing (saves wait for a pause) loses at most that second.
+    this.draftTimer ??= window.setTimeout(() => {
+      this.draftTimer = undefined;
+      this.keepDraft();
     }, DRAFT_DELAY_MS);
     this.declarePending();
   };
@@ -120,7 +113,7 @@ export class NoteAutosaver {
   /** Conflict or recovery: the editor now shows the version stored at `revision`. */
   reset = (revision: number): void => {
     window.clearTimeout(this.timer);
-    window.clearTimeout(this.draftTimer);
+    this.cancelDraft();
     this.revision = revision;
     this.dirty = false;
     this.conflict = false;
@@ -132,8 +125,10 @@ export class NoteAutosaver {
 
   /** The editor is closing: pending changes are saved, and the window cannot close before that save ends. */
   dispose(): void {
-    window.clearTimeout(this.draftTimer);
+    this.cancelDraft();
     if (this.dirty || this.saving) {
+      // Should this last save fail, the changes are offered again when the note is opened.
+      this.keepDraft();
       const pending = this.flush();
       setPendingSave(this.noteId, () => pending);
       void pending.finally(() => {
@@ -142,6 +137,27 @@ export class NoteAutosaver {
     } else {
       setPendingSave(this.noteId, null);
     }
+  }
+
+  /** Writes the recovery draft while changes are not confirmed by the core (unsaved, or being saved). */
+  private keepDraft(): void {
+    if (!this.dirty && !this.saving) {
+      return;
+    }
+    const snapshot = this.callbacks.current.read();
+    if (snapshot) {
+      writeDraft(this.noteId, {
+        revision: this.revision,
+        title: snapshot.title,
+        content: snapshot.content,
+        savedAt: Date.now(),
+      });
+    }
+  }
+
+  private cancelDraft(): void {
+    window.clearTimeout(this.draftTimer);
+    this.draftTimer = undefined;
   }
 
   private setStatus(status: SaveStatus): void {
@@ -199,7 +215,7 @@ export class NoteAutosaver {
         if (this.dirty) {
           this.setStatus('dirty');
         } else {
-          window.clearTimeout(this.draftTimer);
+          this.cancelDraft();
           clearDraft(this.noteId);
           this.setStatus('saved');
         }
