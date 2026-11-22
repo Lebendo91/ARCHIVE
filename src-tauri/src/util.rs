@@ -94,6 +94,41 @@ pub fn fold_for_search(text: &str) -> String {
     folded
 }
 
+/// Characters refused in Windows file names, and names reserved by Windows.
+pub fn safe_file_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|character| {
+            if character.is_control() || r#"<>:"/\|?*"#.contains(character) {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect::<String>()
+        .trim_matches(|character: char| character == ' ' || character == '.')
+        .chars()
+        .take(200)
+        .collect();
+    let stem = cleaned
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.len() == 4
+            && stem
+                .chars()
+                .last()
+                .is_some_and(|digit| digit.is_ascii_digit()));
+    if cleaned.is_empty() || reserved {
+        format!("document_{cleaned}")
+    } else {
+        cleaned
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

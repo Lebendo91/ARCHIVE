@@ -91,6 +91,22 @@ pub fn run() {
             commands::library::tags_create,
             commands::library::tags_rename,
             commands::library::tags_delete,
+            commands::notes::notes_list,
+            commands::notes::notes_get,
+            commands::notes::notes_create,
+            commands::notes::notes_save,
+            commands::notes::notes_rename,
+            commands::notes::notes_duplicate,
+            commands::notes::notes_move,
+            commands::notes::notes_set_favorite,
+            commands::notes::notes_set_archived,
+            commands::notes::notes_set_tags,
+            commands::notes::notes_trash,
+            commands::notes::notes_restore,
+            commands::notes::notes_purge,
+            commands::notes::notes_mark_opened,
+            commands::notes::notes_import_markdown_pick,
+            commands::notes::notes_export_markdown,
         ])
         .run(tauri::generate_context!());
 

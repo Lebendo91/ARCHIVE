@@ -14,6 +14,7 @@ use crate::repo::documents::{self, Document, ProcessingStatus};
 use crate::repo::tags::{self, Tag, Tagged};
 use crate::repo::timeline::{self, NewTimelineEvent, TimelineEventType};
 use crate::repo::{EntityKind, folders, workspaces};
+use crate::services::notes::{self, LinkKind, LinkedResource};
 use crate::util::{fold_for_search, now_ms, validate_id};
 
 pub const PAGE_MAX: u32 = 200;
@@ -107,7 +108,7 @@ pub struct DocumentPage {
 }
 
 /// Escapes the wildcards of a `LIKE` pattern (escape character `\`).
-fn like_pattern(search: &str) -> String {
+pub(crate) fn like_pattern(search: &str) -> String {
     let mut pattern = String::from("%");
     for character in fold_for_search(search.trim()).chars() {
         if matches!(character, '%' | '_' | '\\') {
@@ -241,6 +242,8 @@ pub struct DocumentDetail {
     pub tags: Vec<Tag>,
     /// Extracted text, if any (bounded in size by the extraction).
     pub content: Option<String>,
+    /// Notes that link to this document (trash excluded).
+    pub linked_notes: Vec<LinkedResource>,
 }
 
 pub fn detail(connection: &Connection, id: &str) -> AppResult<DocumentDetail> {
@@ -248,6 +251,7 @@ pub fn detail(connection: &Connection, id: &str) -> AppResult<DocumentDetail> {
         document: documents::get(connection, id)?,
         tags: tags::list_for(connection, Tagged::Document(id))?,
         content: documents::content(connection, id)?,
+        linked_notes: notes::backlinks(connection, LinkKind::Document, id)?,
     })
 }
 
@@ -264,30 +268,42 @@ pub fn rename(transaction: &Transaction<'_>, id: &str, title: &str) -> AppResult
     documents::rename(transaction, id, title)
 }
 
+/// Checks a place for a resource: the workspace exists, and the folder, if any, belongs to it.
+pub(crate) fn check_location(
+    transaction: &Transaction<'_>,
+    workspace_id: Option<&str>,
+    folder_id: Option<&str>,
+) -> AppResult<()> {
+    match (workspace_id, folder_id) {
+        (None, Some(_)) => Err(AppError::InvalidInput(
+            "a folder requires its workspace".to_owned(),
+        )),
+        (Some(workspace_id), folder_id) => {
+            workspaces::get(transaction, workspace_id)?;
+            if let Some(folder_id) = folder_id
+                && folders::get(transaction, folder_id)?.workspace_id != workspace_id
+            {
+                return Err(AppError::InvalidInput(
+                    "the folder belongs to another workspace".to_owned(),
+                ));
+            }
+            Ok(())
+        }
+        (None, None) => Ok(()),
+    }
+}
+
 pub fn move_to(
     transaction: &Transaction<'_>,
     id: &str,
     location: &DocumentLocation,
 ) -> AppResult<Document> {
     validate_id(id, "document id")?;
-    match (&location.workspace_id, &location.folder_id) {
-        (None, Some(_)) => {
-            return Err(AppError::InvalidInput(
-                "a folder requires its workspace".to_owned(),
-            ));
-        }
-        (Some(workspace_id), folder_id) => {
-            workspaces::get(transaction, workspace_id)?;
-            if let Some(folder_id) = folder_id
-                && &folders::get(transaction, folder_id)?.workspace_id != workspace_id
-            {
-                return Err(AppError::InvalidInput(
-                    "the folder belongs to another workspace".to_owned(),
-                ));
-            }
-        }
-        (None, None) => {}
-    }
+    check_location(
+        transaction,
+        location.workspace_id.as_deref(),
+        location.folder_id.as_deref(),
+    )?;
     let affected = transaction.execute(
         "UPDATE documents SET workspace_id = ?2, folder_id = ?3, updated_at = ?4 WHERE id = ?1",
         rusqlite::params![id, location.workspace_id, location.folder_id, now_ms()],
