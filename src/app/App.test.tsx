@@ -28,14 +28,10 @@ describe('application shell', () => {
   });
 
   it.each([
-    ['Bibliothèque', 'Aucun document pour l’instant'],
     ['Notes', 'Aucune note pour l’instant'],
     ['Graphe de connaissances', 'Aucune relation pour l’instant'],
     ['Chronologie', 'La chronologie complète arrive bientôt'],
     ['Assistant IA', 'Aucun fournisseur IA configuré'],
-    ['Favoris', 'Aucun favori'],
-    ['Récemment ouverts', 'Rien d’ouvert récemment'],
-    ['Archives', 'Aucun élément archivé'],
   ])('navigates to "%s" and shows its honest empty state', async (label, emptyTitle) => {
     mockNativeRuntime();
     const { user } = renderApp('/');

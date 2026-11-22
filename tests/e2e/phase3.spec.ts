@@ -59,7 +59,7 @@ test.describe('workspaces', () => {
     const stats = page.getByRole('region', { name: 'Votre base de connaissances' });
     await expect(stats.getByRole('definition').nth(2)).toHaveText('1');
     await expect(
-      page.getByRole('heading', { name: 'Vos espaces de travail sont prêts' }),
+      page.getByRole('heading', { name: 'Commencez par importer vos documents' }),
     ).toBeVisible();
   });
 

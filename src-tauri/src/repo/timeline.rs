@@ -49,6 +49,8 @@ pub struct TimelineEvent {
     #[ts(type = "Record<string, unknown>")]
     pub metadata: serde_json::Value,
     pub created_at: i64,
+    /// True while the resource still exists outside the trash: the interface links to it only then.
+    pub available: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +72,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<TimelineEvent> {
         description: row.get(5)?,
         metadata: json_value(&row.get::<_, String>(6)?),
         created_at: row.get(7)?,
+        available: row.get(8)?,
     })
 }
 
@@ -97,6 +100,7 @@ pub fn record(
         description,
         metadata: event.metadata.clone(),
         created_at: now_ms(),
+        available: true,
     };
     transaction
         .execute(
@@ -160,10 +164,17 @@ pub fn list_query(connection: &Connection, query: &TimelineQuery) -> AppResult<V
         validate_id(workspace_id, "workspace id")?;
     }
     let mut statement = connection.prepare(
-        "SELECT id, event_type, entity_type, entity_id, workspace_id, description, metadata_json, created_at
-         FROM timeline_events
-         WHERE (?1 IS NULL OR created_at < ?1) AND (?2 IS NULL OR workspace_id = ?2)
-         ORDER BY created_at DESC, id DESC LIMIT ?3",
+        "SELECT e.id, e.event_type, e.entity_type, e.entity_id, e.workspace_id, e.description, e.metadata_json,
+                e.created_at,
+                CASE e.entity_type
+                  WHEN 'document' THEN EXISTS (SELECT 1 FROM documents d WHERE d.id = e.entity_id AND d.deleted_at IS NULL)
+                  WHEN 'note' THEN EXISTS (SELECT 1 FROM notes n WHERE n.id = e.entity_id AND n.deleted_at IS NULL)
+                  WHEN 'workspace' THEN EXISTS (SELECT 1 FROM workspaces w WHERE w.id = e.entity_id)
+                  ELSE 0
+                END
+         FROM timeline_events e
+         WHERE (?1 IS NULL OR e.created_at < ?1) AND (?2 IS NULL OR e.workspace_id = ?2)
+         ORDER BY e.created_at DESC, e.id DESC LIMIT ?3",
     )?;
     let rows = statement.query_map(
         params![query.before, query.workspace_id, query.limit],

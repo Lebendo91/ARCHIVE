@@ -71,6 +71,8 @@ pub struct DocumentQuery {
     #[ts(optional)]
     pub tag_id: Option<String>,
     pub favorites_only: bool,
+    /// Only documents opened at least once (« Recently opened »).
+    pub opened_only: bool,
     pub state: DocumentState,
     #[serde(default)]
     #[ts(optional)]
@@ -177,6 +179,9 @@ pub fn list(connection: &Connection, query: &DocumentQuery) -> AppResult<Documen
     }
     if query.favorites_only {
         clauses.push("d.is_favorite = 1".to_owned());
+    }
+    if query.opened_only {
+        clauses.push("d.last_opened_at IS NOT NULL".to_owned());
     }
     if let Some(after) = query.imported_after {
         clauses.push("d.imported_at >= ?".to_owned());
@@ -392,7 +397,17 @@ pub enum PdfExtraction {
         page_count: u32,
     },
     /// pdf.js could not read the file.
-    Failed,
+    Failed { reason: PdfFailure },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum PdfFailure {
+    /// The file is damaged or is not a PDF.
+    Invalid,
+    /// The file is protected by a password.
+    Encrypted,
 }
 
 pub fn save_pdf_extraction(
@@ -426,7 +441,13 @@ pub fn save_pdf_extraction(
                 )
             }
         }
-        PdfExtraction::Failed => (ProcessingStatus::Failed, Some(ExtractionIssue::InvalidPdf)),
+        PdfExtraction::Failed { reason } => (
+            ProcessingStatus::Failed,
+            Some(match reason {
+                PdfFailure::Invalid => ExtractionIssue::InvalidPdf,
+                PdfFailure::Encrypted => ExtractionIssue::EncryptedPdf,
+            }),
+        ),
     };
     if let Some(issue) = issue {
         metadata.insert("extractionIssue".to_owned(), Value::from(issue.as_str()));
@@ -480,6 +501,7 @@ mod tests {
             kinds: None,
             tag_id: None,
             favorites_only: false,
+            opened_only: false,
             state: DocumentState::Active,
             imported_after: None,
             updated_after: None,
@@ -613,6 +635,22 @@ mod tests {
             })
             .expect("list");
         assert_eq!(titles(&favorites), ["Alpha"]);
+
+        database.write(|tx| mark_opened(tx, &a.id)).expect("opened");
+        let opened = database
+            .read(|c| {
+                list(
+                    c,
+                    &DocumentQuery {
+                        opened_only: true,
+                        sort: DocumentSort::LastOpenedAt,
+                        descending: true,
+                        ..query()
+                    },
+                )
+            })
+            .expect("list");
+        assert_eq!(titles(&opened), ["Alpha"]);
 
         let page = database
             .read(|c| {
@@ -791,7 +829,13 @@ mod tests {
         );
         assert!(
             database
-                .write(|tx| save_pdf_extraction(tx, &text.id, PdfExtraction::Failed))
+                .write(|tx| save_pdf_extraction(
+                    tx,
+                    &text.id,
+                    PdfExtraction::Failed {
+                        reason: PdfFailure::Invalid
+                    }
+                ))
                 .is_err(),
             "only PDF documents accept a PDF extraction"
         );

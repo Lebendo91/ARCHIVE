@@ -9,6 +9,13 @@ export {
 export { ButtonLink } from './ButtonLink';
 export { Card, CardHeader, type IconTone } from './Card';
 export { ConfirmDialog } from './ConfirmDialog';
+export {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from './ContextMenu';
 export { Dialog, DialogClose, DialogContent, DialogTrigger } from './Dialog';
 export {
   DropdownMenu,
@@ -23,6 +30,7 @@ export { IconButton } from './IconButton';
 export { Input } from './Input';
 export { Kbd, KeyCombo } from './Kbd';
 export { SectionCard } from './SectionCard';
+export { SegmentedControl } from './SegmentedControl';
 export { Select } from './Select';
 export { Skeleton } from './Skeleton';
 export { Spinner } from './Spinner';

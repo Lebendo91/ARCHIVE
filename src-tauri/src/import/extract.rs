@@ -31,6 +31,8 @@ pub enum ExtractionIssue {
     InvalidJson,
     InvalidDocx,
     InvalidPdf,
+    /// The PDF is protected by a password.
+    EncryptedPdf,
     /// The PDF has no text layer (a scan): OCR is not integrated.
     NoTextLayer,
 }
@@ -42,6 +44,7 @@ impl ExtractionIssue {
             Self::InvalidJson => "invalid_json",
             Self::InvalidDocx => "invalid_docx",
             Self::InvalidPdf => "invalid_pdf",
+            Self::EncryptedPdf => "encrypted_pdf",
             Self::NoTextLayer => "no_text_layer",
         }
     }

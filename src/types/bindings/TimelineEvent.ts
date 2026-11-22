@@ -2,4 +2,8 @@
 import type { EntityKind } from "./EntityKind";
 import type { TimelineEventType } from "./TimelineEventType";
 
-export type TimelineEvent = { id: string, eventType: TimelineEventType, entityType: EntityKind, entityId: string, workspaceId: string | null, description: string, metadata: Record<string, unknown>, createdAt: number, };
+export type TimelineEvent = { id: string, eventType: TimelineEventType, entityType: EntityKind, entityId: string, workspaceId: string | null, description: string, metadata: Record<string, unknown>, createdAt: number, 
+/**
+ * True while the resource still exists outside the trash: the interface links to it only then.
+ */
+available: boolean, };

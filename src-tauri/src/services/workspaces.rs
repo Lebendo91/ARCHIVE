@@ -312,6 +312,29 @@ mod tests {
     }
 
     #[test]
+    fn timeline_events_tell_whether_their_resource_still_exists() {
+        let (_dir, database) = open_temporary();
+        let workspace = new_workspace(&database, "Éphémère");
+        let available = |database: &Database| {
+            database
+                .read(|c| timeline::list(c, None, 10))
+                .expect("timeline")
+                .iter()
+                .map(|event| event.available)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(available(&database), [true]);
+        database
+            .write(|tx| delete(tx, &workspace.id, &WorkspaceDeletion::Empty))
+            .expect("delete");
+        assert_eq!(
+            available(&database),
+            [false],
+            "the history stays, without a dead link"
+        );
+    }
+
+    #[test]
     fn an_empty_workspace_is_deleted_with_the_empty_strategy_only() {
         let (_dir, database) = open_temporary();
         let empty = new_workspace(&database, "Vide");

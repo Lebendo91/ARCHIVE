@@ -99,20 +99,42 @@ function nativeRuntimeDouble(
       return null;
     },
   };
-  for (const command of [
-    'workspaces_list',
-    'workspaces_get',
-    'workspaces_create',
-    'workspaces_update',
-    'workspaces_set_archived',
-    'workspaces_delete',
-    'dashboard_overview',
-    'timeline_list',
-  ]) {
+  // Every command of the in-memory core (workspaces, Library, overview, timeline).
+  for (const command of Object.keys(createCore(null).handlers)) {
     handlers[command] = (args) => coreHandlers()[command]?.(args);
   }
+  // Event plugin: the interface listens to native drag-and-drop events, emitted by the tests.
+  const listeners = new Map<string, number[]>();
+  handlers['plugin:event|listen'] = (args) => {
+    const event = String(args?.event);
+    listeners.set(event, [...(listeners.get(event) ?? []), Number(args?.handler)]);
+    return Number(args?.handler);
+  };
+  handlers['plugin:event|unlisten'] = (args) => {
+    const event = String(args?.event);
+    listeners.set(
+      event,
+      (listeners.get(event) ?? []).filter((id) => id !== Number(args?.eventId)),
+    );
+    return null;
+  };
+  const emitEvent = (event: string, payload: unknown) => {
+    for (const id of listeners.get(event) ?? []) {
+      callbacks.get(id)?.({ event, id, payload });
+    }
+  };
   Object.assign(window, {
     __ARCHIVE_E2E_DIAGNOSTICS__: diagnostics,
+    __ARCHIVE_E2E_EMIT__: emitEvent,
+    // Installed by the event plugin of the real runtime; `unlisten` calls it before the command.
+    __TAURI_EVENT_PLUGIN_INTERNALS__: {
+      unregisterListener: (event: string, eventId: number) => {
+        listeners.set(
+          event,
+          (listeners.get(event) ?? []).filter((id) => id !== eventId),
+        );
+      },
+    },
     __TAURI_INTERNALS__: {
       invoke: (command: string, args: Record<string, unknown> | undefined) => {
         const handler = handlers[command];
@@ -221,3 +243,15 @@ export const ROUTES: readonly { path: string; title: string; name: string }[] = 
   { path: '/help', title: 'Aide', name: 'help' },
   { path: '/missing-page', title: 'Page introuvable', name: 'not-found' },
 ];
+
+/** Emits a native event in the page, for example a drag and drop of files onto the window. */
+export async function emitNativeEvent(page: Page, event: string, payload: unknown): Promise<void> {
+  await page.evaluate(
+    ({ name, data }) => {
+      (
+        window as unknown as { __ARCHIVE_E2E_EMIT__: (event: string, payload: unknown) => void }
+      ).__ARCHIVE_E2E_EMIT__(name, data);
+    },
+    { name: event, data: payload },
+  );
+}

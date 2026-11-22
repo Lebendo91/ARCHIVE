@@ -3,4 +3,4 @@
 /**
  * Why the text of a document is missing or partial. Shown to the user, never hidden.
  */
-export type ExtractionIssue = "truncated" | "invalid_json" | "invalid_docx" | "invalid_pdf" | "no_text_layer";
+export type ExtractionIssue = "truncated" | "invalid_json" | "invalid_docx" | "invalid_pdf" | "encrypted_pdf" | "no_text_layer";

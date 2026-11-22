@@ -4,6 +4,7 @@ import { AssistantPage } from '@/modules/assistant/AssistantPage';
 import { DashboardPage } from '@/modules/dashboard/DashboardPage';
 import { HelpPage } from '@/modules/help/HelpPage';
 import { GraphPage } from '@/modules/knowledge-graph/GraphPage';
+import { DocumentPage } from '@/modules/library/DocumentPage';
 import { LibraryPage } from '@/modules/library/LibraryPage';
 import { NotesPage } from '@/modules/notes/NotesPage';
 import { ArchivedPage, FavoritesPage, RecentPage } from '@/modules/personal/PersonalPages';
@@ -25,6 +26,7 @@ import { WorkspacesPage } from '@/modules/workspaces/WorkspacesPage';
 import type { RouteHandle } from './handles';
 
 const SETTINGS_PARENT: RouteHandle['parent'] = { titleKey: 'nav.settings', to: '/settings' };
+const LIBRARY_PARENT: RouteHandle['parent'] = { titleKey: 'nav.library', to: '/library' };
 const WORKSPACES_PARENT: RouteHandle['parent'] = {
   titleKey: 'nav.workspacesSection',
   to: '/workspaces',
@@ -65,6 +67,15 @@ export const appRoutes: RouteObject[] = [
             path: 'library',
             element: <LibraryPage />,
             handle: { titleKey: 'nav.library' } satisfies RouteHandle,
+          },
+          {
+            // The page replaces this title with the document title once it is known.
+            path: 'library/:documentId',
+            element: <DocumentPage />,
+            handle: {
+              titleKey: 'library.detail.fallbackTitle',
+              parent: LIBRARY_PARENT,
+            } satisfies RouteHandle,
           },
           {
             path: 'notes',

@@ -7,6 +7,7 @@ export {
   formatLongDate,
   formatNumber,
   formatRelativeTime,
+  formatShortDate,
   LOCALE_TAGS,
 } from './format';
 export type { Dictionary, ListKey, Locale, MessageKey, MessageParams, PluralKey } from './types';

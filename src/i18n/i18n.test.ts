@@ -68,7 +68,7 @@ describe('translate', () => {
   });
 
   it('returns lists', () => {
-    expect(translateList(fr, 'modules.library.capabilities').length).toBe(3);
+    expect(translateList(fr, 'modules.notes.capabilities').length).toBe(3);
   });
 });
 

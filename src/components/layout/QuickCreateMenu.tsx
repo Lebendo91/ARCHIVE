@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { useStartImport } from '@/modules/library/useStartImport';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 
 /**
@@ -20,6 +21,7 @@ import { workspaceDialogs } from '@/stores/workspaceDialogs';
 export function QuickCreateMenu() {
   const { t } = useI18n();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const startImport = useStartImport();
   const keys = (id: ShortcutId) => formatCombination(getShortcut(id).combination, t);
 
   return (
@@ -39,6 +41,15 @@ export function QuickCreateMenu() {
         >
           {t('shortcuts.newWorkspace')}
         </DropdownMenuItem>
+        <DropdownMenuItem
+          icon={FileUp}
+          shortcut={keys('importDocument')}
+          onSelect={() => {
+            void startImport('pick');
+          }}
+        >
+          {t('shortcuts.importDocument')}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>
           <span className="text-2xs font-semibold tracking-label text-fg-secondary uppercase">
@@ -47,9 +58,6 @@ export function QuickCreateMenu() {
         </DropdownMenuLabel>
         <DropdownMenuItem icon={NotebookPen} shortcut={keys('newNote')} disabled>
           {t('shortcuts.newNote')}
-        </DropdownMenuItem>
-        <DropdownMenuItem icon={FileUp} shortcut={keys('importDocument')} disabled>
-          {t('shortcuts.importDocument')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

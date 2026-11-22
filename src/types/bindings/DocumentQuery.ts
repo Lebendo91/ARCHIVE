@@ -9,4 +9,8 @@ export type DocumentQuery = {
 /**
  * Matches the title or the original file name, whatever the case and accents.
  */
-search?: string, workspace?: WorkspaceScope, folderId?: string, kinds?: Array<FileKind>, tagId?: string, favoritesOnly: boolean, state: DocumentState, importedAfter?: number, updatedAfter?: number, indexing?: ProcessingStatus, sort: DocumentSort, descending: boolean, limit: number, offset: number, };
+search?: string, workspace?: WorkspaceScope, folderId?: string, kinds?: Array<FileKind>, tagId?: string, favoritesOnly: boolean, 
+/**
+ * Only documents opened at least once (« Recently opened »).
+ */
+openedOnly: boolean, state: DocumentState, importedAfter?: number, updatedAfter?: number, indexing?: ProcessingStatus, sort: DocumentSort, descending: boolean, limit: number, offset: number, };

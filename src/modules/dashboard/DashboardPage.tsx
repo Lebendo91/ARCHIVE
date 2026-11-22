@@ -7,6 +7,7 @@ import {
   MessageSquareText,
   NotebookPen,
   Plus,
+  Upload,
 } from 'lucide-react';
 import { useId } from 'react';
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
@@ -17,10 +18,11 @@ import { QueryError } from '@/components/feedback/QueryError';
 import { Button, ButtonLink, Card, SectionCard, Skeleton, Stat, StatList } from '@/components/ui';
 import { useNow } from '@/hooks/useNow';
 import { formatFileSize, formatLongDate, formatNumber, useI18n } from '@/i18n';
+import { useStartImport } from '@/modules/library/useStartImport';
 import { WorkspaceIcon } from '@/modules/workspaces/WorkspaceIcon';
-import type { DashboardOverview, TimelineEvent } from '@/services/dashboard';
+import type { DashboardOverview } from '@/services/dashboard';
 import { errorMessageKey } from '@/services/errors';
-import { useDashboardOverview, useStorageOverview, useWorkspaces } from '@/services/queries';
+import { useDashboardOverview, useStorageOverview } from '@/services/queries';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { getGreetingPeriod } from './greeting';
 
@@ -76,39 +78,42 @@ function ExampleOrganization() {
   );
 }
 
-/** First steps, while the knowledge base holds no document and no note (spec §6.2). */
-function Onboarding({ workspaces }: { workspaces: number }) {
+/**
+ * First steps, while the knowledge base holds no document and no note (spec §6.2): the primary action
+ * imports documents; creating a note joins it with the note editor.
+ */
+function Onboarding() {
   const { t } = useI18n();
-  const ready = workspaces > 0;
+  const startImport = useStartImport();
   return (
     <Card padding="lg" className="flex items-center gap-8">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-col gap-2">
           <h3 className="font-display text-xl font-semibold text-fg">
-            {ready ? t('dashboard.onboarding.readyTitle') : t('dashboard.onboarding.title')}
+            {t('dashboard.onboarding.title')}
           </h3>
           <p className="max-w-xl text-sm text-fg-secondary">
-            {ready
-              ? t('dashboard.onboarding.readyDescription')
-              : t('dashboard.onboarding.description')}
+            {t('dashboard.onboarding.description')}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {ready ? (
-            <ButtonLink to="/workspaces" variant="primary" icon={Boxes}>
-              {t('dashboard.onboarding.viewWorkspaces')}
-            </ButtonLink>
-          ) : (
-            <Button
-              variant="primary"
-              icon={Plus}
-              onClick={(event) => {
-                workspaceDialogs.create(event.currentTarget);
-              }}
-            >
-              {t('dashboard.onboarding.action')}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            icon={Upload}
+            onClick={() => {
+              void startImport('pick');
+            }}
+          >
+            {t('dashboard.onboarding.action')}
+          </Button>
+          <Button
+            icon={Plus}
+            onClick={(event) => {
+              workspaceDialogs.create(event.currentTarget);
+            }}
+          >
+            {t('dashboard.onboarding.secondaryAction')}
+          </Button>
         </div>
         <p className="text-xs text-fg-secondary">{t('dashboard.onboarding.upcoming')}</p>
       </div>
@@ -120,6 +125,7 @@ function Onboarding({ workspaces }: { workspaces: number }) {
 /** Quick actions of spec §6.1. Those of modules not delivered yet are visibly unavailable. */
 function QuickActions() {
   const { t } = useI18n();
+  const startImport = useStartImport();
   const actions: QuickAction[] = [
     {
       id: 'workspace',
@@ -130,7 +136,15 @@ function QuickActions() {
         workspaceDialogs.create(event.currentTarget);
       },
     },
-    { id: 'document', icon: FileUp, label: t('shortcuts.importDocument') },
+    {
+      id: 'document',
+      icon: FileUp,
+      label: t('shortcuts.importDocument'),
+      keys: formatCombination(getShortcut('importDocument').combination, t),
+      onClick: () => {
+        void startImport('pick');
+      },
+    },
     { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
     { id: 'assistant', icon: MessageSquareText, label: t('dashboard.openAssistant') },
   ];
@@ -220,12 +234,6 @@ export function DashboardPage() {
   const now = useNow();
   const greeting = t(`dashboard.greeting.${getGreetingPeriod(now)}`);
   const overview = useDashboardOverview();
-  const workspaces = useWorkspaces();
-  const existing = new Set((workspaces.data ?? []).map((summary) => summary.workspace.id));
-  const linkFor = (event: TimelineEvent) =>
-    event.entityType === 'workspace' && existing.has(event.entityId)
-      ? `/workspaces/${event.entityId}`
-      : undefined;
   const data = overview.data;
   const firstSteps = data?.documents === 0 && data.notes === 0;
 
@@ -250,7 +258,7 @@ export function DashboardPage() {
         />
       ) : (
         <>
-          {firstSteps ? <Onboarding workspaces={data.workspaces} /> : null}
+          {firstSteps ? <Onboarding /> : null}
           <Statistics overview={data} />
           <section aria-labelledby="dashboard-actions" className="flex flex-col gap-4">
             <h3
@@ -264,11 +272,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-3 gap-6">
             <SectionCard title={t('dashboard.recentActivity')} className="col-span-2">
               {data ? (
-                <ActivityList
-                  events={data.recentActivity}
-                  emptyText={t('dashboard.noActivity')}
-                  linkFor={linkFor}
-                />
+                <ActivityList events={data.recentActivity} emptyText={t('dashboard.noActivity')} />
               ) : (
                 <Skeleton surface="raised" className="h-24" />
               )}

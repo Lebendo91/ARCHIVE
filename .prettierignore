@@ -4,6 +4,7 @@ playwright-report
 test-results
 visual-audit
 node_modules
+public/pdfjs
 package-lock.json
 src-tauri/target
 src-tauri/gen

@@ -36,12 +36,27 @@ export interface ActivityListProps {
   events: readonly TimelineEvent[];
   /** Shown when there is no event yet. */
   emptyText: string;
-  /** Route of the resource an event concerns, when it can still be opened. */
-  linkFor?: (event: TimelineEvent) => string | undefined;
+  /** Resource displayed by the page itself: its events are not linked to the page they are on. */
+  currentEntityId?: string;
+}
+
+/** Route of the resource an event concerns, if it still exists (the core tells) and has a page. */
+function routeFor(event: TimelineEvent): string | undefined {
+  if (!event.available) {
+    return undefined;
+  }
+  switch (event.entityType) {
+    case 'workspace':
+      return `/workspaces/${event.entityId}`;
+    case 'document':
+      return `/library/${event.entityId}`;
+    default:
+      return undefined;
+  }
 }
 
 /** Latest events of the timeline (spec §6.1 and §12.2), most recent first, from the database. */
-export function ActivityList({ events, emptyText, linkFor }: ActivityListProps) {
+export function ActivityList({ events, emptyText, currentEntityId }: ActivityListProps) {
   const { t, locale } = useI18n();
   const now = useNow();
 
@@ -54,7 +69,7 @@ export function ActivityList({ events, emptyText, linkFor }: ActivityListProps) 
       {events.map((event) => {
         const Icon = EVENT_ICONS[event.eventType];
         const title = event.description || t('activity.untitled');
-        const to = linkFor?.(event);
+        const to = event.entityId === currentEntityId ? undefined : routeFor(event);
         const label = GENERIC_EVENTS.has(event.eventType)
           ? `${t(`activity.events.${event.eventType}`)} · ${t(`activity.kinds.${event.entityType}`)}`
           : t(`activity.events.${event.eventType}`);
