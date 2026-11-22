@@ -6,6 +6,7 @@ import { HelpPage } from '@/modules/help/HelpPage';
 import { GraphPage } from '@/modules/knowledge-graph/GraphPage';
 import { DocumentPage } from '@/modules/library/DocumentPage';
 import { LibraryPage } from '@/modules/library/LibraryPage';
+import { NotePage } from '@/modules/notes/NotePage';
 import { NotesPage } from '@/modules/notes/NotesPage';
 import { ArchivedPage, FavoritesPage, RecentPage } from '@/modules/personal/PersonalPages';
 import { AboutSettings } from '@/modules/settings/AboutSettings';
@@ -27,6 +28,7 @@ import type { RouteHandle } from './handles';
 
 const SETTINGS_PARENT: RouteHandle['parent'] = { titleKey: 'nav.settings', to: '/settings' };
 const LIBRARY_PARENT: RouteHandle['parent'] = { titleKey: 'nav.library', to: '/library' };
+const NOTES_PARENT: RouteHandle['parent'] = { titleKey: 'nav.notes', to: '/notes' };
 const WORKSPACES_PARENT: RouteHandle['parent'] = {
   titleKey: 'nav.workspacesSection',
   to: '/workspaces',
@@ -81,6 +83,15 @@ export const appRoutes: RouteObject[] = [
             path: 'notes',
             element: <NotesPage />,
             handle: { titleKey: 'nav.notes' } satisfies RouteHandle,
+          },
+          {
+            // The page replaces this title with the title of the note being edited.
+            path: 'notes/:noteId',
+            element: <NotePage />,
+            handle: {
+              titleKey: 'notes.detail.fallbackTitle',
+              parent: NOTES_PARENT,
+            } satisfies RouteHandle,
           },
           {
             path: 'graph',

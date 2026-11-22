@@ -19,6 +19,7 @@ import {
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
 import { formatDate, formatNumber, useI18n } from '@/i18n';
 import { useStartImport } from '@/modules/library/useStartImport';
+import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { useWorkspace, useWorkspaces } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
 import type { Workspace, WorkspaceDetail } from '@/services/workspaces';
@@ -27,10 +28,11 @@ import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { WorkspaceActionsMenu } from './WorkspaceActionsMenu';
 import { WorkspaceIcon } from './WorkspaceIcon';
 
-/** Imports go into this workspace; note creation joins them with the note editor (no dead button). */
+/** Imports and new notes go into this workspace; its documents and notes are one click away. */
 function WorkspaceActions({ workspace }: { workspace: Workspace }) {
   const { t } = useI18n();
   const startImport = useStartImport();
+  const createNote = useCreateNote();
   return (
     <div className="flex flex-col gap-3">
       <QuickActionList
@@ -45,11 +47,17 @@ function WorkspaceActions({ workspace }: { workspace: Workspace }) {
               void startImport('pick', { workspaceId: workspace.id });
             },
           },
-          { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
+          {
+            id: 'note',
+            icon: NotebookPen,
+            label: t('shortcuts.newNote'),
+            onClick: () => {
+              void createNote({ workspaceId: workspace.id });
+            },
+          },
         ]}
       />
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs text-fg-secondary">{t('workspaces.detail.upcoming')}</p>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <ButtonLink
           to={`/library?workspace=${workspace.id}`}
           variant="ghost"
@@ -57,6 +65,14 @@ function WorkspaceActions({ workspace }: { workspace: Workspace }) {
           icon={ArrowRight}
         >
           {t('workspaces.detail.viewDocuments')}
+        </ButtonLink>
+        <ButtonLink
+          to={`/notes?workspace=${workspace.id}`}
+          variant="ghost"
+          size="sm"
+          icon={ArrowRight}
+        >
+          {t('workspaces.detail.viewNotes')}
         </ButtonLink>
       </div>
     </div>

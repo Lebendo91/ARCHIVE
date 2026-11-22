@@ -37,7 +37,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'newNote',
     combination: { key: 'n', ctrl: true },
     labelKey: 'shortcuts.newNote',
-    available: false,
+    available: true,
   },
   {
     id: 'importDocument',

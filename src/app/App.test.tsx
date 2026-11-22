@@ -28,7 +28,6 @@ describe('application shell', () => {
   });
 
   it.each([
-    ['Notes', 'Aucune note pour l’instant'],
     ['Graphe de connaissances', 'Aucune relation pour l’instant'],
     ['Chronologie', 'La chronologie complète arrive bientôt'],
     ['Assistant IA', 'Aucun fournisseur IA configuré'],

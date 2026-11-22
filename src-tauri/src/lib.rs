@@ -28,6 +28,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ImportState::default())
         .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                // Once per session: the interface may first finish the saves of a note being edited.
+                log::info!("window close requested");
+            }
             if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event {
                 commands::import::on_files_dropped(&window.state::<ImportState>(), paths);
             }
@@ -48,6 +52,7 @@ pub fn run() {
             commands::app::app_info,
             commands::app::app_status,
             commands::app::database_retry,
+            commands::app::app_open_url,
             commands::diagnostics::log_frontend_event,
             commands::settings::settings_get,
             commands::settings::settings_update,
@@ -87,10 +92,28 @@ pub fn run() {
             commands::library::folders_create,
             commands::library::folders_rename,
             commands::library::folders_delete,
+            commands::library::folders_move,
             commands::library::tags_list,
+            commands::library::tags_usage,
             commands::library::tags_create,
             commands::library::tags_rename,
             commands::library::tags_delete,
+            commands::notes::notes_list,
+            commands::notes::notes_get,
+            commands::notes::notes_create,
+            commands::notes::notes_save,
+            commands::notes::notes_rename,
+            commands::notes::notes_duplicate,
+            commands::notes::notes_move,
+            commands::notes::notes_set_favorite,
+            commands::notes::notes_set_archived,
+            commands::notes::notes_set_tags,
+            commands::notes::notes_trash,
+            commands::notes::notes_restore,
+            commands::notes::notes_purge,
+            commands::notes::notes_mark_opened,
+            commands::notes::notes_import_markdown_pick,
+            commands::notes::notes_export_markdown,
         ])
         .run(tauri::generate_context!());
 

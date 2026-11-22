@@ -29,6 +29,25 @@ describe('Dialog', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it('starts a form in its first field, with its text selected', async () => {
+    renderWithProviders(
+      <Dialog defaultOpen>
+        <DialogContent title="Renommer le dossier">
+          <label>
+            Nom
+            <input defaultValue="Cours" />
+          </label>
+        </DialogContent>
+      </Dialog>,
+    );
+    const field = await screen.findByRole('textbox', { name: 'Nom' });
+    await waitFor(() => {
+      expect(field).toHaveFocus();
+    });
+    expect((field as HTMLInputElement).selectionStart).toBe(0);
+    expect((field as HTMLInputElement).selectionEnd).toBe('Cours'.length);
+  });
+
   it('closes with its close button', async () => {
     const { user } = renderWithProviders(
       <Dialog defaultOpen>

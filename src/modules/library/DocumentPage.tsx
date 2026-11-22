@@ -1,7 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Download, ExternalLink, FileX, FolderInput, Star, Tags } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  FileX,
+  FolderInput,
+  NotebookText,
+  Star,
+  Tags,
+} from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { usePageTitle } from '@/app/router/pageTitle';
 import { QueryError } from '@/components/feedback/QueryError';
 import {
@@ -33,13 +42,14 @@ import {
   useWorkspaces,
 } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
-import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { documentResource, useResourceDialogs } from '@/stores/resourceDialogs';
 import { toast } from '@/stores/toasts';
 import { cn } from '@/utils/cn';
 import { DocumentActionsMenu } from './documentActions';
 import { INDEXING_TONES, kindLabelKey, textStateMessage } from './documentFormat';
 import { DocumentKindIcon } from './DocumentKindIcon';
 import { CsvPreview, ImagePreview, JsonPreview, PdfViewer, TextPreview } from './DocumentPreview';
+import { MarkdownPreview } from './MarkdownPreview';
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -135,7 +145,7 @@ function LocationCard({ detail }: { detail: DocumentDetail }) {
   const { document } = detail;
   const workspaces = useWorkspaces();
   const folders = useFolders(document.workspaceId ?? undefined);
-  const openDialog = useDocumentDialogs((state) => state.open);
+  const openDialog = useResourceDialogs((state) => state.open);
   const workspace = workspaces.data?.find(
     (summary) => summary.workspace.id === document.workspaceId,
   )?.workspace;
@@ -149,7 +159,7 @@ function LocationCard({ detail }: { detail: DocumentDetail }) {
             size="sm"
             icon={FolderInput}
             onClick={(event) => {
-              openDialog('move', document, event.currentTarget);
+              openDialog('move', documentResource(document), event.currentTarget);
             }}
           >
             {t('library.actions.move')}
@@ -171,7 +181,7 @@ function LocationCard({ detail }: { detail: DocumentDetail }) {
 
 function TagsCard({ detail }: { detail: DocumentDetail }) {
   const { t } = useI18n();
-  const openDialog = useDocumentDialogs((state) => state.open);
+  const openDialog = useResourceDialogs((state) => state.open);
   return (
     <SectionCard
       title={t('library.detail.tags')}
@@ -181,7 +191,7 @@ function TagsCard({ detail }: { detail: DocumentDetail }) {
             size="sm"
             icon={Tags}
             onClick={(event) => {
-              openDialog('tags', detail.document, event.currentTarget);
+              openDialog('tags', documentResource(detail.document), event.currentTarget);
             }}
           >
             {t('library.actions.tags')}
@@ -213,7 +223,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
   const kind = documentKind(document);
   const image = isImageKind(kind);
   // Formats whose preview differs from their extracted text offer both views; images have no text.
-  const hasPreview = kind === 'pdf' || kind === 'csv' || kind === 'json' || image;
+  const hasPreview =
+    kind === 'pdf' || kind === 'csv' || kind === 'json' || kind === 'markdown' || image;
   const [mode, setMode] = useState<PreviewMode>('preview');
   const inTrash = document.deletedAt !== null;
 
@@ -230,7 +241,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
       });
   };
 
-  const dataText = kind === 'csv' || kind === 'json';
+  // Data and Markdown sources read best in the code font.
+  const dataText = kind === 'csv' || kind === 'json' || kind === 'markdown';
   let preview: ReactNode;
   if (!hasPreview) {
     preview = (
@@ -249,6 +261,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
     preview = <CsvPreview content={detail.content} title={document.title} />;
   } else if (kind === 'json') {
     preview = <JsonPreview key={document.id} document={document} content={detail.content} />;
+  } else if (kind === 'markdown') {
+    preview = <MarkdownPreview content={detail.content} />;
   } else {
     preview = <ImagePreview key={document.id} document={document} />;
   }
@@ -350,7 +364,30 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
           <LocationCard detail={detail} />
           <TagsCard detail={detail} />
           <SectionCard title={t('library.detail.related')}>
-            <p className="text-sm text-fg-secondary">{t('library.detail.relatedUpcoming')}</p>
+            {detail.linkedNotes.length === 0 ? (
+              <p className="text-sm text-fg-secondary">{t('library.detail.noRelated')}</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs text-fg-secondary">{t('library.detail.linkedNotes')}</h3>
+                <ul className="flex flex-col gap-1">
+                  {detail.linkedNotes.map((note) => (
+                    <li key={note.id} className="flex min-w-0 items-center gap-2 text-sm">
+                      <NotebookText
+                        size={14}
+                        aria-hidden="true"
+                        className="shrink-0 text-fg-secondary"
+                      />
+                      <Link
+                        to={`/notes/${note.id}`}
+                        className="min-w-0 truncate rounded-sm text-fg hover:text-blue"
+                      >
+                        {note.title.trim() === '' ? t('notes.untitled') : note.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </SectionCard>
         </div>
       </div>

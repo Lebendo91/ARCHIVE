@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Ellipsis,
   Folder as FolderIcon,
+  FolderInput,
   FolderPlus,
   FolderTree,
   Pencil,
@@ -20,20 +21,28 @@ import {
   DropdownMenuTrigger,
   IconButton,
   Input,
+  Select,
   Tooltip,
 } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { errorMessageKey } from '@/services/errors';
-import { createFolder, deleteFolder, renameFolder, type Folder } from '@/services/library';
+import {
+  createFolder,
+  deleteFolder,
+  moveFolder,
+  renameFolder,
+  type Folder,
+} from '@/services/library';
 import { refreshLibraryViews, useFolders } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
 import { toast } from '@/stores/toasts';
 import { cn } from '@/utils/cn';
-import { folderTree } from './DocumentDialogs';
+import { folderOptionLabel, folderTree } from '@/components/resources/folderTree';
 
 type FolderDialog =
   | { kind: 'create'; parent: Folder | null }
   | { kind: 'rename'; folder: Folder }
+  | { kind: 'move'; folder: Folder }
   | { kind: 'delete'; folder: Folder };
 
 function FolderNameDialog({
@@ -134,6 +143,108 @@ function FolderNameDialog({
   );
 }
 
+/** Where `moved` may go: the root, or any folder outside its own sub-tree. */
+function moveTargets(folders: readonly Folder[], moved: Folder) {
+  const excluded = new Set([moved.id]);
+  // In tree order, a parent always comes before its children.
+  return folderTree(folders).filter(({ folder }) => {
+    if (folder.parentId !== null && excluded.has(folder.parentId)) {
+      excluded.add(folder.id);
+    }
+    return !excluded.has(folder.id);
+  });
+}
+
+function FolderMoveDialog({
+  folders,
+  folder,
+  onClose,
+}: {
+  folders: readonly Folder[];
+  folder: Folder;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const client = useQueryClient();
+  const formId = useId();
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const [parentId, setParentId] = useState(folder.parentId ?? '');
+  const [error, setError] = useState<string>();
+  const [pending, setPending] = useState(false);
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const target = parentId === '' ? null : parentId;
+    if (target === folder.parentId) {
+      onClose();
+      return;
+    }
+    setPending(true);
+    try {
+      await moveFolder(folder.id, target);
+      await refreshLibraryViews(client);
+      toast.success(t('library.folders.moved'));
+      onClose();
+    } catch (failure) {
+      if (isCommandError(failure) && failure.code === 'name_taken') {
+        setError(t('library.folders.nameTaken'));
+        selectRef.current?.focus();
+      } else {
+        toast.error(t(errorMessageKey(failure)));
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        title={t('library.folders.moveTitle', { name: folder.name })}
+        size="sm"
+        footer={
+          <>
+            <Button disabled={pending} onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" form={formId} variant="primary" loading={pending}>
+              {t('library.folders.moveSubmit')}
+            </Button>
+          </>
+        }
+      >
+        <form id={formId} noValidate onSubmit={(event) => void submit(event)}>
+          <Select
+            ref={selectRef}
+            label={t('library.folders.moveParent')}
+            hint={t('library.folders.moveHint')}
+            value={parentId}
+            error={error}
+            onChange={(event) => {
+              setParentId(event.target.value);
+              setError(undefined);
+            }}
+          >
+            <option value="">{t('library.folders.moveRoot')}</option>
+            {moveTargets(folders, folder).map((entry) => (
+              <option key={entry.folder.id} value={entry.folder.id}>
+                {folderOptionLabel(entry.folder.name, entry.depth)}
+              </option>
+            ))}
+          </Select>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function FolderMenu({
   folder,
   onAction,
@@ -166,6 +277,14 @@ function FolderMenu({
           }}
         >
           {t('library.folders.rename')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          icon={FolderInput}
+          onSelect={() => {
+            onAction({ kind: 'move', folder });
+          }}
+        >
+          {t('library.folders.move')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -211,8 +330,9 @@ function FolderButton({
 }
 
 /**
- * Folders of the selected workspace (spec §7.3 folder navigation, Phase 4 folder management): selecting one
- * filters the documents; folders are created, renamed, and deleted only when empty.
+ * Folders of the selected workspace (spec §7.3 folder navigation), shared by the Library and the Notes:
+ * selecting one filters the list; folders are created, renamed, moved with their contents, and deleted only
+ * when empty.
  */
 export function FolderPanel({
   workspaceId,
@@ -285,8 +405,11 @@ export function FolderPanel({
         </p>
       ) : null}
 
-      {dialog && dialog.kind !== 'delete' ? (
+      {dialog?.kind === 'create' || dialog?.kind === 'rename' ? (
         <FolderNameDialog workspaceId={workspaceId} dialog={dialog} onClose={close} />
+      ) : null}
+      {dialog?.kind === 'move' ? (
+        <FolderMoveDialog folders={folders.data ?? []} folder={dialog.folder} onClose={close} />
       ) : null}
       {dialog?.kind === 'delete' ? (
         <ConfirmDialog

@@ -102,3 +102,58 @@ mod tests {
         );
     }
 }
+
+/// Longest address accepted by `app_open_url`.
+const URL_MAX: usize = 2048;
+
+/// Checks an address before it is handed to the system: web pages and e-mail addresses only, never a file,
+/// a script or another application's scheme.
+fn checked_url(url: &str) -> crate::error::AppResult<tauri::Url> {
+    if url.len() > URL_MAX {
+        return Err(crate::error::AppError::InvalidInput(
+            "address too long".to_owned(),
+        ));
+    }
+    let parsed = tauri::Url::parse(url)
+        .map_err(|_| crate::error::AppError::InvalidInput("invalid address".to_owned()))?;
+    match parsed.scheme() {
+        "http" | "https" if parsed.host_str().is_some() => Ok(parsed),
+        "mailto" => Ok(parsed),
+        _ => Err(crate::error::AppError::InvalidInput(
+            "only web and e-mail addresses can be opened".to_owned(),
+        )),
+    }
+}
+
+/// Opens a link of a note in the default browser or e-mail application, after the user clicked it.
+#[tauri::command]
+pub fn app_open_url(url: String) -> crate::error::AppResult<()> {
+    let parsed = checked_url(&url)?;
+    tauri_plugin_opener::open_url(parsed.as_str(), None::<&str>).map_err(|error| {
+        crate::error::AppError::Internal(format!("cannot open the address: {error}"))
+    })
+}
+
+#[cfg(test)]
+mod url_tests {
+    use super::checked_url;
+
+    #[test]
+    fn only_web_and_mail_addresses_are_opened() {
+        assert!(checked_url("https://example.com/page?x=1").is_ok());
+        assert!(checked_url("http://localhost:8080").is_ok());
+        assert!(checked_url("mailto:alice@example.com").is_ok());
+        for refused in [
+            "file:///C:/Windows/System32/calc.exe",
+            "javascript:alert(1)",
+            "archive://note/x",
+            "ms-settings:privacy",
+            "C:\\Windows\\notepad.exe",
+            "https://",
+            "",
+        ] {
+            assert!(checked_url(refused).is_err(), "{refused} must be refused");
+        }
+        assert!(checked_url(&format!("https://example.com/{}", "a".repeat(2_100))).is_err());
+    }
+}

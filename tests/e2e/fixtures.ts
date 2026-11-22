@@ -73,6 +73,8 @@ function nativeRuntimeDouble(
     return core;
   };
   const coreHandlers = () => coreInstance().handlers;
+  // Commands whose next call fails with this error code (a full disk, a locked database…).
+  const failures = new Map<string, string>();
   const handlers: Record<string, (args: Record<string, unknown> | undefined) => unknown> = {
     app_info: () => appInfo,
     app_status: status,
@@ -141,6 +143,15 @@ function nativeRuntimeDouble(
     __ARCHIVE_E2E_PICK__: (files: CoreDoubleState['picks']) => {
       coreInstance().state.picks.push(...files);
     },
+    // Markdown files the next Markdown file picker returns.
+    __ARCHIVE_E2E_PICK_MARKDOWN__: (files: CoreDoubleState['markdownPicks']) => {
+      coreInstance().state.markdownPicks.push(...files);
+    },
+    // The knowledge base itself, to check what the interface stored or to change it « elsewhere ».
+    __ARCHIVE_E2E_CORE__: () => coreInstance().state,
+    __ARCHIVE_E2E_FAIL_NEXT__: (command: string, code: string) => {
+      failures.set(command, code);
+    },
     // Installed by the event plugin of the real runtime; `unlisten` calls it before the command.
     __TAURI_EVENT_PLUGIN_INTERNALS__: {
       unregisterListener: (event: string, eventId: number) => {
@@ -152,6 +163,13 @@ function nativeRuntimeDouble(
     },
     __TAURI_INTERNALS__: {
       invoke: (command: string, args: Record<string, unknown> | undefined) => {
+        const failure = failures.get(command);
+        if (failure !== undefined) {
+          failures.delete(command);
+          // The native core rejects with its serialized error, a plain `{ code, message }` object.
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+          return Promise.reject({ code: failure, message: 'simulated failure' });
+        }
         const handler = handlers[command];
         return handler
           ? new Promise((resolve) => {
@@ -298,6 +316,65 @@ export async function emitNativeEvent(page: Page, event: string, payload: unknow
       ).__ARCHIVE_E2E_EMIT__(name, data);
     },
     { name: event, data: payload },
+  );
+}
+
+/** The knowledge base of the double, as stored now (a copy). */
+export async function coreState(page: Page): Promise<CoreDoubleState> {
+  return page.evaluate(() =>
+    (window as unknown as { __ARCHIVE_E2E_CORE__: () => CoreDoubleState }).__ARCHIVE_E2E_CORE__(),
+  );
+}
+
+/** The next call of `command` fails with the error `code`, as the core would report it. */
+export async function failNextCommand(page: Page, command: string, code: string): Promise<void> {
+  await page.evaluate(
+    ({ name, error }) => {
+      (
+        window as unknown as { __ARCHIVE_E2E_FAIL_NEXT__: (command: string, code: string) => void }
+      ).__ARCHIVE_E2E_FAIL_NEXT__(name, error);
+    },
+    { name: command, error: code },
+  );
+}
+
+/** The next Markdown file picker returns these files. */
+export async function pickMarkdown(
+  page: Page,
+  files: CoreDoubleState['markdownPicks'],
+): Promise<void> {
+  await page.evaluate((picked) => {
+    (
+      window as unknown as {
+        __ARCHIVE_E2E_PICK_MARKDOWN__: (files: CoreDoubleState['markdownPicks']) => void;
+      }
+    ).__ARCHIVE_E2E_PICK_MARKDOWN__(picked);
+  }, files);
+}
+
+/** Another window saved this note meanwhile: its revision and text change in the knowledge base. */
+export async function saveNoteElsewhere(page: Page, noteId: string, text: string): Promise<void> {
+  await page.evaluate(
+    ({ id, value }) => {
+      const state = (
+        window as unknown as { __ARCHIVE_E2E_CORE__: () => CoreDoubleState }
+      ).__ARCHIVE_E2E_CORE__();
+      const entry = state.notes.find((candidate) => candidate.note.id === id);
+      if (!entry) {
+        throw new Error(`No note ${id}`);
+      }
+      entry.note = {
+        ...entry.note,
+        revision: entry.note.revision + 1,
+        content: JSON.stringify({
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }],
+        }),
+        updatedAt: Date.now(),
+      };
+      entry.contentText = value;
+    },
+    { id: noteId, value: text },
   );
 }
 

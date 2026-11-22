@@ -33,7 +33,7 @@ TypeScript.
 **Rôles** : Obsidian pour le fond, Carbon pour la navigation, Graphite pour les cartes, Steel pour les survols et
 les éléments surélevés. Amber est l'accent de marque (élément de navigation actif, action principale). Blue
 désigne l'interaction (focus, liens). Cyan est réservé à l'intelligence (assistant), Purple aux relations
-(graphe). Les couleurs sémantiques ne servent qu'à signaler des états.
+(graphe, et liens internes d'une note vers une autre note ou un document, soulignés en pointillés). Les couleurs sémantiques ne servent qu'à signaler des états.
 
 **Règles de contraste** (WCAG 2.2 AA, vérifiées par test et par axe-core) :
 

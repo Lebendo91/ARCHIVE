@@ -18,7 +18,7 @@ use crate::services::documents::{
 };
 use crate::state::AppState;
 use crate::storage::FileStore;
-use crate::util::validate_id;
+use crate::util::{safe_file_name, validate_id};
 
 fn managed_path(store: &FileStore, document: &Document) -> AppResult<PathBuf> {
     let path = store.path_for(&document.stored_filename)?;
@@ -191,41 +191,6 @@ pub async fn documents_reveal(state: State<'_, AppState>, id: String) -> AppResu
     .await
 }
 
-/// Characters refused in Windows file names, and names reserved by Windows.
-fn safe_file_name(name: &str) -> String {
-    let cleaned: String = name
-        .chars()
-        .map(|character| {
-            if character.is_control() || r#"<>:"/\|?*"#.contains(character) {
-                '_'
-            } else {
-                character
-            }
-        })
-        .collect::<String>()
-        .trim_matches(|character: char| character == ' ' || character == '.')
-        .chars()
-        .take(200)
-        .collect();
-    let stem = cleaned
-        .split('.')
-        .next()
-        .unwrap_or_default()
-        .to_ascii_uppercase();
-    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
-            && stem.len() == 4
-            && stem
-                .chars()
-                .last()
-                .is_some_and(|digit| digit.is_ascii_digit()));
-    if cleaned.is_empty() || reserved {
-        format!("document_{cleaned}")
-    } else {
-        cleaned
-    }
-}
-
 /// Saves a copy of the document where the user chooses. `false` when the user cancels.
 #[tauri::command]
 pub async fn documents_export(
@@ -324,7 +289,7 @@ pub async fn documents_save_extraction(
 
 #[cfg(test)]
 mod tests {
-    use super::safe_file_name;
+    use crate::util::safe_file_name;
 
     #[test]
     fn exported_file_names_are_valid_on_windows() {

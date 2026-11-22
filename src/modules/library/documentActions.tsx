@@ -45,7 +45,7 @@ import {
 } from '@/services/documents';
 import { errorMessageKey } from '@/services/errors';
 import { refreshLibraryViews } from '@/services/queries';
-import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { documentResource, useResourceDialogs } from '@/stores/resourceDialogs';
 import { toast } from '@/stores/toasts';
 
 interface ActionItem {
@@ -64,7 +64,7 @@ export function useDocumentActions() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const client = useQueryClient();
-  const openDialog = useDocumentDialogs((state) => state.open);
+  const openDialog = useResourceDialogs((state) => state.open);
 
   const perform = <T,>(operation: () => Promise<T>, success?: (result: T) => string) => {
     operation().then(
@@ -104,7 +104,7 @@ export function useDocumentActions() {
           labelKey: 'library.actions.purge',
           danger: true,
           run: (returnFocus) => {
-            openDialog('purge', document, returnFocus);
+            openDialog('purge', documentResource(document), returnFocus);
           },
         },
       ];
@@ -151,7 +151,7 @@ export function useDocumentActions() {
         icon: Pencil,
         labelKey: 'library.actions.rename',
         run: (returnFocus) => {
-          openDialog('rename', document, returnFocus);
+          openDialog('rename', documentResource(document), returnFocus);
         },
       },
       {
@@ -159,7 +159,7 @@ export function useDocumentActions() {
         icon: FolderInput,
         labelKey: 'library.actions.move',
         run: (returnFocus) => {
-          openDialog('move', document, returnFocus);
+          openDialog('move', documentResource(document), returnFocus);
         },
       },
       {
@@ -167,7 +167,7 @@ export function useDocumentActions() {
         icon: Tags,
         labelKey: 'library.actions.tags',
         run: (returnFocus) => {
-          openDialog('tags', document, returnFocus);
+          openDialog('tags', documentResource(document), returnFocus);
         },
       },
       {

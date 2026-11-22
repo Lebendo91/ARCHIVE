@@ -3,7 +3,7 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { usePageTitleStore } from '@/app/router/pageTitle';
-import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { useResourceDialogs } from '@/stores/resourceDialogs';
 import { useImportStore } from '@/stores/imports';
 import { useToastStore } from '@/stores/toasts';
 import { useUiStore } from '@/stores/ui';
@@ -30,6 +30,29 @@ for (const method of ['scrollIntoView', 'hasPointerCapture', 'releasePointerCapt
   }
 }
 
+// The note editor (ProseMirror) measures the selection to keep it in view; jsdom has no layout, so the
+// measures are empty.
+const EMPTY_RECT = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+  toJSON: () => ({}),
+} as DOMRect;
+if (!('getClientRects' in Range.prototype)) {
+  Object.defineProperties(Range.prototype, {
+    getClientRects: { value: () => [] as unknown as DOMRectList, configurable: true },
+    getBoundingClientRect: { value: () => EMPTY_RECT, configurable: true },
+  });
+}
+if (!('elementFromPoint' in document)) {
+  Object.defineProperty(document, 'elementFromPoint', { value: () => null, configurable: true });
+}
+
 afterEach(() => {
   cleanup();
   clearMocks();
@@ -41,7 +64,7 @@ afterEach(() => {
   useToastStore.setState({ toasts: [] });
   useWorkspaceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   usePageTitleStore.setState({ title: null });
-  useDocumentDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
+  useResourceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   useImportStore.setState({
     run: null,
     running: false,

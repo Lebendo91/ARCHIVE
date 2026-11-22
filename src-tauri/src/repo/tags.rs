@@ -65,6 +65,39 @@ pub fn list(connection: &Connection) -> AppResult<Vec<Tag>> {
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
+/// A tag with the number of documents and notes that carry it (trash included: they keep their tags).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TagUsage {
+    pub tag: Tag,
+    pub documents: i64,
+    pub notes: i64,
+}
+
+/// Every tag with its usage, by name: what renaming or deleting it would affect.
+pub fn usage(connection: &Connection) -> AppResult<Vec<TagUsage>> {
+    let mut statement = connection.prepare(
+        "SELECT t.id,
+                (SELECT count(*) FROM document_tags d WHERE d.tag_id = t.id),
+                (SELECT count(*) FROM note_tags n WHERE n.tag_id = t.id)
+         FROM tags t ORDER BY t.name_key",
+    )?;
+    let counts: Vec<(String, i64, i64)> = statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+        .collect::<Result<_, _>>()?;
+    counts
+        .into_iter()
+        .map(|(id, documents, notes)| {
+            Ok(TagUsage {
+                tag: get(connection, &id)?,
+                documents,
+                notes,
+            })
+        })
+        .collect()
+}
+
 pub fn create(transaction: &Transaction<'_>, name: &str, color: TokenColor) -> AppResult<Tag> {
     let name = clean_name(name, "tag name", NAME_MAX)?;
     let tag = Tag {
@@ -198,6 +231,46 @@ mod tests {
                 .expect("list")
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn usage_counts_the_documents_and_notes_of_each_tag() {
+        let (_dir, database) = open_temporary();
+        let (used, unused) = database
+            .write(|tx| {
+                Ok((
+                    create(tx, "Cours", TokenColor::Neutral)?,
+                    create(tx, "Archives", TokenColor::Neutral)?,
+                ))
+            })
+            .expect("tags");
+        for title in ["Kirchhoff", "Ohm"] {
+            let note = database
+                .write(|tx| {
+                    notes::create(
+                        tx,
+                        &NoteContent {
+                            title: title.to_owned(),
+                            content: String::new(),
+                            content_format: NoteFormat::Plain,
+                            content_text: String::new(),
+                        },
+                        None,
+                        None,
+                    )
+                })
+                .expect("note");
+            database
+                .write(|tx| attach(tx, &used.id, Tagged::Note(&note.id)))
+                .expect("attach");
+        }
+        let usage = database.read(usage).expect("usage");
+        let counts: Vec<_> = usage
+            .iter()
+            .map(|entry| (entry.tag.name.as_str(), entry.documents, entry.notes))
+            .collect();
+        assert_eq!(counts, [("Archives", 0, 0), ("Cours", 0, 2)]);
+        assert_eq!(usage[0].tag.id, unused.id);
     }
 
     #[test]

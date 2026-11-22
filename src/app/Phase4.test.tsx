@@ -328,7 +328,7 @@ describe('library views', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Supprimer le dossier' }));
     expect(
       await screen.findByText(
-        'Ce dossier n’est pas vide : déplacez d’abord ses documents et ses sous-dossiers.',
+        'Ce dossier n’est pas vide : déplacez d’abord ses documents, ses notes et ses sous-dossiers.',
       ),
     ).toBeInTheDocument();
     expect(within(folders).getByRole('button', { name: 'Composants' })).toBeInTheDocument();
