@@ -529,6 +529,7 @@ export const fr = {
         other:
           'Elle sera retirée de {count} éléments. Aucun document ni aucune note n’est supprimé.',
       },
+      deleteUnused: 'Aucun document ni aucune note ne la porte.',
       deleteConfirm: 'Supprimer l’étiquette',
       deleted: 'Étiquette «\u00a0{name}\u00a0» supprimée.',
     },
@@ -701,6 +702,7 @@ export const fr = {
       purge: 'Supprimer définitivement…',
     },
     copyTitle: '{title} (copie)',
+    tagsLegend: 'Étiquettes de la note',
     toasts: {
       renamed: 'Note renommée.',
       moved: 'Note déplacée.',

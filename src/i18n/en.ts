@@ -513,6 +513,7 @@ export const en: Dictionary = {
         one: 'It will be removed from {count} item. No document or note is deleted.',
         other: 'It will be removed from {count} items. No document or note is deleted.',
       },
+      deleteUnused: 'No document or note has it.',
       deleteConfirm: 'Delete the tag',
       deleted: 'Tag “{name}” deleted.',
     },
@@ -684,6 +685,7 @@ export const en: Dictionary = {
       purge: 'Delete permanently…',
     },
     copyTitle: '{title} (copy)',
+    tagsLegend: 'Tags of the note',
     toasts: {
       renamed: 'Note renamed.',
       moved: 'Note moved.',

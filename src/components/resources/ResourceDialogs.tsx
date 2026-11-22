@@ -29,6 +29,7 @@ const RESOURCES = {
     setTags: setDocumentTags,
     purge: purgeDocument,
     renameTitle: 'library.rename.title',
+    tagsLegend: 'library.tagsDialog.legend',
     renamed: 'library.toasts.renamed',
     moved: 'library.toasts.moved',
     purgeDescription: 'library.purge.description',
@@ -42,6 +43,7 @@ const RESOURCES = {
     setTags: setNoteTags,
     purge: purgeNote,
     renameTitle: 'notes.rename.title',
+    tagsLegend: 'notes.tagsLegend',
     renamed: 'notes.toasts.renamed',
     moved: 'notes.toasts.moved',
     purgeDescription: 'notes.purge.description',
@@ -53,6 +55,7 @@ const RESOURCES = {
   DialogResource['type'],
   {
     renameTitle: MessageKey;
+    tagsLegend: MessageKey;
     renamed: MessageKey;
     moved: MessageKey;
     purgeDescription: MessageKey;
@@ -335,7 +338,7 @@ function TagsDialog({ open, resource, onClose, onCloseAutoFocus }: DialogProps) 
         <div className="flex flex-col gap-5">
           <fieldset aria-labelledby={legendId} className="flex flex-col gap-2">
             <legend id={legendId} className="sr-only">
-              {t('library.tagsDialog.legend')}
+              {t(RESOURCES[resource.type].tagsLegend)}
             </legend>
             {allTags.length === 0 ? (
               <p className="text-sm text-fg-secondary">{t('library.tagsDialog.empty')}</p>

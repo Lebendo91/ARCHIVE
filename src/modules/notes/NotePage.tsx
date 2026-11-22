@@ -77,7 +77,7 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
     <span
       className={cn(
         'flex items-center gap-1.5 text-xs',
-        failed ? 'text-danger' : status === 'saved' ? 'text-fg-secondary' : 'text-fg-secondary',
+        failed ? 'text-danger' : 'text-fg-secondary',
       )}
     >
       <Icon
@@ -307,6 +307,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
         editor.commands.setContent(readNoteContent(stored.note), { emitUpdate: false });
         setTitle(stored.note.title);
         saver.reset(stored.note.revision);
+        editor.commands.focus('start');
         void refreshNoteViews(client);
       })
       .catch((error: unknown) => {
@@ -329,6 +330,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
                   setTitle(draft.title);
                   setDraft(null);
                   saver.changed();
+                  editor.commands.focus('start');
                 }}
               >
                 {t('notes.recovery.restore')}
@@ -338,6 +340,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
                 onClick={() => {
                   clearDraft(note.id);
                   setDraft(null);
+                  editor.commands.focus('start');
                 }}
               >
                 {t('notes.recovery.discard')}
@@ -361,6 +364,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
                   size="sm"
                   variant="primary"
                   onClick={() => {
+                    editor.commands.focus();
                     saver.keepMine().catch((error: unknown) => {
                       toast.error(t(errorMessageKey(error)));
                     });
@@ -380,7 +384,14 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
           <Banner
             tone="danger"
             actions={
-              <Button size="sm" icon={RotateCcw} onClick={saver.retry}>
+              <Button
+                size="sm"
+                icon={RotateCcw}
+                onClick={() => {
+                  editor.commands.focus();
+                  saver.retry();
+                }}
+              >
                 {t('notes.save.retry')}
               </Button>
             }
@@ -475,7 +486,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
                 editor.commands.focus('start');
               }
             }}
-            className="w-full border-none bg-transparent font-display text-3xl font-semibold text-fg placeholder:text-fg-muted focus-visible:outline-none"
+            className="w-full rounded-control border-none bg-transparent px-1 font-display text-3xl font-semibold text-fg placeholder:text-fg-muted focus-visible:ring-1 focus-visible:ring-blue focus-visible:outline-none"
           />
           <EditorToolbar
             editor={editor}
@@ -486,7 +497,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
               setDialog('picker');
             }}
           />
-          <div className="rounded-card px-1 py-2 focus-within:ring-1 focus-within:ring-line">
+          <div className="rounded-card px-1 py-2 focus-within:ring-1 focus-within:ring-blue">
             <EditorContent editor={editor} />
           </div>
         </section>

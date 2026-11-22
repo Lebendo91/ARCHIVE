@@ -116,5 +116,6 @@ export function mockNativeRuntime(
     },
     { shouldMockEvents: true },
   );
-  return { calls, settings, core: core.state };
+  // The handlers of the in-memory core, for an override that fails before letting the core answer.
+  return { calls, settings, core: core.state, coreHandlers: core.handlers };
 }

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/core';
 import { FileText, NotebookText, Search } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type SubmitEvent } from 'react';
@@ -125,8 +125,10 @@ export function LinkPicker({ open, editor, noteId, onClose }: LinkPickerProps) {
     };
   }, [search]);
 
+  // While a new search runs, the previous results stay on screen instead of flashing away.
   const notes = useQuery({
     queryKey: ['link-picker', 'notes', query],
+    placeholderData: keepPreviousData,
     queryFn: () =>
       listNotes({
         ...(query ? { search: query } : {}),
@@ -141,6 +143,7 @@ export function LinkPicker({ open, editor, noteId, onClose }: LinkPickerProps) {
   });
   const documents = useQuery({
     queryKey: ['link-picker', 'documents', query],
+    placeholderData: keepPreviousData,
     queryFn: () =>
       listDocuments({
         ...(query ? { search: query } : {}),

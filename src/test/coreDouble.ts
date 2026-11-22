@@ -1237,7 +1237,11 @@ export function createCoreDouble(
     tags_rename: (args) => {
       const tag =
         state.tags.find((item) => item.id === args?.id) ?? fail('not_found', 'tag not found');
-      tag.name = cleanName(args?.name, 64);
+      const name = cleanName(args?.name, 64);
+      if (state.tags.some((other) => other !== tag && nameKey(other.name) === nameKey(name))) {
+        fail('name_taken', 'tag name already used');
+      }
+      tag.name = name;
       return changed({ ...tag });
     },
     folders_move: (args) => {

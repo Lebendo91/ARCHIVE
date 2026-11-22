@@ -1,23 +1,54 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Trash2 } from 'lucide-react';
-import { useState, type RefObject, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type RefObject, type SubmitEvent } from 'react';
 import { Button, Dialog, DialogContent, IconButton, Input, Spinner } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { errorMessageKey } from '@/services/errors';
 import { deleteTag, renameTag, tagUsage, type TagUsage } from '@/services/library';
 import { refreshLibraryViews } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
-import { toast } from '@/stores/toasts';
 
 const USAGE_KEY = ['tags', 'usage'] as const;
 
-function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promise<void> }) {
+type RowMode = 'view' | 'rename' | 'delete';
+
+interface Feedback {
+  tone: 'success' | 'error';
+  message: string;
+}
+
+function TagRow({
+  usage,
+  onChanged,
+  onDeleted,
+  onFeedback,
+}: {
+  usage: TagUsage;
+  onChanged: () => Promise<void>;
+  /** The row is about to leave the list: focus has to go elsewhere. */
+  onDeleted: () => void;
+  onFeedback: (feedback: Feedback) => void;
+}) {
   const { t, tCount } = useI18n();
-  const [mode, setMode] = useState<'view' | 'rename' | 'delete'>('view');
+  const [mode, setModeState] = useState<RowMode>('view');
   const [name, setName] = useState(usage.tag.name);
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
   const total = usage.documents + usage.notes;
+  // Back in view, focus returns to the button whose form replaced it.
+  const renameRef = useRef<HTMLButtonElement>(null);
+  const deleteRef = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<RowMode | null>(null);
+  const setMode = (next: RowMode) => {
+    returnFocus.current = next === 'view' ? mode : null;
+    setModeState(next);
+  };
+  useEffect(() => {
+    if (mode === 'view' && returnFocus.current) {
+      (returnFocus.current === 'rename' ? renameRef : deleteRef).current?.focus();
+      returnFocus.current = null;
+    }
+  }, [mode]);
 
   async function rename(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +65,7 @@ function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promis
     try {
       await renameTag(usage.tag.id, trimmed);
       await onChanged();
-      toast.success(t('library.tagManager.renamed'));
+      onFeedback({ tone: 'success', message: t('library.tagManager.renamed') });
       setMode('view');
     } catch (failure) {
       setError(
@@ -51,10 +82,14 @@ function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promis
     setPending(true);
     try {
       await deleteTag(usage.tag.id);
+      onDeleted();
       await onChanged();
-      toast.success(t('library.tagManager.deleted', { name: usage.tag.name }));
+      onFeedback({
+        tone: 'success',
+        message: t('library.tagManager.deleted', { name: usage.tag.name }),
+      });
     } catch (failure) {
-      toast.error(t(errorMessageKey(failure)));
+      onFeedback({ tone: 'error', message: t(errorMessageKey(failure)) });
       setPending(false);
     }
   }
@@ -104,7 +139,9 @@ function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promis
           {t('library.tagManager.deleteTitle', { name: usage.tag.name })}
         </p>
         <p className="text-sm text-fg-secondary">
-          {tCount('library.tagManager.deleteDescription', total)}
+          {total === 0
+            ? t('library.tagManager.deleteUnused')
+            : tCount('library.tagManager.deleteDescription', total)}
         </p>
         <div className="flex justify-end gap-2">
           <Button
@@ -131,6 +168,7 @@ function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promis
         </span>
       </div>
       <IconButton
+        ref={renameRef}
         icon={Pencil}
         size="sm"
         label={t('library.tagManager.rename', { name: usage.tag.name })}
@@ -139,6 +177,7 @@ function TagRow({ usage, onChanged }: { usage: TagUsage; onChanged: () => Promis
         }}
       />
       <IconButton
+        ref={deleteRef}
         icon={Trash2}
         size="sm"
         label={t('library.tagManager.delete', { name: usage.tag.name })}
@@ -173,11 +212,30 @@ export function TagManagerDialog({
       client.invalidateQueries({ queryKey: USAGE_KEY }),
     ]);
   };
+  // After a deletion, focus goes to the tag that takes its place (or the last one), else to the dialog.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const focusAfterDeletion = useRef<number | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  useEffect(() => {
+    const index = focusAfterDeletion.current;
+    if (index === null || !usage.data) {
+      return;
+    }
+    focusAfterDeletion.current = null;
+    const rows = bodyRef.current?.querySelectorAll<HTMLElement>('li') ?? [];
+    const row = rows.length > 0 ? rows[Math.min(index, rows.length - 1)] : undefined;
+    (
+      row?.querySelector<HTMLElement>('button') ??
+      bodyRef.current?.closest<HTMLElement>('[role="dialog"]')
+    )?.focus();
+  }, [usage.data]);
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
+          setFeedback(null);
           onClose();
         }
       }}
@@ -192,19 +250,38 @@ export function TagManagerDialog({
           (target?.isConnected ? target : document.getElementById('main-content'))?.focus();
         }}
       >
-        {usage.isPending ? (
-          <div className="flex justify-center py-6">
-            <Spinner size={20} />
+        <div ref={bodyRef}>
+          {usage.isPending ? (
+            <div className="flex justify-center py-6">
+              <Spinner size={20} />
+            </div>
+          ) : (usage.data ?? []).length === 0 ? (
+            <p className="text-sm text-fg-secondary">{t('library.tagManager.empty')}</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-line-subtle">
+              {(usage.data ?? []).map((entry, index) => (
+                <TagRow
+                  key={entry.tag.id}
+                  usage={entry}
+                  onChanged={onChanged}
+                  onDeleted={() => {
+                    focusAfterDeletion.current = index;
+                  }}
+                  onFeedback={setFeedback}
+                />
+              ))}
+            </ul>
+          )}
+          {/* Live regions, present before their message so that it is announced. */}
+          <div className="mt-3 min-h-5 text-sm">
+            <p role="status" className="text-fg-secondary">
+              {feedback?.tone === 'success' ? feedback.message : null}
+            </p>
+            <p role="alert" className="text-danger">
+              {feedback?.tone === 'error' ? feedback.message : null}
+            </p>
           </div>
-        ) : (usage.data ?? []).length === 0 ? (
-          <p className="text-sm text-fg-secondary">{t('library.tagManager.empty')}</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-line-subtle">
-            {(usage.data ?? []).map((entry) => (
-              <TagRow key={entry.tag.id} usage={entry} onChanged={onChanged} />
-            ))}
-          </ul>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
