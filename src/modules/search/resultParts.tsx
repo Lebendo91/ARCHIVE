@@ -1,7 +1,33 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { FileText, LayoutGrid, NotebookText, Tag as TagIcon, type LucideIcon } from 'lucide-react';
 import { formatShortDate, useI18n, type MessageKey } from '@/i18n';
-import type { SearchHit } from '@/services/search';
+import { recordSearch, type SearchHit, type SearchKind } from '@/services/search';
 import { cn } from '@/utils/cn';
+import { Highlighted } from './Highlighted';
 import type { AppliedInterpretation } from './searchRequest';
+
+/** Prefix of the queries of the search history (the palette and the search page show it). */
+export const SEARCH_HISTORY_KEY = ['search', 'history'] as const;
+
+export const KIND_ICONS: Record<SearchKind, LucideIcon> = {
+  document: FileText,
+  note: NotebookText,
+  workspace: LayoutGrid,
+  tag: TagIcon,
+};
+
+/** Records a search the user ran; the history is a convenience, its failure never blocks anything. */
+export function useRecordSearch(): (query: string) => void {
+  const client = useQueryClient();
+  return (query) => {
+    if (query.trim() === '') {
+      return;
+    }
+    recordSearch(query.trim())
+      .then(() => client.invalidateQueries({ queryKey: SEARCH_HISTORY_KEY }))
+      .catch(() => undefined);
+  };
+}
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
@@ -15,6 +41,17 @@ export function hitDetails(hit: SearchHit, t: Translate): string {
     parts.push(t('search.page', { page: hit.page }));
   }
   return parts.join(' · ');
+}
+
+/** The title of a result with the words found highlighted; an untitled note says so. */
+export function HitTitle({ hit, className }: { hit: SearchHit; className?: string }) {
+  const { t } = useI18n();
+  if (hit.title.every((segment) => segment.text.trim() === '')) {
+    return (
+      <span className={cn('text-fg-secondary italic', className)}>{t('search.untitled')}</span>
+    );
+  }
+  return <Highlighted segments={hit.title} className={className} />;
 }
 
 export function hasApplied(applied: AppliedInterpretation): boolean {

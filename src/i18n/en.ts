@@ -822,6 +822,13 @@ export const en: Dictionary = {
     noResults: 'No results for “{query}”.',
     noResultsFiltered: 'No results with these filters.',
     noResultsHint: 'Check the spelling, try fewer words or remove filters.',
+    noResultsTitle: 'No results',
+    historyFailed: 'The search history could not be changed.',
+    untitled: 'Untitled',
+    favorite: 'Favorite',
+    archived: 'Archived',
+    matchedTerms: 'Terms found: {terms}',
+    showMore: 'Show more results',
     groups: {
       document: 'Documents',
       note: 'Notes',

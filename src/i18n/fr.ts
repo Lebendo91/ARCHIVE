@@ -839,6 +839,13 @@ export const fr = {
     noResults: 'Aucun résultat pour «\u00a0{query}\u00a0».',
     noResultsFiltered: 'Aucun résultat avec ces filtres.',
     noResultsHint: 'Vérifiez l’orthographe, essayez moins de mots ou retirez des filtres.',
+    noResultsTitle: 'Aucun résultat',
+    historyFailed: 'L’historique des recherches n’a pas pu être modifié.',
+    untitled: 'Sans titre',
+    favorite: 'Favori',
+    archived: 'Archivé',
+    matchedTerms: 'Termes trouvés\u00a0: {terms}',
+    showMore: 'Afficher plus de résultats',
     groups: {
       document: 'Documents',
       note: 'Notes',

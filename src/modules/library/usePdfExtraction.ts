@@ -26,7 +26,11 @@ async function drain(client: QueryClient): Promise<void> {
         const { document } = await getDocument(id);
         const extraction = await extractPdfText(id, document.fileSize);
         await saveExtraction(id, extraction);
-        await client.invalidateQueries({ queryKey: queryKeys.documents });
+        await Promise.all([
+          client.invalidateQueries({ queryKey: queryKeys.documents }),
+          // The text extracted is now searchable.
+          client.invalidateQueries({ queryKey: queryKeys.search }),
+        ]);
       }
     } while (restartRequested());
   } catch (error) {

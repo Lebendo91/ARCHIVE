@@ -1,14 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowRight,
-  FileText,
-  History,
-  LayoutGrid,
-  NotebookText,
-  Search,
-  Tag as TagIcon,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowRight, History, Search } from 'lucide-react';
 import { Dialog as DialogPrimitive, VisuallyHidden } from 'radix-ui';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
@@ -16,7 +7,6 @@ import { Button, Kbd, Spinner } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import {
   clearSearchHistory,
-  recordSearch,
   searchHistory,
   searchQuery,
   type SearchHit,
@@ -25,21 +15,21 @@ import {
 import { useSearchPalette } from '@/stores/searchPalette';
 import { cn } from '@/utils/cn';
 import { Highlighted } from './Highlighted';
-import { InterpretationLine, hasApplied, hitDetails } from './resultParts';
+import {
+  HitTitle,
+  InterpretationLine,
+  KIND_ICONS,
+  SEARCH_HISTORY_KEY,
+  hasApplied,
+  hitDetails,
+  useRecordSearch,
+} from './resultParts';
 import { resultPath, searchRequest } from './searchRequest';
 
-export const SEARCH_HISTORY_KEY = ['search', 'history'] as const;
 const GROUPS: readonly SearchKind[] = ['document', 'note', 'workspace', 'tag'];
 const PER_GROUP = 4;
 const FETCHED = 24;
 const DEBOUNCE_MS = 150;
-
-export const KIND_ICONS: Record<SearchKind, LucideIcon> = {
-  document: FileText,
-  note: NotebookText,
-  workspace: LayoutGrid,
-  tag: TagIcon,
-};
 
 type PaletteOption =
   | { type: 'recent'; key: string; query: string }
@@ -57,19 +47,6 @@ function useDebounced(value: string, delay: number): string {
     };
   }, [value, delay]);
   return debounced;
-}
-
-/** Records a search the user ran; the history is a convenience, its failure never blocks anything. */
-export function useRecordSearch(): (query: string) => void {
-  const client = useQueryClient();
-  return (query) => {
-    if (query.trim() === '') {
-      return;
-    }
-    recordSearch(query.trim())
-      .then(() => client.invalidateQueries({ queryKey: SEARCH_HISTORY_KEY }))
-      .catch(() => undefined);
-  };
 }
 
 /** One option of the list: a recent search, a result, or the way to every result. */
@@ -124,7 +101,7 @@ function OptionRow({
     <div {...common} className={cn(common.className, 'items-start')}>
       <Icon size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-secondary" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Highlighted segments={option.hit.title} className="truncate" />
+        <HitTitle hit={option.hit} className="truncate" />
         {option.hit.excerpt.length > 0 ? (
           <Highlighted
             segments={option.hit.excerpt}

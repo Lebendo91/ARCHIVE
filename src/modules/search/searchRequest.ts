@@ -8,6 +8,7 @@ import type {
 import { interpret, type RecognizedDate } from './interpret';
 
 export interface SearchFilters {
+  /** Kinds chosen by the user; an empty list says « every kind » explicitly (a recognized kind no longer applies). */
   kinds?: SearchKind[];
   workspaceId?: string;
   tagId?: string;
@@ -34,7 +35,8 @@ export function searchRequest(
   options: { literal: boolean; limit: number; offset?: number; now?: Date },
 ): { request: SearchRequest; applied: AppliedInterpretation } {
   const interpretation = options.literal ? null : interpret(text, options.now);
-  const kind = interpretation?.kind && !filters.kinds?.length ? interpretation.kind : undefined;
+  const kind =
+    interpretation?.kind && filters.kinds === undefined ? interpretation.kind : undefined;
   const date =
     interpretation?.date && filters.dateFrom === undefined && filters.dateTo === undefined
       ? interpretation.date
