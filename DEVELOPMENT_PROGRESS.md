@@ -5,9 +5,8 @@
 
 ## Phase courante
 
-**Phase 4 — Bibliothèque : en cours** (branche `phase/4-library`), prochaine tâche **4.1**.
-La Phase 3 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
-au vert (run 44942226134 et 44942224957, commit `ff9dd96`), fusionnée dans `main` le 2026-11-21.
+**Phase 4 — Bibliothèque : terminée localement** (branche `phase/4-library`) ; reste la CI GitHub (Linux et
+build Windows), puis la fusion dans `main`. La Phase 3 a été fusionnée dans `main` le 2026-11-21.
 Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après
 chaque réinitialisation de sa limite d'utilisation.
 
@@ -17,7 +16,7 @@ chaque réinitialisation de sa limite d'utilisation.
 | 1 | Fondation et design system | ✅ Terminée et validée |
 | 2 | Base de données et stockage local | ✅ Terminée |
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
-| 4 | Bibliothèque | 🔄 En cours |
+| 4 | Bibliothèque | ✅ Terminée localement (CI en attente) |
 | 5 | Notes | À faire |
 | 6 | Recherche intelligente | À faire |
 | 7 | Moteur de mémoire | À faire |
@@ -34,6 +33,107 @@ chaque réinitialisation de sa limite d'utilisation.
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 4 — Bibliothèque (terminée localement le 2026-11-22)
+
+### Tâches réalisées
+
+- [x] **4.1** Dépendances et décisions (ARCHITECTURE §16) : sélecteur de fichiers natif appelé côté Rust, sans
+      permission accordée à l'interface ; DOCX lu avec `zip` et `quick-xml` ; PDF affiché et extrait par pdf.js,
+      sans WebAssembly, ressources servies par l'application (CSP : `connect-src 'self'` ajouté).
+- [x] **4.2** Pipeline d'import natif : fichier ordinaire, extension autorisée, 512 Mo au plus, signature des
+      octets cohérente avec l'extension ; copie atomique avec empreinte SHA-256, doublons refusés ; extraction du
+      texte (TXT et MD avec détection UTF-8, UTF-16 ou Windows-1252, CSV, JSON aplati avec le chemin des valeurs,
+      DOCX avec titre, auteur et dates), dimensions des images ; une transaction par fichier, événement
+      `document_imported`. Progression par `Channel`, annulation, rapport par fichier, nouvel essai des échecs
+      temporaires. Glisser-déposer : le cœur mémorise les chemins du dépôt natif, l'interface n'en envoie aucun.
+- [x] **4.3** Commandes documents : liste paginée, filtrée (format, espace, dossier, étiquette, dates d'ajout et
+      de modification, favoris, état du texte) et triée (titre, ajout, modification, taille, ouverture) ; détail,
+      renommage, déplacement, favori, archivage, corbeille, restauration, suppression définitive (l'entrée puis la
+      copie gérée), export sous un nom assaini, « Afficher dans l'Explorateur », ouverture avec l'application par
+      défaut, lecture par plages pour les aperçus, enregistrement du texte extrait par pdf.js.
+- [x] **4.4** Dossiers (arborescence par espace, création, renommage, suppression refusée tant qu'il reste un
+      document ou un sous-dossier) et étiquettes (création, affectation, filtre).
+- [x] **4.5** Interface Bibliothèque : vues liste et grille, recherche sans tenir compte de la casse ni des
+      accents, panneau de filtres avec puces retirables, tris, menu d'actions et menu contextuel, corbeille et
+      archives, dépôt de fichiers sur la fenêtre, panneau de progression, `Ctrl+O` ; filtres conservés dans
+      l'adresse.
+- [x] **4.6** Page d'un document : aperçu PDF (pages, zoom, ajustement à la largeur), images, CSV en tableau, JSON
+      mis en forme (contenu brut s'il est invalide), texte extrait, métadonnées réelles, emplacement, étiquettes,
+      ouverture externe, export, favori ; l'ouverture est enregistrée (« Récemment ouverts »).
+- [x] **4.7** Intégration : accueil d'une première installation tourné vers l'import, actions rapides, import
+      dans l'espace affiché, pages Favoris, Récemment ouverts et Archives, création rapide « Importer un
+      document », liens de la chronologie vers les documents qui existent encore.
+- [x] **4.8** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-4/`.
+
+### Validation (critères de la spec §21, Phase 4)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Import de vrais fichiers de test | ✅ | `scripts/make-library-fixtures.py` génère un fichier réel par format (PDF de deux pages, DOCX, PNG, TXT, CSV, JSON), un JSON mal formé et un exécutable renommé `.pdf` ; **natif** : sélection multiple dans le sélecteur GTK, 7 fichiers importés, l'exécutable refusé |
+| Contenu extrait vérifié | ✅ | **Natif**, relu dans SQLite : texte et CSV tels quels, JSON aplati (`broches[0].nom: VCC`), DOCX (paragraphes, titre déclaré, auteur), image (48 × 32 px, aucun texte revendiqué), PDF extrait par pdf.js dans la WebView de production sous la CSP réelle (deux pages) ; JSON invalide conservé avec son problème signalé |
+| Originaux intacts | ✅ | Empreinte SHA-256 et date de modification identiques avant et après les imports ; chaque copie gérée a l'empreinte de son original |
+| Doublons | ✅ | Second import du même dossier : 7 doublons signalés avec un lien vers le document existant, 1 refus, aucun ajout |
+| Import multiple, détection du format, métadonnées, stockage | ✅ | Tests Rust du pipeline (signatures, limites, encodages, archives DOCX piégées), import natif ci-dessus |
+| Liste, grille, filtres, tris, favoris, étiquettes, dossiers | ✅ | Tests unitaires et de bout en bout (filtres conservés après rechargement, dossier non vide jamais supprimé) |
+| Aperçu des documents | ✅ | pdf.js réel dans Chromium (bout en bout : pages, zoom, texte extrait) et dans la WebView native (capture) |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 165/165 (dont la partie DOCX démesurée lue jusqu’à la borne et le fichier de plus de 512 Mo refusé avant toute copie) |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 113/113 (16 fichiers) |
+| `npm run test:e2e` (dont axe-core sur chaque écran, dialogue et panneau de la Bibliothèque) | ✅ 49/49 |
+| `npm run test:visual` (24 scénarios, 3 résolutions) | ✅ captures revues ; défauts corrigés listés ci-dessous |
+| `scripts/validate-native-phase4.py` : binaire de production, vraie base SQLite, sélecteur de fichiers GTK, trois lancements sous Xvfb | ✅ 18/18 vérifications |
+| CI GitHub (Linux et Windows) | ⏳ à exécuter sur la branche |
+
+### Défauts corrigés en cours de phase
+
+- **Audit visuel** : filtres tronqués (regroupés dans un panneau, filtres actifs en puces) ; colonne du titre trop
+  étroite à 1100 px ; titre d'un document coupé lettre par lettre par les boutons d'action ; superposition de
+  dépôt illisible ; « Texte extrait » affiché pour une image (désormais « Sans texte »).
+- **Contrôles segmentés** (depuis la Phase 1) : le bouton radio invisible était placé hors de son segment ; un clic
+  ciblant son centre (contrôle vocal, automatisation) touchait l'option voisine. Il couvre désormais son segment,
+  comme dans le formulaire d'espace de travail.
+- **Filtres** : deux changements rapprochés écrasaient le premier.
+- **Page d'un document** : la vue choisie (aperçu ou texte) persistait d'un document à l'autre.
+- Une espace insécable brute dans un test de la Phase 3, remplacée par la séquence d'échappement (règle de
+  CLAUDE.md).
+
+### Dépendances ajoutées
+
+- Rust : `tauri-plugin-dialog` 2.8, `zip` 9.8 (décompression *deflate* seule), `quick-xml` 0.42 ; fonctionnalité
+  `functions` de `rusqlite` (fonction SQL `archive_fold`).
+- npm : `pdfjs-dist` 6.5.438.
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Renommage et suppression des étiquettes** : commandes natives prêtes et testées ; leur interface viendra avec
+  les notes (Phase 5), qui partagent les mêmes étiquettes, pour que la confirmation annonce l'effet réel sur les
+  documents et les notes.
+- **Déplacement d'un dossier dans l'arborescence** → Phase 5, avec l'organisation commune des documents et des
+  notes.
+- **Rendu du Markdown** dans l'aperçu (affiché en texte brut) → Phase 5, avec l'import et l'export Markdown.
+- **Recherche dans le contenu** des documents → Phase 6 (FTS5) ; la Bibliothèque cherche dans les titres et les
+  noms de fichiers.
+- **Ressources liées** d'un document → Phase 7 ; la page l'annonce sans rien inventer.
+- **Reconnaissance de caractères (OCR)** : non intégrée ; les images et les PDF numérisés le disent clairement
+  (spec §7.1).
+
+### Limites restantes
+
+- Le texte d'un PDF est extrait par pdf.js dans l'interface : un PDF reste « en attente » si l'application est
+  fermée avant la fin, et l'extraction reprend au lancement suivant. Le texte conservé est limité à 16 Mo.
+- La validation native s'exécute sous Linux (WebKitGTK) ; sous Windows (WebView2), le build est vérifié par la CI
+  et un test de démarrage, l'aperçu PDF par les tests de bout en bout dans Chromium.
+- La validation native pilote le sélecteur GTK et l'interface par coordonnées et au clavier (xdotool), sans
+  gestionnaire de fenêtres : fiable à 1440 × 900, à adapter si la mise en page change.
 
 ---
 
@@ -317,15 +417,18 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 4 — Bibliothèque** (spec §7), branche `phase/4-library`. Prochaine tâche : **4.1**.
+1. **Clore la Phase 4** : pousser la branche, vérifier la CI Linux, lancer le build Windows
+   (`gh workflow run windows-build.yml --ref phase/4-library`), consigner les numéros de run ci-dessus, puis
+   fusionner `phase/4-library` dans `main` (avance rapide).
+2. **Phase 5 — Notes** (spec §8), branche `phase/5-notes`. Prochaine tâche : **5.1**.
 
 | # | Tâche |
 |---|---|
-| **4.1** | Choisir et justifier les dépendances : sélecteur de fichiers natif (`tauri-plugin-dialog`, appelé **côté Rust** : l'interface ne reçoit jamais d'accès libre au disque), extraction DOCX (`zip` + `quick-xml`), PDF (pdf.js en worker pour l'aperçu et le texte, ou crate Rust ; décision ARCHITECTURE §16), CSP adaptée |
-| 4.2 | Pipeline d'import natif : validation (taille, type réel par signature et extension, fichiers ordinaires seulement), métadonnées, empreinte SHA-256 et doublons, copie dans le stockage géré (original intact), extraction du texte (TXT, MD, CSV, JSON, DOCX, PDF), événement `document_imported` ; progression par `Channel`, annulation, rapport d'erreur par fichier, nouvel essai |
-| 4.3 | Commandes documents : liste paginée (filtres : type, espace, dossier, étiquette, dates, favoris, état d'indexation ; tris : nom, ajout, modification, taille, ouverture), lecture, renommage, espace, dossier, favori, archivage, restauration, corbeille et purge explicites, export, « Afficher dans l'Explorateur », ouverture externe |
-| 4.4 | Dossiers et étiquettes : commandes et interface (arborescence par espace, création, renommage, suppression protégée ; étiquettes et affectation) |
-| 4.5 | Interface Bibliothèque : vues liste et grille, recherche dans les titres et métadonnées, filtres, tris, menu contextuel, glisser-déposer, sélecteur de fichiers, panneau de progression, `Ctrl+O` |
-| 4.6 | Aperçu d'un document : métadonnées, texte extrait, PDF (pages et zoom), images, repli clair pour les autres formats, étiquettes, espace, ouverture externe |
-| 4.7 | Intégration : vue d'ensemble (récemment ouverts, favoris, indexés en 7 jours), espaces (compteurs, favoris), pages Favoris, Récents et Archives, création rapide « Importer un document » |
-| 4.8 | Validation (spec §21) : import de vrais fichiers de test de chaque format, contenu extrait vérifié, originaux intacts (empreinte avant et après), doublons ; tests Rust, unitaires, de bout en bout, accessibilité ; validation native ; audit visuel ; documentation ; CI ; fusion |
+| **5.1** | Dépendances et décisions : TipTap 3 (StarterKit, soulignement, listes de tâches, tableaux, liens), format de stockage (JSON TipTap et texte brut pour la recherche), conversion Markdown fidèle dans les deux sens, assainissement des liens |
+| 5.2 | Cœur natif : commandes notes (liste filtrée et triée, lecture, création, enregistrement avec révision pour refuser une écriture fondée sur une version périmée, renommage, duplication, archivage, favori, déplacement, corbeille, restauration, suppression définitive confirmée), étiquettes, liens entre notes et vers des documents, rétroliens, événements de chronologie |
+| 5.3 | Éditeur : barre d'outils sobre, tous les formats de la spec §8.1, enregistrement automatique différé avec état visible (« Enregistré » seulement après la réussite de l'écriture), récupération après redémarrage |
+| 5.4 | Liens internes : insertion d'un lien vers une note, ouverture directe, panneau des rétroliens |
+| 5.5 | Liste des notes, filtres, étiquettes, favoris, espaces ; « Nouvelle note » dans la création rapide, la vue d'ensemble et les espaces ; `Ctrl+N` |
+| 5.6 | Import et export Markdown (sélecteur et enregistrement natifs) ; rendu Markdown dans l'aperçu des documents |
+| 5.7 | Gestion des étiquettes (renommage, suppression avec effet annoncé) et déplacement des dossiers, communs aux documents et aux notes |
+| 5.8 | Validation (spec §21) : tests Rust, unitaires, de bout en bout, accessibilité, validation native, audit visuel, documentation, CI, fusion |

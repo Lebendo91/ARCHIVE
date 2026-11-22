@@ -6,6 +6,38 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 4 : Bibliothèque (2026-11-22)
+
+- Import de documents : PDF, Word (DOCX), texte, Markdown, CSV, JSON et images (PNG, JPEG, WebP).
+  - Par le sélecteur de fichiers (`Ctrl+O`, bouton « Importer », création rapide), plusieurs fichiers à la fois,
+    ou en déposant des fichiers sur la fenêtre ; dans l'espace de travail affiché, le cas échéant.
+  - Chaque fichier est vérifié (taille, extension, contenu réel) puis **copié** : l'original n'est jamais
+    modifié ni déplacé.
+  - Panneau de progression fichier par fichier : importé, doublon (avec un lien vers le document existant),
+    refusé avec la raison, ou importé sans texte ; annulation et nouvel essai des échecs temporaires.
+  - Texte extrait pour la recherche : texte et Markdown (UTF-8, UTF-16 ou Windows-1252), CSV, JSON, Word (avec
+    titre et auteur) et PDF (pages comprises). Les images n'ont pas de texte : aucune reconnaissance de
+    caractères n'est prétendue.
+- Bibliothèque :
+  - vues liste et grille, recherche dans les titres et les noms de fichiers sans tenir compte de la casse ni des
+    accents, tris (titre, ajout, modification, taille, dernière ouverture) ;
+  - filtres par format, espace de travail, dossier, étiquette, dates, favoris et état du texte, affichés en puces
+    retirables et conservés dans l'adresse ;
+  - dossiers par espace de travail (création, renommage, suppression d'un dossier vide seulement) et étiquettes ;
+  - actions par menu ou clic droit : ouvrir, ouvrir avec l'application par défaut, afficher dans l'Explorateur,
+    exporter une copie, renommer, déplacer, étiquettes, favori, archiver, mettre à la corbeille ;
+  - corbeille avec restauration et suppression définitive confirmée, qui efface la copie gérée et jamais le
+    fichier d'origine.
+- Page d'un document : aperçu PDF (pages, zoom, ajustement à la largeur), images, CSV en tableau, JSON mis en
+  forme, texte extrait, informations (format, taille, pages, dimensions, auteur, dates, empreinte SHA-256),
+  emplacement et étiquettes.
+- Vue d'ensemble, espaces de travail, Favoris, Récemment ouverts et Archives affichent désormais les documents.
+
+### Corrigé — Phase 4
+
+- Contrôles segmentés : un clic visant le centre d'une option (contrôle vocal) pouvait sélectionner sa voisine.
+- Bibliothèque : deux changements de filtre rapprochés pouvaient s'annuler.
+
 ### Ajouté — Phase 3 : vue d'ensemble et espaces de travail (2026-11-21)
 
 - Espaces de travail :

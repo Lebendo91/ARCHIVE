@@ -114,7 +114,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phases 1 à 3)*
+## 4. Frontend — *Implémenté (Phases 1 à 4)*
 
 ### 4.1 Responsabilités
 
@@ -155,7 +155,10 @@ bouton mort).
 - État local (`useState`, `useReducer`) pour les comportements isolés.
 - Zustand pour l'état d'interface transversal : barre latérale repliée (persistée dans le `localStorage` de
   la WebView, préférence non critique), notifications, dialogues d'espace (Phase 3), titre dynamique de page,
-  puis progression des imports (Phase 4).
+  puis progression des imports, dialogues de document et vue liste ou grille de la Bibliothèque (Phase 4).
+- Les filtres, la recherche et le tri de la Bibliothèque vivent dans l'adresse (`?q=…&kind=…`) : un lien ouvre
+  une Bibliothèque déjà filtrée et un rechargement conserve la vue. Deux changements rapprochés s'enchaînent au
+  lieu de repartir de l'adresse affichée (Phase 4).
 - Les données viennent du cœur via les services et TanStack Query (adopté en Phase 2). Chaque mutation reste en
   attente jusqu'à ce que les vues concernées soient rafraîchies : un dialogue ne se ferme jamais sur des données
   périmées.
@@ -212,7 +215,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Implémenté (Phases 1 et 2)*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 à 4)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -321,7 +324,7 @@ justifiés :
   - persistance après réouverture.
 - Le `PRAGMA user_version` reflète aussi la version, pour les outils externes.
 
-## 7. Stockage des fichiers — *Service implémenté (Phase 2), import en Phase 4*
+## 7. Stockage des fichiers — *Implémenté (Phases 2 et 4)*
 
 Le dossier de données est le **dossier local** de l'application (`%LOCALAPPDATA%\<identifiant>` sous Windows),
 et non `%APPDATA%` (Roaming). Une collection de documents volumineuse ne doit pas suivre un profil itinérant.
@@ -359,7 +362,7 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
 
-## 8. Pipeline d'import et moteur de mémoire — *Prévu (Phases 4 et 7)*
+## 8. Pipeline d'import et moteur de mémoire — *Import implémenté (Phase 4), mémoire prévue (Phase 7)*
 
 Étapes de la spec §10.1 : **Import → Extraction → Normalisation → Indexation → Analyse → Relations.** Chaque
 étape a son propre statut : `pending`, `processing`, `completed`, `failed` ou `needs_attention`.
@@ -367,9 +370,14 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
 - **Import** (pour chaque fichier, avec progression et annulation) : validation, identification du type, lecture
   des métadonnées, attribution de l'identifiant, empreinte, copie, insertion en base (transaction), mise en
   file, événement de chronologie. Mêmes étapes que la spec §7.2.
-- **Worker d'arrière-plan** : il dépile `processing_jobs` (file persistante), avec reprise sur erreur et backoff.
-  Les échecs sont visibles (`needs_attention`) et peuvent être relancés.
-- **Extracteurs** (trait `Extractor`, chacun borné en taille et en temps, panics isolés) :
+- **Phase 4 (implémenté)** : l'extraction se fait pendant l'import, fichier par fichier, bornée en taille ; un
+  fichier dont le texte ne peut être extrait est conservé, marqué `failed` avec la raison
+  (`metadata.extractionIssue`), jamais refusé pour cela. Les échecs d'accès temporaires (fichier illisible,
+  copie ou écriture impossible) peuvent être relancés depuis le panneau d'import.
+- **Worker d'arrière-plan** (Phases 6 et 7, avec l'indexation et l'analyse) : il dépilera une file persistante
+  `processing_jobs`, avec reprise sur erreur et backoff. Les échecs resteront visibles (`needs_attention`) et
+  pourront être relancés.
+- **Extracteurs** (`import/extract.rs`, chacun borné en taille, sans panic sur un fichier mal formé) :
   - TXT et MD : détection d'encodage (BOM, validation UTF-8, repli Windows-1252, fréquent dans les anciens
     fichiers français).
   - CSV : texte structuré (en-têtes et lignes, borné). JSON : valeurs textuelles aplaties avec leur chemin de clé.
@@ -544,6 +552,10 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Détection du type par extension autorisée **et** signature des octets, sans dépendance | Huit signatures simples ; un fichier dont le contenu contredit l'extension est refusé |
 | Aperçus par la commande `documents_read_range`, plutôt qu'un schéma d'URI personnalisé | Lecture bornée et désignée par identifiant ; ni CORS ni modification de CSP ; pdf.js charge les gros PDF par plages |
 | Suppression définitive : l'entrée d'abord, la copie gérée ensuite | Une copie impossible à effacer devient un fichier orphelin, jamais une entrée cassée |
+| Filtres de la Bibliothèque dans un panneau aux champs étiquetés, filtres actifs en puces retirables | Huit filtres ne tiennent pas sur une ligne sans tronquer leurs libellés (audit visuel) ; les puces gardent l'état visible et se retirent d'un clic |
+| Listes : seul un état du texte qui demande une action est signalé (en attente, échec, à vérifier) ; une image indique « Sans texte » | Un badge « Texte extrait » sur chaque ligne n'apporte rien, et l'afficher pour une image serait faux (pas d'OCR) |
+| Aperçus des données : CSV en tableau (500 premières lignes), JSON mis en forme depuis la copie gérée (2 Mo au plus), contenu brut s'il est invalide | L'utilisateur voit son fichier tel qu'il est ; le texte aplati reste disponible dans « Texte extrait » et sert à la recherche |
+| Fichiers de test générés octet par octet par `scripts/make-library-fixtures.py` | Aucun fichier binaire d'origine inconnue dans le dépôt ; les mêmes fichiers servent aux tests de bout en bout et à la validation native |
 
 ### Décisions prises en Phase 3
 

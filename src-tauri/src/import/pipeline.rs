@@ -598,6 +598,34 @@ mod tests {
     }
 
     #[test]
+    fn files_over_the_size_limit_are_refused_before_any_copy() {
+        let fixture = fixture();
+        let huge = fixture.source("archive-complete.csv", b"a,b\n");
+        // A sparse file: its size is beyond the limit without using disk space.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&huge)
+            .expect("open")
+            .set_len(MAX_IMPORT_BYTES + 1)
+            .expect("set_len");
+
+        let (summary, events) =
+            fixture.import(std::slice::from_ref(&huge), &ImportTarget::default());
+        assert_eq!((summary.imported, summary.failed), (0, 1));
+        assert!(matches!(
+            outcomes(&events)[0],
+            ImportOutcome::Failed {
+                reason: ImportFailure::TooLarge
+            }
+        ));
+        assert_eq!(fixture.store.usage().expect("usage").files, 0);
+        assert_eq!(
+            fs::metadata(&huge).expect("original").len(),
+            MAX_IMPORT_BYTES + 1
+        );
+    }
+
+    #[test]
     fn malformed_content_is_kept_and_flagged() {
         let fixture = fixture();
         let broken = fixture.source("export.json", b"{\"cle\": ");

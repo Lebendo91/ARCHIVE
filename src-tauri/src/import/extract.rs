@@ -286,6 +286,12 @@ fn flatten_json(value: &Value, path: &mut String, lines: &mut Vec<String>) {
 // --- DOCX -------------------------------------------------------------------------------------------------
 
 fn extract_docx(path: &Path) -> Extraction {
+    extract_docx_within(path, DOCX_PART_MAX)
+}
+
+/// Reads at most `part_max` decompressed bytes of each part: an archive that expands further is cut there and
+/// flagged as truncated.
+fn extract_docx_within(path: &Path, part_max: u64) -> Extraction {
     let mut metadata = Map::new();
     let Ok(file) = File::open(path) else {
         return Extraction::failed(ExtractionIssue::InvalidDocx, "docx", metadata);
@@ -294,17 +300,17 @@ fn extract_docx(path: &Path) -> Extraction {
         return Extraction::failed(ExtractionIssue::InvalidDocx, "docx", metadata);
     };
     if let Ok(core) = archive.by_name("docProps/core.xml") {
-        let (properties, _) = read_core_properties(core.take(DOCX_PART_MAX));
+        let (properties, _) = read_core_properties(core.take(part_max));
         metadata.extend(properties);
     }
     let Ok(document) = archive.by_name("word/document.xml") else {
         return Extraction::failed(ExtractionIssue::InvalidDocx, "docx", metadata);
     };
     let declared_size = document.size();
-    match read_docx_text(document.take(DOCX_PART_MAX)) {
+    match read_docx_text(document.take(part_max)) {
         Some(text) => {
             let mut extraction = Extraction::completed(text, "docx", metadata);
-            if declared_size > DOCX_PART_MAX {
+            if declared_size > part_max {
                 extraction.issue = Some(ExtractionIssue::Truncated);
             }
             extraction
@@ -621,6 +627,41 @@ pub(crate) mod tests {
         let extraction = extract(FileKind::Docx, &empty_zip);
         assert_eq!(extraction.status, ProcessingStatus::Failed);
         assert_eq!(extraction.issue, Some(ExtractionIssue::InvalidDocx));
+    }
+
+    #[test]
+    fn docx_parts_are_read_up_to_the_bound_and_flagged_truncated() {
+        use std::io::Write as _;
+        let dir = tempfile::tempdir().expect("dir");
+        // A part that expands far beyond its compressed size, as in a zip bomb.
+        let paragraph = "<w:p><w:r><w:t>Loi d'Ohm</w:t></w:r></w:p>".repeat(2_000);
+        let document = format!(
+            "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\
+             <w:body>{paragraph}</w:body></w:document>"
+        );
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        let mut archive = zip::ZipWriter::new(&mut buffer);
+        archive
+            .start_file(
+                "word/document.xml",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .expect("start");
+        archive.write_all(document.as_bytes()).expect("write");
+        archive.finish().expect("finish");
+        let path = write_temp(&dir, "gonfle.docx", &buffer.into_inner());
+
+        let bound = 4_096;
+        let extraction = extract_docx_within(&path, bound);
+        assert_eq!(extraction.status, ProcessingStatus::Completed);
+        assert_eq!(extraction.issue, Some(ExtractionIssue::Truncated));
+        let text = extraction.text.expect("text");
+        assert!(text.starts_with("Loi d'Ohm\n"));
+        assert!(text.len() < 4_096, "only the bounded part is read");
+
+        let whole = extract_docx_within(&path, DOCX_PART_MAX);
+        assert_eq!(whole.issue, None);
+        assert_eq!(whole.text.expect("text").lines().count(), 2_000);
     }
 
     #[test]
