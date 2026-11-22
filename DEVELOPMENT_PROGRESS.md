@@ -7,8 +7,8 @@
 
 **Phase 5 — Notes : à démarrer** (branche `phase/5-notes`), prochaine tâche **5.1**.
 La Phase 4 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
-au vert (run 44992360365, commit `496a56f` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` le
-2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
+au vert (run 44993052398, commit `78c293d` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` par la
+pull request Lebendo91/ARCHIVE#1 le 2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
 programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
@@ -92,7 +92,7 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 | `npm run test:e2e` (dont axe-core sur chaque écran, dialogue et panneau de la Bibliothèque) | ✅ 49/49 |
 | `npm run test:visual` (24 scénarios, 3 résolutions) | ✅ captures revues ; défauts corrigés listés ci-dessous |
 | `scripts/validate-native-phase4.py` : binaire de production, vraie base SQLite, sélecteur de fichiers GTK, trois lancements sous Xvfb | ✅ 18/18 vérifications |
-| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout, cœur natif (run 44992360365, commit `496a56f`) ; build Windows MSI et NSIS avec test de démarrage (run 44991641331, commit `0220ea4`, dernier changement du code applicatif) |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout, cœur natif (run 44993052398 et, sur la pull request, 44993057175, commit `78c293d`) ; build Windows MSI et NSIS avec test de démarrage (run 44991641331, commit `0220ea4`, dernier changement du code applicatif) |
 
 ### Défauts corrigés en cours de phase
 
@@ -109,7 +109,9 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 - **CI** : axe-core mesurait le contraste des dialogues pendant leur fondu d'ouverture (échec intermittent, même
   sur un test de la Phase 1). L'audit, désormais partagé par toutes les suites, attend la fin des animations ;
   128 exécutions répétées sous charge sans échec. Clippy 1.100 refusait `chunks_exact` : remplacé par
-  `as_chunks`.
+  `as_chunks`. Le test du choix de la langue (Phase 2) exigeait un changement d'état immédiat alors que le
+  bouton n'est coché qu'après l'enregistrement par le cœur : il attend désormais cet état. Suite complète répétée
+  trois fois sous charge : 147 exécutions sans échec.
 
 ### Dépendances ajoutées
 
