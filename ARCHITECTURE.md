@@ -1,7 +1,8 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phases 1 à 3 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
-> espaces de travail). Les sections des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phases 1 à 6 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
+> espaces de travail, Bibliothèque, Notes, recherche plein texte). Les sections des phases suivantes restent
+> l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -114,7 +115,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phases 1 à 5)*
+## 4. Frontend — *Implémenté (Phases 1 à 6)*
 
 ### 4.1 Responsabilités
 
@@ -131,6 +132,7 @@ archive/
 | `/` | Vue d'ensemble | 3 |
 | `/library`, `/library/:documentId` | Bibliothèque, aperçu de document | 4 |
 | `/notes`, `/notes/:noteId` | Notes, éditeur | 5 |
+| `/search` | Résultats de recherche, recherches récentes | 6 |
 | `/graph` | Graphe de connaissances | 8 |
 | `/timeline` | Chronologie | 8 |
 | `/assistant` | Assistant IA | 9 |
@@ -145,7 +147,8 @@ Une page dont le titre dépend des données (le nom d'un espace) le remplace ave
 Les erreurs de page s'affichent dans la coquille (`errorElement`). Un `ErrorBoundary` racine couvre le reste.
 En développement uniquement, la route `#/dev/ui` présente la galerie du design system.
 
-La recherche globale (`Ctrl+K`) est une surcouche (overlay), pas une route. En Phase 1, les écrans dont le
+La recherche globale (`Ctrl+K`) est une surcouche (overlay), pas une route ; la page `/search` présente tous les
+résultats d'une recherche, ses filtres étant conservés dans l'adresse (Phase 6). En Phase 1, les écrans dont le
 module n'est pas encore livré affichent un **état vide conçu et honnête**, qui annonce la fonctionnalité sans la
 simuler. Les actions non disponibles sont absentes, ou désactivées avec une explication (spec §17.1 : aucun
 bouton mort).
@@ -215,7 +218,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Implémenté (Phases 1 à 5)*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 à 6)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -279,13 +282,14 @@ justifiés :
 | `workspaces`, `folders` | Organisation ; `folders.parent_id` est auto-référencé | 2 |
 | `documents` | Métadonnées des fichiers importés (champs spec §5.1, **hors** `content_text`) | 2 |
 | `document_contents` | Texte extrait (1:1). **Séparé** pour que les listes restent légères (spec §4.2) | 2 |
-| `document_chunks` | Passages avec numéro de page : base de la recherche, des citations et du contexte IA | 4/6 |
+| `document_chunks` | **Non créée** (Phase 6) : les passages, avec leur numéro de page, sont les lignes de l'index plein texte, calculées depuis `document_contents` (§9) | — |
 | `notes`, `note_links` | Notes (`content_format = 'tiptap-json'` + texte dérivé), liens internes, rétroliens | 2/5 |
 | `tags`, `document_tags`, `note_tags` | Étiquettes | 2 |
 | `relations` | Relations, avec `origin` (`user`, `rule`, `ai`), `status` (`suggested`, `accepted`, `rejected`), `confidence` et `provenance_json` | 2/7 |
 | `concepts`, `concept_mentions` | Concepts extraits et leur source, séparés du contenu original (spec §10.3) | 7 |
 | `timeline_events` | Événements réels, enregistrés **dès la Phase 3** | 2 |
 | `processing_jobs` | File persistante du pipeline (elle survit aux redémarrages) | 4 |
+| `search_index`, `search_titles`, `search_entries`, `search_index_state` | Index plein texte FTS5 par passage, trigrammes des titres, correspondance élément → lignes, version des règles d'indexation (§9) | 6 |
 | `search_history` | Historique de recherche, effaçable | 6 |
 | `app_settings` | Paramètres clé/valeur | 2 |
 | `ai_providers` | Fournisseur, modèle, préférences non secrètes et **référence** vers le secret | 9 |
@@ -374,9 +378,10 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   fichier dont le texte ne peut être extrait est conservé, marqué `failed` avec la raison
   (`metadata.extractionIssue`), jamais refusé pour cela. Les échecs d'accès temporaires (fichier illisible,
   copie ou écriture impossible) peuvent être relancés depuis le panneau d'import.
-- **Worker d'arrière-plan** (Phases 6 et 7, avec l'indexation et l'analyse) : il dépilera une file persistante
-  `processing_jobs`, avec reprise sur erreur et backoff. Les échecs resteront visibles (`needs_attention`) et
-  pourront être relancés.
+- **Indexation** (Phase 6, implémenté) : écrite dans la transaction qui enregistre les données, pas par une file
+  (§9).
+- **Worker d'arrière-plan** (Phase 7, avec l'analyse) : il dépilera une file persistante `processing_jobs`, avec
+  reprise sur erreur et backoff. Les échecs resteront visibles (`needs_attention`) et pourront être relancés.
 - **Extracteurs** (`import/extract.rs`, chacun borné en taille, sans panic sur un fichier mal formé) :
   - TXT et MD : détection d'encodage (BOM, validation UTF-8, repli Windows-1252, fréquent dans les anciens
     fichiers français).
@@ -397,24 +402,66 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   suggérée n'est **jamais présentée comme un fait** : l'utilisateur l'accepte, la rejette ou la modifie
   (spec §10.5).
 
-## 9. Recherche et indexation — *Prévu (Phase 6)*
+## 9. Recherche et indexation — *Implémenté (Phase 6)*
 
-- **Index FTS5 unifié** sur les notes et les passages de documents :
-  `search_index(entity_type UNINDEXED, entity_id UNINDEXED, chunk_id UNINDEXED, title, body, tags,
-  tokenize = 'unicode61 remove_diacritics 2')`. Il est alimenté par le pipeline (et non par des déclencheurs),
-  pour que les extractions longues restent asynchrones. Un index `trigram` complémentaire sur les titres permet
-  les correspondances partielles.
-- **Classement** : `bm25()` pondéré (titre, puis étiquettes, puis corps), avec un léger bonus pour les favoris et
-  les éléments récents.
-- **Extraits** : `snippet()` et `highlight()`. Les marqueurs sont convertis en segments React, jamais en HTML
-  brut (aucune injection possible).
-- **Analyse des requêtes** : la saisie utilisateur n'est jamais concaténée dans la syntaxe FTS5. Les termes sont
-  échappés, un préfixe `*` s'applique au dernier terme (recherche pendant la frappe), et les filtres (type, espace,
-  étiquette, date) passent par des jointures SQL.
-- **Expressions de date** (« importés la semaine dernière ») : un analyseur à règles explicites, présenté comme
-  tel. Aucune fausse « compréhension du langage naturel » (spec §9.5).
-- **Recherche sémantique** (optionnelle, après la Phase 6) : embeddings par passage via le fournisseur configuré,
-  similarité calculée en Rust, désactivée par défaut. Repli sur FTS5 avec une explication (spec §9.4).
+- **Tables** (migration 2, `0002_search.sql`) :
+  - `search_index` : table FTS5 `(entity_type UNINDEXED, entity_id UNINDEXED, page UNINDEXED, title, body, tags,
+    meta)`, `tokenize = 'unicode61 remove_diacritics 2'`. Une ligne par **passage** : une page de PDF (pdf.js
+    sépare les pages du texte extrait par un saut de page `\f`), sinon environ 2 000 octets coupés entre deux
+    mots ; une page de plus de 8 000 octets est découpée elle aussi. Le titre, les étiquettes et les
+    métadonnées (nom du fichier d'origine, titre et auteur du document) sont répétés sur chaque passage.
+  - `search_titles` : table FTS5 `trigram` (sans accents) des titres et des noms de fichier, pour les
+    correspondances partielles (« 555 » dans « NE555 »).
+  - `search_entries` : les lignes de chaque élément, pour les retirer sans parcourir l'index.
+  - `search_index_state` : version des règles d'indexation (`INDEX_VERSION`) et date de construction.
+  - `search_history` : recherches lancées, 50 au plus, chacune une seule fois (casse et espaces ignorés).
+- **Alimentation** : l'index est une donnée dérivée, écrite **dans la transaction qui modifie les données**. Les
+  dépôts signalent ce qu'ils changent (`search::index::mark`) ; `Database::write` réindexe ces éléments juste
+  avant de valider, et oublie les signalements si l'opération échoue. Un élément ne peut donc pas exister sans
+  être trouvable, ni l'index garder un élément supprimé. Sont indexés : les documents (import, texte extrait,
+  renommage, métadonnées, étiquettes, déplacement, corbeille, restauration, purge), les notes, les espaces de
+  travail et les étiquettes (renommer une étiquette réindexe les éléments qui la portent).
+- **Reconstruction** : au démarrage, si la version enregistrée diffère de `INDEX_VERSION` (base antérieure à la
+  Phase 6, ou règles modifiées), l'index est reconstruit depuis les données, et le journal l'indique. Un échec
+  est journalisé sans empêcher l'application de démarrer : seule la recherche est alors incomplète.
+- **Requêtes** (`search_query`) :
+  - la saisie n'est jamais insérée telle quelle dans la syntaxe FTS5. Chaque mot devient une chaîne entre
+    guillemets (`"` doublés) ; le dernier mot prend le préfixe `*` tant que la saisie ne se termine pas par une
+    espace ; `"…"` cherche une expression et `-mot` l'exclut ; les mots vides (français et anglais) sont ignorés
+    s'il reste d'autres mots ; « œ » et « æ » trouvent aussi « oe » et « ae » ;
+  - correspondances partielles : pour les mots de trois caractères ou plus, les titres qui les contiennent
+    (trigrammes) viennent après les correspondances de mots entiers, marqués « Partie du titre » ;
+  - filtres en SQL : types, espace de travail, étiquette, date (d'ajout ou de modification) et période,
+    favoris ; la corbeille est exclue. Comptes par type (indépendants du filtre de type) et pagination : 100
+    résultats par page au plus, 500 caractères de texte au plus ;
+  - classement : `bm25()` pondéré (titre 10, étiquettes 5, métadonnées 2, texte 1) sur le meilleur passage de
+    chaque élément, multiplié par 1,2 pour un favori et par 1,1 pour un élément de moins de 30 jours ; ou tri
+    par date ;
+  - extraits : `highlight()` et `snippet()` avec des marqueurs de la zone privée Unicode (U+E000, U+E001),
+    convertis en segments `{ text, matched }`. L'interface les rend en React, jamais en HTML. Le numéro de page
+    du passage accompagne l'extrait.
+- **Interprétation** (spec §9.5) : dans l'interface (`interpret.ts`), un analyseur à règles explicites reconnaît
+  une période (« la semaine dernière », « en mars », « ces 7 derniers jours », « last month »…), précédée ou non
+  d'un verbe qui dit de quelle date il s'agit (« importés », « modifiées »), et un type en début de saisie suivi
+  d'un connecteur (« notes sur… », « documents about… », « tout ce qui… »). Ce qui est reconnu devient un filtre
+  **affiché** (« Compris : Type : Notes · Modifiés : … (du … au …) »), avec « Chercher le texte tel quel ». Un
+  filtre choisi explicitement l'emporte, « Tout » compris. Les périodes suivent le calendrier local.
+- **Interface** :
+  - palette `Ctrl+K` : combobox WAI-ARIA, résultats groupés par type, flèches et Entrée, `Ctrl+Entrée` pour
+    tous les résultats, recherches récentes ;
+  - page `/search` : types avec leurs comptes, filtres en puces conservés dans l'adresse, tri, « Afficher
+    plus », historique effaçable entrée par entrée ou en entier ;
+  - les résultats en cache sont invalidés par toute modification des données (préfixe de clé `['search']`).
+- **Recherche sémantique** : non activée, et l'interface le dit. Elle pourra s'ajouter en option une fois un
+  fournisseur configuré (Phase 9), avec repli sur FTS5 (spec §9.4).
+- **Mesure indicative** (`search::perf`, ignorée par défaut ; mode release, conteneur cloud) : sur 2 000
+  documents de 8 pages et 3 000 notes (41 Mo de texte) :
+  - écriture et indexation : 1 837 éléments par seconde ;
+  - reconstruction complète : 2,9 s ;
+  - taille de la base : 151 Mo ;
+  - recherches de 24 résultats : 2 à 3 ms pour un mot rare ou un titre partiel, 25 à 45 ms pour une expression,
+    une exclusion ou deux mots filtrés, 70 à 96 ms en médiane (136 ms au 95ᵉ centile) pour un mot présent dans
+    presque tous les éléments.
 
 ## 10. Graphe de connaissances et chronologie — *Prévu (Phase 8)*
 
@@ -492,7 +539,7 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
 | UI, accessibilité, visuel | Playwright (Chromium, même moteur que WebView2) sur Vite avec doublure du runtime natif. Échec sur toute erreur console. axe-core WCAG 2.2 A/AA sur chaque écran. Captures 1440×900, 1280×800 et 1100×700 (`npm run test:visual`, dossier `visual-audit/`) | Conteneur et CI | ✅ Phase 1 (33 tests) |
 | Fumée native | Binaire de production lancé sous Xvfb (Linux), et sur `windows-latest` avec capture d'écran WebView2 | Conteneur et CI Windows | ✅ Phase 1 |
 | E2E sur l'application réelle | `tauri-driver` : WebKitWebDriver sous Xvfb, msedgedriver sous Windows | Conteneur et CI Windows | à confirmer (Phase 2) |
-| Performance | Jeux synthétiques générés (100, 500 et 1 000 documents, 1 000 notes), jamais livrés par défaut | Conteneur | Phases 6 et 10 |
+| Performance | Jeux synthétiques générés, jamais livrés par défaut : `search::perf` (2 000 documents de 8 pages, 3 000 notes), ignoré par défaut | Conteneur | ✅ Phase 6 ; Phase 10 |
 
 Règle absolue : un test n'est déclaré réussi que s'il a été exécuté, et son résultat est consigné dans
 `DEVELOPMENT_PROGRESS.md` (spec §22).
@@ -540,6 +587,22 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 6
+
+| Décision | Justification |
+|---|---|
+| Index écrit dans la transaction des données (signalements des dépôts, réindexation avant validation), et non par la file du pipeline | Le texte est déjà extrait quand il est enregistré (pdf.js compris) : l'index ne peut ni être en retard, ni diverger des données. Coût mesuré : environ 1 800 éléments par seconde |
+| Passages par page de PDF, sinon d'environ 2 000 octets ; titre, étiquettes et métadonnées répétés sur chaque passage ; pas de table `document_chunks` | Le numéro de page accompagne l'extrait (spec §9.3, référence de la source) ; `bm25()` compare des passages de taille comparable ; les passages se recalculent depuis `document_contents` |
+| Saisie analysée par le cœur (`ParsedQuery`) : mots entre guillemets, préfixe sur le dernier, expressions, exclusions, mots vides, ligatures | Aucune syntaxe FTS5 tapée par l'utilisateur n'est interprétée (tests d'injection) ; la recherche suit la frappe |
+| Correspondance partielle par trigrammes, sur les titres seulement, après les mots entiers | Trouver « 555 » dans « NE555 » sans indexer tout le texte en trigrammes (taille) ni noyer les résultats |
+| `bm25()` pondéré 10/5/2/1 (titre, étiquettes, métadonnées, texte), favoris × 1,2, éléments récents × 1,1 | Spec §9.2 : un titre qui contient le mot passe avant une simple mention dans le texte |
+| Extraits balisés par des caractères de la zone privée Unicode, convertis en segments | Aucun HTML ne traverse la frontière : un texte contenant « <mark> » reste du texte |
+| Dates et types lus dans l'interface par des règles, affichés comme filtres, désactivables ; un filtre explicite l'emporte | Spec §9.5 : rien ne prétend comprendre davantage. Les périodes dépendent du calendrier local de l'utilisateur, que l'interface connaît |
+| Historique : 50 recherches au plus, chacune une seule fois, enregistrées quand un résultat est ouvert ou la recherche validée ; effaçable entrée par entrée ou en entier | Pas une trace de chaque frappe ; l'utilisateur garde la main |
+| Index reconstruit au démarrage quand sa version change ; un échec est journalisé sans bloquer | Donnée dérivée : la reconstruire est toujours sûr, et la recherche ne doit jamais empêcher l'accès au reste |
+| Un résultat « étiquette » mène à `/search?tag=<id>`, la liste des éléments qui la portent | Une étiquette n'a pas de page propre ; la recherche filtrée en tient lieu |
+| Pas de recherche sémantique en Phase 6, et un message qui le dit | Spec §9.4 : optionnelle, elle dépend d'un fournisseur d'IA (Phase 9) |
 
 ### Décisions prises en Phase 5
 

@@ -460,6 +460,26 @@ fn the_index_is_rebuilt_from_the_data_when_its_version_changes() {
 }
 
 #[test]
+fn whole_words_come_before_parts_of_titles() {
+    let (_dir, database) = open_temporary();
+    database
+        .write(|transaction| {
+            note(transaction, "Brochage du NE555", "Timer astable")?;
+            note(
+                transaction,
+                "Minuterie",
+                "Le circuit 555 en mode monostable",
+            )?;
+            Ok(())
+        })
+        .expect("written");
+    let results = run(&database, &request("555"));
+    assert_eq!(titles(&results), vec!["Minuterie", "Brochage du NE555"]);
+    assert!(!results.hits[0].partial);
+    assert!(results.hits[1].partial);
+}
+
+#[test]
 fn the_history_keeps_each_search_once_most_recent_first() {
     let (_dir, database) = open_temporary();
     database

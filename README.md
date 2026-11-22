@@ -17,17 +17,20 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phases 1 à 5 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
-et espaces de travail, Bibliothèque, Notes. On y importe ses documents (PDF, Word, texte, Markdown, CSV, JSON,
-images) sans jamais toucher aux originaux, et on y rédige des notes riches, enregistrées automatiquement, reliées
-entre elles et aux documents, importables et exportables en Markdown. Les modules suivants (recherche, moteur de
-mémoire, graphe…) arrivent phase par phase ; en attendant, leurs écrans affichent un état vide honnête, sans
-contenu simulé.
+**Phases 1 à 6 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
+et espaces de travail, Bibliothèque, Notes, recherche. On y importe ses documents (PDF, Word, texte, Markdown,
+CSV, JSON, images) sans jamais toucher aux originaux, on y rédige des notes riches, enregistrées automatiquement,
+reliées entre elles et aux documents, importables et exportables en Markdown, et on retrouve tout avec `Ctrl+K` :
+recherche plein texte dans le contenu, insensible aux accents, avec extraits surlignés, filtres et historique.
+Les modules suivants (moteur de mémoire, graphe, assistant…) arrivent phase par phase ; en attendant, leurs
+écrans affichent un état vide honnête, sans contenu simulé.
 
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
 
 ![Une note dans ARCHIVE](docs/screenshots/phase-5/note-editor.png)
+
+![La recherche globale d'ARCHIVE](docs/screenshots/phase-6/palette.png)
 
 D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 
