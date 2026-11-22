@@ -1,7 +1,7 @@
 import { Editor, type JSONContent } from '@tiptap/core';
 import type { LinkTarget } from '@/services/notes';
 import { noteExtensions } from './editorExtensions';
-import { collectLinks } from './noteContent';
+import { collectLinks, withoutUnsafeLinks } from './noteContent';
 
 let converter: Editor | null = null;
 
@@ -19,16 +19,20 @@ export interface ConvertedNote {
   links: LinkTarget[];
 }
 
-/** Plain text of a note: one line per block. */
+/** Plain text of a note: one line per block (lists and tables add no empty line). */
 export function plainText(editor: Editor): string {
-  return editor.getText({ blockSeparator: '\n' });
+  return editor
+    .getText({ blockSeparator: '\n' })
+    .replace(/\n{2,}/g, '\n')
+    .trim();
 }
 
 /** Markdown → note, with the schema of the editor (spec §8.5). */
 export function markdownToNote(markdown: string): ConvertedNote {
   const editor = headless();
   editor.commands.setContent(markdown, { contentType: 'markdown', emitUpdate: false });
-  const content = editor.getJSON();
+  // The Markdown reader creates links without the checks of the editor: unsafe addresses are removed here.
+  const content = withoutUnsafeLinks(editor.getJSON());
   return { content, text: plainText(editor), links: collectLinks(content) };
 }
 

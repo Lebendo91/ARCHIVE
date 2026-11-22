@@ -6,6 +6,47 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 5 : Notes (2026-11-22)
+
+- Éditeur de notes riche :
+  - titres, gras, italique, souligné, barré, code, liens, listes à puces, numérotées et de tâches, citations,
+    blocs de code, tableaux et séparateurs, par la barre d'outils, les raccourcis clavier et les raccourcis
+    Markdown (`## `, `- `, `[ ] `, `> `…) ;
+  - enregistrement automatique avec un état toujours visible ; « Enregistré » ne s'affiche qu'une fois
+    l'écriture confirmée ;
+  - aucune perte silencieuse :
+    - une note modifiée ailleurs entre-temps n'est jamais écrasée : on choisit de recharger la version
+      enregistrée ou de garder la sienne ;
+    - un échec d'enregistrement le dit et propose de réessayer ;
+    - les modifications non enregistrées d'une session interrompue sont proposées au lancement suivant ;
+    - fermer la fenêtre attend la fin de l'enregistrement en cours.
+- Liens internes vers une note ou un document, choisis dans un sélecteur avec recherche ; un clic ouvre la cible.
+  Chaque note affiche ses liens et ses rétroliens, et la page d'un document liste les notes qui le citent. Les
+  liens web et électroniques s'ouvrent dans l'application par défaut, après vérification par le cœur.
+- Liste des notes : recherche dans les titres et le texte, filtres (espace de travail, étiquette, date,
+  favoris), tris, dossiers, notes archivées et corbeille. Actions : dupliquer, renommer, déplacer, étiquettes,
+  favori, archiver, mettre à la corbeille, restaurer, supprimer définitivement après confirmation.
+- « Nouvelle note » (`Ctrl+N`) depuis la liste, le menu « Créer », la vue d'ensemble et chaque espace de
+  travail ; les notes apparaissent dans la vue d'ensemble, les favoris, les récemment ouverts et les archives.
+- Markdown :
+  - import de fichiers `.md` par le sélecteur natif, chaque fichier devenant une note à son nom ;
+  - export d'une note à l'endroit choisi, en gardant sa structure ;
+  - aperçu mis en page des documents Markdown de la Bibliothèque, sans image distante ni HTML exécuté.
+- Gestion des étiquettes, communes aux documents et aux notes :
+  - renommage partout à la fois ;
+  - suppression qui annonce le nombre d'éléments concernés et ne supprime jamais l'élément lui-même.
+- Déplacement d'un dossier avec son contenu, jamais à l'intérieur de lui-même.
+
+### Corrigé — Phase 5
+
+- Dialogues de renommage, de déplacement, d'étiquettes et de dossier : le focus s'ouvrait sur le bouton
+  « Fermer » ; il va désormais au premier champ, texte sélectionné.
+- Indentation des dossiers dans les listes déroulantes : invisible, car les espaces ordinaires étaient fusionnés.
+- Liens d'un fichier Markdown importé : les adresses `javascript:` ou `file:` étaient conservées dans la note
+  (sans jamais pouvoir s'ouvrir) ; elles sont désormais retirées, et leur texte est gardé.
+- Cases à cocher des tâches : cible portée à 24 px (WCAG 2.5.8), nom accessible en français, désactivées en
+  lecture seule.
+
 ### Ajouté — Phase 4 : Bibliothèque (2026-11-22)
 
 - Import de documents : PDF, Word (DOCX), texte, Markdown, CSV, JSON et images (PNG, JPEG, WebP).

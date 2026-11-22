@@ -28,6 +28,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ImportState::default())
         .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                // Once per session: the interface may first finish the saves of a note being edited.
+                log::info!("window close requested");
+            }
             if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event {
                 commands::import::on_files_dropped(&window.state::<ImportState>(), paths);
             }

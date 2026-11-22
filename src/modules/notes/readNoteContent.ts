@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import type { Note } from '@/services/notes';
 import { markdownToNote } from './markdown';
-import { EMPTY_DOCUMENT } from './noteContent';
+import { EMPTY_DOCUMENT, withoutUnsafeLinks } from './noteContent';
 
 /** The TipTap document of a note, whatever its stored format. */
 export function readNoteContent(note: Pick<Note, 'content' | 'contentFormat'>): JSONContent {
@@ -22,7 +22,7 @@ export function readNoteContent(note: Pick<Note, 'content' | 'contentFormat'>): 
   }
   try {
     const document = JSON.parse(note.content) as JSONContent;
-    return document.type === 'doc' ? document : EMPTY_DOCUMENT;
+    return document.type === 'doc' ? withoutUnsafeLinks(document) : EMPTY_DOCUMENT;
   } catch {
     return EMPTY_DOCUMENT;
   }

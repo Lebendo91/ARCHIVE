@@ -41,6 +41,25 @@ export function isAllowedHref(href: string): boolean {
   return href.startsWith(ARCHIVE_SCHEME) ? parseArchiveHref(href) !== null : isExternalUrl(href);
 }
 
+/**
+ * The document without the links whose address is not allowed (a `javascript:` or `file:` link of an imported
+ * Markdown file, for example): their text stays, as plain text. The editor never opens such an address, and
+ * it is neither stored nor exported again.
+ */
+export function withoutUnsafeLinks(node: JSONContent): JSONContent {
+  const { marks, content, ...rest } = node;
+  const kept = marks?.filter(
+    (mark) =>
+      mark.type !== 'link' ||
+      (typeof mark.attrs?.href === 'string' && isAllowedHref(mark.attrs.href)),
+  );
+  return {
+    ...rest,
+    ...(kept && kept.length > 0 ? { marks: kept } : {}),
+    ...(content ? { content: content.map(withoutUnsafeLinks) } : {}),
+  };
+}
+
 /** Internal links of a note, each target once, in document order. */
 export function collectLinks(document: JSONContent): LinkTarget[] {
   const links: LinkTarget[] = [];

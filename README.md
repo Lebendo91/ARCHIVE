@@ -17,16 +17,17 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phases 1 à 3 implémentées** : fondation et design system, base de données et stockage local, vue
-d'ensemble et espaces de travail. L'application s'ouvre sur une vue d'ensemble alimentée par la base locale ;
-on y crée, personnalise, archive et supprime (sans jamais perdre de contenu) des espaces de travail. Les modules
-suivants (bibliothèque, notes, recherche…) arrivent phase par phase ; en attendant, leurs écrans affichent un
-état vide honnête, sans contenu simulé.
+**Phases 1 à 5 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
+et espaces de travail, Bibliothèque, Notes. On y importe ses documents (PDF, Word, texte, Markdown, CSV, JSON,
+images) sans jamais toucher aux originaux, et on y rédige des notes riches, enregistrées automatiquement, reliées
+entre elles et aux documents, importables et exportables en Markdown. Les modules suivants (recherche, moteur de
+mémoire, graphe…) arrivent phase par phase ; en attendant, leurs écrans affichent un état vide honnête, sans
+contenu simulé.
 
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
 
-![La Bibliothèque d'ARCHIVE](docs/screenshots/phase-4/library-list.png)
+![Une note dans ARCHIVE](docs/screenshots/phase-5/note-editor.png)
 
 D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 

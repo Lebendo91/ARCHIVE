@@ -5,8 +5,9 @@
 
 ## Phase courante
 
-**Phase 5 — Notes : en cours** (branche `phase/5-notes`), tâches 5.1 à 5.7 réalisées (dernier commit poussé
-`f122d27`), prochaine tâche **5.8** (validation).
+**Phase 5 — Notes : validée localement** (branche `phase/5-notes`) : tests Rust, unitaires, de bout en bout,
+accessibilité, audit visuel et validation native au vert. Restent la CI GitHub, la pull request et la fusion
+dans `main`.
 La Phase 4 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
 au vert (run 44993052398, commit `78c293d` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` par la
 pull request Lebendo91/ARCHIVE#1 le 2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
@@ -19,7 +20,7 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 | 2 | Base de données et stockage local | ✅ Terminée |
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
 | 4 | Bibliothèque | ✅ Terminée |
-| 5 | Notes | ▶ En cours (5.8) |
+| 5 | Notes | ▶ Validée localement, CI et fusion en cours |
 | 6 | Recherche intelligente | À faire |
 | 7 | Moteur de mémoire | À faire |
 | 8 | Graphe de connaissances et chronologie | À faire |
@@ -35,6 +36,119 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 5 — Notes (terminée le 2026-11-22)
+
+### Tâches réalisées
+
+- [x] **5.1** Dépendances et décisions (ARCHITECTURE §16) :
+  - TipTap 3.33.1 en versions exactes ;
+  - contenu en JSON TipTap accompagné de son texte brut ;
+  - Markdown converti dans l'interface avec le schéma de l'éditeur ;
+  - liens internes `archive://note/<id>` et `archive://document/<id>`.
+- [x] **5.2** Cœur natif :
+  - commandes des notes : liste filtrée et triée, lecture avec liens et rétroliens, création, enregistrement
+    par révision (refus `stale_revision`), renommage, duplication (étiquettes et liens, jamais l'état),
+    déplacement, favori, archivage, étiquettes, corbeille, restauration, suppression définitive, ouverture ;
+  - relations `links_to` ;
+  - événements `note_created` et `note_modified`, ce dernier au plus une fois par heure ;
+  - ouverture vérifiée des adresses web et électroniques (`app_open_url`).
+- [x] **5.3** Éditeur :
+  - barre d'outils et tous les formats de la spec §8.1, raccourcis clavier et raccourcis Markdown ;
+  - enregistrement automatique (800 ms après la dernière modification, 5 s au plus) avec état visible ;
+  - conflit de révision (recharger ou garder sa version), échec signalé avec nouvel essai ;
+  - brouillon de récupération ; fermeture de la fenêtre qui attend l'enregistrement.
+- [x] **5.4** Liens internes : sélecteur avec recherche, ouverture au clic, liens et rétroliens de chaque note,
+      notes qui citent un document sur la page de celui-ci.
+- [x] **5.5** Liste et intégration :
+  - liste des notes : recherche dans le titre et le texte, filtres en puces conservés dans l'adresse, tris,
+    dossiers, archives, corbeille, menu d'actions et menu contextuel ;
+  - « Nouvelle note » : `Ctrl+N`, menu « Créer », vue d'ensemble, espaces de travail ;
+  - Favoris, Récemment ouverts et Archives affichent aussi les notes.
+- [x] **5.6** Markdown :
+  - import par le sélecteur natif (fichiers lus et vérifiés par le cœur) ;
+  - export par le dialogue d'enregistrement natif ;
+  - aperçu mis en page des documents Markdown de la Bibliothèque.
+- [x] **5.7** Gestionnaire d'étiquettes commun aux documents et aux notes (renommage partout, suppression
+      annonçant son effet) ; déplacement des dossiers avec leur contenu.
+- [x] **5.8** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-5/`.
+
+### Validation (critères de la spec §21, Phase 5)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Éditeur TipTap, mise en forme riche | ✅ | **Natif** : titre, gras (`Ctrl+B`), liste et tâche tapés au clavier avec les raccourcis Markdown, relus dans SQLite (JSON TipTap, marque `bold`, blocs `heading`, `bulletList`, `taskList`) ; de bout en bout dans Chromium : même saisie, structure conservée après rechargement |
+| Création et modification | ✅ | `Ctrl+N` ouvre une note dans son titre (unitaire, bout en bout, natif) ; chaque enregistrement fait monter la révision |
+| Enregistrement automatique | ✅ | « Enregistré » seulement après la réponse du cœur (unitaire). **Natif** : une fermeture demandée (`WM_DELETE_WINDOW`) juste après la frappe arrive pendant l'enregistrement en attente (journal), puis la fenêtre se ferme et le texte est en base. Échec, nouvel essai, conflit de révision et brouillon après un rechargement : unitaire et bout en bout |
+| Liste, étiquettes, espaces, favoris | ✅ | Unitaire et bout en bout : recherche, filtres conservés dans l'adresse, tris, archives, corbeille, actions jusqu'à la suppression définitive, pages Favoris et Récemment ouverts |
+| Import et export Markdown | ✅ | **Natif** : un vrai `.md` choisi dans le sélecteur GTK devient une note (titre, paragraphe, tableau, tâches), le `.txt` n'est pas proposé, l'original est intact (SHA-256 et date), l'export passe par le dialogue d'enregistrement et garde la structure. Unitaire : aller-retour stable, liens dangereux, images et HTML écartés |
+| Liens internes et rétroliens | ✅ | **Natif** : le lien choisi dans le sélecteur est enregistré en relation `links_to` et la note cible l'affiche dans ses rétroliens ; bout en bout : liens suivis vers une note et vers un document |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 188/188 |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 132/132 (18 fichiers, dont 16 tests des notes et 3 de la conversion Markdown) |
+| `npm run test:e2e` (dont axe-core sur la liste, l'éditeur, ses menus et dialogues, le gestionnaire d'étiquettes, le déplacement de dossier, l'aperçu Markdown et les pages personnelles) | ✅ 57/57 |
+| `npm run test:visual` (30 scénarios, 3 résolutions) | ✅ captures revues ; défauts corrigés listés ci-dessous |
+| `scripts/validate-native-phase5.py` : binaire de production, vraie base SQLite, sélecteur et dialogue d'enregistrement GTK, vraie demande de fermeture, quatre lancements sous Xvfb | ✅ 23/23 vérifications |
+| CI GitHub (Linux et Windows) | ⏳ à exécuter sur la pull request |
+
+### Défauts corrigés en cours de phase
+
+- **Accessibilité** :
+  - le focus se perdait quand un bandeau de l'éditeur disparaissait, ou quand une étiquette était renommée ou
+    supprimée ; il revient désormais au texte ou au bon contrôle ;
+  - les dialogues de formulaire s'ouvraient sur « Fermer » au lieu de leur premier champ (depuis la Phase 4) ;
+  - les cases des tâches faisaient 16 px (WCAG 2.5.8) et portaient un nom anglais ;
+  - le titre d'une note n'avait pas d'anneau de focus visible ;
+  - une note de la corbeille n'était pas annoncée en lecture seule.
+- **Échap** : dans un dialogue resté ouvert, une notification prenait la touche au dialogue ; le gestionnaire
+  d'étiquettes affiche désormais ses retours en lui-même.
+- **Sécurité** : un fichier Markdown pouvait laisser dans la note un lien `javascript:` ou `file:` (jamais
+  ouvert, mais stocké et réexporté) ; ces adresses sont retirées à la conversion et au chargement.
+- **Brouillon de récupération** : différé, il n'était jamais écrit pendant une saisie continue (l'enregistrement
+  passait avant lui) ; il suit désormais les modifications avec au plus une seconde de retard.
+- **Textes** :
+  - un fichier Markdown trop volumineux annonçait la limite des documents (512 Mo) au lieu de 16 Mo ;
+  - la suppression d'une étiquette inutilisée annonçait « 0 élément » ;
+  - la légende des étiquettes d'une note parlait d'un document.
+- **Divers** : indentation des dossiers invisible dans les listes déroulantes ; liste de résultats du sélecteur
+  de liens qui clignotait pendant une recherche ; texte brut d'une note encombré de lignes vides ; liens
+  internes en ambre (couleur de marque) au lieu du violet des relations.
+- **Double de test** : renommer une étiquette vers un nom déjà pris réussissait, contrairement au cœur.
+
+### Dépendances ajoutées
+
+- npm : `@tiptap/react`, `@tiptap/pm`, `@tiptap/core`, `@tiptap/starter-kit`, `@tiptap/extension-list`,
+  `@tiptap/extension-table`, `@tiptap/extensions`, `@tiptap/markdown` (3.33.1, versions exactes) et `marked`
+  17.0.6.
+- Validation native : `python-xlib` (envoi d'une vraie demande de fermeture), en plus de Xvfb, xdotool et
+  ImageMagick.
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Recherche plein texte** dans les notes et les documents (FTS5, surlignage) → Phase 6 ; la liste des notes
+  cherche déjà dans leur texte.
+- **Images dans les notes** : non prises en charge par l'éditeur ; à l'import, une image Markdown garde son texte
+  alternatif et n'est jamais chargée depuis le réseau.
+- **Relations proposées automatiquement** entre notes et documents → Phase 7 ; seuls les liens posés par
+  l'utilisateur sont des relations.
+
+### Limites restantes
+
+- Sous Xvfb sans gestionnaire de fenêtres, une demande de fermeture est parfois perdue avant d'atteindre
+  l'application (aucune trace dans le journal). Le script le détecte, recommence (trois tentatives au plus) et ne
+  compte jamais ce cas comme une réussite. Cet artefact ne concerne pas Windows.
+- Le brouillon de récupération vit dans le stockage local de la WebView : il protège d'un arrêt brutal, pas d'une
+  réinstallation.
+- Le dialogue d'enregistrement natif s'ouvre sur le dossier proposé par le système (sous Linux, le dossier
+  courant) ; sous Windows, le dernier dossier utilisé.
 
 ---
 

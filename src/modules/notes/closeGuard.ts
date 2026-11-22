@@ -1,3 +1,4 @@
+import { reportDiagnostic } from '@/services/diagnostics';
 import { isNativeRuntime } from '@/services/tauri';
 
 /** Longest wait for pending saves when the window closes: a save never keeps the window open for good. */
@@ -16,10 +17,19 @@ async function subscribe(): Promise<void> {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const stop = await getCurrentWindow().onCloseRequested(async () => {
       // The window closes once every pending save has finished, or after the timeout.
-      await Promise.race([
-        Promise.allSettled([...pending.values()].map((flush) => flush())),
-        new Promise((resolve) => setTimeout(resolve, CLOSE_TIMEOUT_MS)),
+      const count = pending.size;
+      reportDiagnostic('info', `window closing after ${String(count)} pending save(s)`);
+      const finished = await Promise.race([
+        Promise.allSettled([...pending.values()].map((flush) => flush())).then(() => true),
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => {
+            resolve(false);
+          }, CLOSE_TIMEOUT_MS);
+        }),
       ]);
+      if (!finished) {
+        reportDiagnostic('warn', 'window closing before every pending save finished');
+      }
     });
     if (pending.size === 0) {
       stop();

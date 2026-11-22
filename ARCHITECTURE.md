@@ -51,7 +51,7 @@ explicitement, qui valide ses entrées (spec §18.3).
 | État global | Zustand | 5.1 | État d'interface transversal uniquement |
 | Base de données | SQLite via `rusqlite` (`bundled`) | 0.43 / SQLite 3.54 | FTS5 inclus (sonde validée), même moteur sous Linux et Windows |
 | Recherche | SQLite FTS5 | — | `unicode61 remove_diacritics 2` (accents) et `trigram` (sous-chaînes) |
-| Éditeur | TipTap 3 | 3.35 | Phase 5 |
+| Éditeur | TipTap 3 | 3.33.1 (exacte) | Notes (Phase 5) ; aperçu Markdown de la Bibliothèque |
 | Graphe | Cytoscape.js | 3.35 | Rendu Canvas 2D, sans WebGL (Phase 8) |
 | PDF | `pdfjs-dist` | 6.5 | Aperçu, et candidat pour l'extraction (Phase 4) |
 | Polices | `@fontsource-variable` : Inter, Space Grotesk, JetBrains Mono | 5.3 | Fichiers embarqués, aucune requête réseau à l'exécution |
@@ -114,7 +114,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phases 1 à 4)*
+## 4. Frontend — *Implémenté (Phases 1 à 5)*
 
 ### 4.1 Responsabilités
 
@@ -215,7 +215,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Implémenté (Phases 1 à 4)*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 à 5)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -551,7 +551,16 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Liens internes : liens ordinaires vers `archive://note/<id>` ou `archive://document/<id>` | Syntaxe Markdown standard, exportée et réimportée sans perte ; la cible est désignée par son identifiant, pas par un titre ambigu. Le cœur les garde comme relations `links_to`, d'où sont lus les rétroliens et les notes qui citent un document |
 | Enregistrement par révision : une écriture fondée sur une révision périmée est refusée (`stale_revision`) | Aucune perte silencieuse (spec §8.3) : l'interface propose de recharger la version enregistrée ou de garder la sienne |
 | Événement « note modifiée » au plus une fois par heure et par note | L'enregistrement automatique saturerait sinon la chronologie |
-| Import Markdown : fichiers choisis dans le sélecteur natif, lus, vérifiés et décodés par le cœur (UTF-8, UTF-16, Windows-1252) ; export écrit par le cœur à l'endroit choisi dans le dialogue natif | Aucun chemin ne traverse la frontière ; mêmes vérifications que la Bibliothèque |
+| Import Markdown : fichiers choisis dans le sélecteur natif, lus, vérifiés et décodés par le cœur (UTF-8, UTF-16, Windows-1252) ; export écrit par le cœur à l'endroit choisi dans le dialogue natif | Aucun chemin ne traverse la frontière ; mêmes vérifications que la Bibliothèque. Un fichier Markdown est lu comme du texte : 16 Mo au plus (`TEXT_READ_MAX`), annoncés comme tels |
+| Enregistrement automatique : 800 ms après la dernière modification, 5 s au plus pendant une saisie continue ; « Enregistré » seulement après la confirmation du cœur | Spec §8.3 : l'état affiché est vrai. Une écriture échouée le dit, garde les modifications et propose de réessayer |
+| Brouillon de récupération dans le stockage local de la WebView, écrit au plus une seconde après les modifications (limité, pas différé), effacé après un enregistrement confirmé, proposé seulement sur la révision où il a été écrit | Un arrêt brutal pendant une longue saisie perd au plus une seconde ; un brouillon devenu obsolète (note modifiée ailleurs) n'est jamais proposé |
+| Fermeture de la fenêtre : tant qu'un enregistrement est en attente, la demande de fermeture l'attend (3 s au plus) puis ferme ; permission `core:window:allow-destroy` | Aucune modification perdue en fermant ; vérifié par une vraie demande `WM_DELETE_WINDOW` dans la validation native |
+| Liens externes ouverts par le cœur (`app_open_url` : `http`, `https` avec un hôte, `mailto`) ; liens internes ouverts par le routeur ; toute autre adresse retirée à la conversion Markdown et au chargement d'une note (le texte reste) | L'interface n'ouvre rien elle-même ; un fichier Markdown piégé (`javascript:`, `file:`) ne laisse ni lien actif ni adresse réexportée |
+| Aperçu Markdown de la Bibliothèque : le texte conservé par le cœur, mis en page avec le schéma des notes, en lecture seule (1 million de caractères au plus) | Les images et le HTML brut sont écartés : rien n'est chargé depuis le réseau, rien ne s'exécute ; le fichier géré n'est pas relu |
+| Étiquettes et dossiers communs aux documents et aux notes : gestionnaire d'étiquettes (renommage partout, suppression annonçant le nombre d'éléments concernés, jamais d'élément supprimé) ; déplacement d'un dossier avec son contenu, jamais dans son propre sous-arbre | Commandes `tags_usage` et `folders_move` ; les conflits de nom sont signalés dans le dialogue |
+| Les retours d'un dialogue qui reste ouvert (gestionnaire d'étiquettes) s'affichent dans le dialogue, dans une région annoncée | Une notification Radix est une couche de fermeture : elle prendrait la touche Échap au dialogue |
+| Dialogues : le focus initial va au premier champ du formulaire (texte sélectionné), sinon au premier contrôle | Un formulaire commence là où l'on écrit ; un dialogue peut toujours choisir lui-même |
+| Liens internes en Purple, soulignés en pointillés ; liens web en Electric Blue | Purple est la couleur des relations (§4.4, design system) ; la distinction ne repose pas sur la seule couleur |
 
 ### Décisions prises en Phase 4
 
