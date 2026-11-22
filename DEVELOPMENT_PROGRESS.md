@@ -5,10 +5,11 @@
 
 ## Phase courante
 
-**Phase 4 — Bibliothèque : terminée localement** (branche `phase/4-library`) ; reste la CI GitHub (Linux et
-build Windows), puis la fusion dans `main`. La Phase 3 a été fusionnée dans `main` le 2026-11-21.
-Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après
-chaque réinitialisation de sa limite d'utilisation.
+**Phase 5 — Notes : à démarrer** (branche `phase/5-notes`), prochaine tâche **5.1**.
+La Phase 4 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
+au vert (run 44992360365, commit `496a56f` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` le
+2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
+programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -16,8 +17,8 @@ chaque réinitialisation de sa limite d'utilisation.
 | 1 | Fondation et design system | ✅ Terminée et validée |
 | 2 | Base de données et stockage local | ✅ Terminée |
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
-| 4 | Bibliothèque | ✅ Terminée localement (CI en attente) |
-| 5 | Notes | À faire |
+| 4 | Bibliothèque | ✅ Terminée |
+| 5 | Notes | ▶ Prochaine |
 | 6 | Recherche intelligente | À faire |
 | 7 | Moteur de mémoire | À faire |
 | 8 | Graphe de connaissances et chronologie | À faire |
@@ -36,7 +37,7 @@ chaque réinitialisation de sa limite d'utilisation.
 
 ---
 
-## Phase 4 — Bibliothèque (terminée localement le 2026-11-22)
+## Phase 4 — Bibliothèque (terminée le 2026-11-22)
 
 ### Tâches réalisées
 
@@ -91,7 +92,7 @@ chaque réinitialisation de sa limite d'utilisation.
 | `npm run test:e2e` (dont axe-core sur chaque écran, dialogue et panneau de la Bibliothèque) | ✅ 49/49 |
 | `npm run test:visual` (24 scénarios, 3 résolutions) | ✅ captures revues ; défauts corrigés listés ci-dessous |
 | `scripts/validate-native-phase4.py` : binaire de production, vraie base SQLite, sélecteur de fichiers GTK, trois lancements sous Xvfb | ✅ 18/18 vérifications |
-| CI GitHub (Linux et Windows) | ⏳ à exécuter sur la branche |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout, cœur natif (run 44992360365, commit `496a56f`) ; build Windows MSI et NSIS avec test de démarrage (run 44991641331, commit `0220ea4`, dernier changement du code applicatif) |
 
 ### Défauts corrigés en cours de phase
 
@@ -105,6 +106,10 @@ chaque réinitialisation de sa limite d'utilisation.
 - **Page d'un document** : la vue choisie (aperçu ou texte) persistait d'un document à l'autre.
 - Une espace insécable brute dans un test de la Phase 3, remplacée par la séquence d'échappement (règle de
   CLAUDE.md).
+- **CI** : axe-core mesurait le contraste des dialogues pendant leur fondu d'ouverture (échec intermittent, même
+  sur un test de la Phase 1). L'audit, désormais partagé par toutes les suites, attend la fin des animations ;
+  128 exécutions répétées sous charge sans échec. Clippy 1.100 refusait `chunks_exact` : remplacé par
+  `as_chunks`.
 
 ### Dépendances ajoutées
 
@@ -420,10 +425,9 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Clore la Phase 4** : pousser la branche, vérifier la CI Linux, lancer le build Windows
-   (`gh workflow run windows-build.yml --ref phase/4-library`), consigner les numéros de run ci-dessus, puis
-   fusionner `phase/4-library` dans `main` (avance rapide).
-2. **Phase 5 — Notes** (spec §8), branche `phase/5-notes`. Prochaine tâche : **5.1**.
+**Phase 5 — Notes** (spec §8), branche `phase/5-notes` à créer depuis `main`. Prochaine tâche : **5.1**.
+Le schéma (`notes`, `note_tags`, `relations`) et le dépôt `repo/notes.rs` (création, enregistrement avec
+révision, favori, archivage, corbeille, restauration, purge) existent depuis la Phase 2 : partir de là.
 
 | # | Tâche |
 |---|---|
