@@ -135,6 +135,7 @@ pub fn create(
             params![id, title, content.content, content.content_format, content.content_text, workspace_id, folder_id, now],
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
+    crate::search::index::mark(super::EntityKind::Note, &id);
     get(transaction, &id)
 }
 
@@ -174,6 +175,7 @@ pub fn save(
             expected: expected_revision,
         });
     }
+    crate::search::index::mark(super::EntityKind::Note, id);
     get(transaction, id)
 }
 
@@ -223,7 +225,9 @@ pub fn purge(transaction: &Transaction<'_>, id: &str) -> AppResult<()> {
     }
     crate::repo::relations::delete_for_entity(transaction, super::EntityKind::Note, id)?;
     let affected = transaction.execute("DELETE FROM notes WHERE id = ?1", [id])?;
-    expect_one(affected, ENTITY)
+    expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Note, id);
+    Ok(())
 }
 
 #[cfg(test)]

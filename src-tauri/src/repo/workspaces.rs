@@ -192,6 +192,7 @@ pub fn create(transaction: &Transaction<'_>, input: &NewWorkspace) -> AppResult<
             ],
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
+    crate::search::index::mark(super::EntityKind::Workspace, &workspace.id);
     Ok(workspace)
 }
 
@@ -233,6 +234,7 @@ pub fn update(
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
     expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Workspace, &workspace.id);
     Ok(workspace)
 }
 
@@ -266,7 +268,9 @@ pub fn delete(transaction: &Transaction<'_>, id: &str) -> AppResult<()> {
     let affected = transaction
         .execute("DELETE FROM workspaces WHERE id = ?1", [id])
         .map_err(|error| map_delete_error(error, ENTITY))?;
-    expect_one(affected, ENTITY)
+    expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Workspace, id);
+    Ok(())
 }
 
 #[cfg(test)]

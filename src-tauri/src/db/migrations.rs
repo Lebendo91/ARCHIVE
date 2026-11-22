@@ -23,11 +23,18 @@ pub struct Migration {
     pub sql: &'static str,
 }
 
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "initial",
-    sql: include_str!("../../migrations/0001_initial.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "initial",
+        sql: include_str!("../../migrations/0001_initial.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "search",
+        sql: include_str!("../../migrations/0002_search.sql"),
+    },
+];
 
 /// Schema version expected by this build.
 pub fn latest_version() -> i64 {
@@ -231,6 +238,11 @@ mod tests {
             "timeline_events",
             "ai_providers",
             "app_settings",
+            "search_index",
+            "search_titles",
+            "search_entries",
+            "search_index_state",
+            "search_history",
         ] {
             assert!(table_exists(&connection, table), "missing table {table}");
         }

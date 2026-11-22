@@ -118,6 +118,7 @@ pub fn create(transaction: &Transaction<'_>, name: &str, color: TokenColor) -> A
             ],
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
+    crate::search::index::mark(super::EntityKind::Tag, &tag.id);
     Ok(tag)
 }
 
@@ -131,15 +132,46 @@ pub fn rename(transaction: &Transaction<'_>, id: &str, name: &str) -> AppResult<
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
     expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Tag, id);
+    mark_tagged(transaction, id)?;
     get(transaction, id)
 }
 
 /// Deletes a tag. Its links to documents and notes go with it; the documents and notes stay.
 pub fn delete(transaction: &Transaction<'_>, id: &str) -> AppResult<()> {
     validate_id(id, "tag id")?;
+    mark_tagged(transaction, id)?;
     crate::repo::relations::delete_for_entity(transaction, super::EntityKind::Tag, id)?;
     let affected = transaction.execute("DELETE FROM tags WHERE id = ?1", [id])?;
-    expect_one(affected, ENTITY)
+    expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Tag, id);
+    Ok(())
+}
+
+/// Marks for the search index the documents and notes carrying a tag (their indexed tags change with it).
+fn mark_tagged(transaction: &Transaction<'_>, tag_id: &str) -> AppResult<()> {
+    for (kind, table, column) in [
+        (super::EntityKind::Document, "document_tags", "document_id"),
+        (super::EntityKind::Note, "note_tags", "note_id"),
+    ] {
+        let ids: Vec<String> = transaction
+            .prepare(&format!("SELECT {column} FROM {table} WHERE tag_id = ?1"))?
+            .query_map([tag_id], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        for id in ids {
+            crate::search::index::mark(kind, &id);
+        }
+    }
+    Ok(())
+}
+
+impl Tagged<'_> {
+    fn mark(self) {
+        match self {
+            Tagged::Document(id) => crate::search::index::mark(super::EntityKind::Document, id),
+            Tagged::Note(id) => crate::search::index::mark(super::EntityKind::Note, id),
+        }
+    }
 }
 
 pub fn attach(transaction: &Transaction<'_>, tag_id: &str, target: Tagged<'_>) -> AppResult<()> {
@@ -154,6 +186,7 @@ pub fn attach(transaction: &Transaction<'_>, tag_id: &str, target: Tagged<'_>) -
             params![target_id, tag_id, now_ms()],
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
+    target.mark();
     Ok(())
 }
 
@@ -164,6 +197,7 @@ pub fn detach(transaction: &Transaction<'_>, tag_id: &str, target: Tagged<'_>) -
         &format!("DELETE FROM {table} WHERE {column} = ?1 AND tag_id = ?2"),
         params![target_id, tag_id],
     )?;
+    target.mark();
     Ok(())
 }
 

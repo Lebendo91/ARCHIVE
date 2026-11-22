@@ -330,7 +330,8 @@ export function TextPreview({
           variant === 'code' ? 'font-mono text-xs' : 'font-sans text-sm leading-relaxed',
         )}
       >
-        {content}
+        {/* The pages of a PDF are separated by form feeds: shown as blank lines. */}
+        {content.replaceAll('\f', '\n\n')}
       </pre>
     </ScrollPanel>
   );
