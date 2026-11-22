@@ -5,14 +5,12 @@
 
 ## Phase courante
 
-**Phase 5 — Notes : validée localement** (branche `phase/5-notes`) : tests Rust, unitaires, de bout en bout,
-accessibilité, audit visuel et validation native au vert. Restent la CI GitHub, la pull request et la fusion
-dans `main`.
-La Phase 4 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
-au vert (run 44993052398, commit `78c293d` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` par la
-pull request Lebendo91/ARCHIVE#1 le 2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
-programmée après chaque réinitialisation de sa limite d'utilisation.
-
+**Phase 6 — Recherche intelligente : à démarrer** (branche `phase/6-recherche`), prochaine tâche **6.1**.
+La Phase 5 est terminée : validée localement (tests, accessibilité, audit visuel, application native), CI Linux
+et build Windows au vert sur le commit `17dfd8e` (runs 45020946150, 45020972116 et 45020946186), fusionnée dans
+`main` par la pull request Lebendo91/ARCHIVE#2 le 2026-11-22. Le porteur du projet a demandé l'enchaînement
+autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
+d'utilisation.
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
@@ -20,8 +18,8 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 | 2 | Base de données et stockage local | ✅ Terminée |
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
 | 4 | Bibliothèque | ✅ Terminée |
-| 5 | Notes | ▶ Validée localement, CI et fusion en cours |
-| 6 | Recherche intelligente | À faire |
+| 5 | Notes | ✅ Terminée |
+| 6 | Recherche intelligente | ▶ Prochaine |
 | 7 | Moteur de mémoire | À faire |
 | 8 | Graphe de connaissances et chronologie | À faire |
 | 9 | Assistant IA | À faire |
@@ -97,7 +95,7 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 | `npm run test:e2e` (dont axe-core sur la liste, l'éditeur, ses menus et dialogues, le gestionnaire d'étiquettes, le déplacement de dossier, l'aperçu Markdown et les pages personnelles) | ✅ 57/57 |
 | `npm run test:visual` (30 scénarios, 3 résolutions) | ✅ captures revues ; défauts corrigés listés ci-dessous |
 | `scripts/validate-native-phase5.py` : binaire de production, vraie base SQLite, sélecteur et dialogue d'enregistrement GTK, vraie demande de fermeture, quatre lancements sous Xvfb | ✅ 23/23 vérifications |
-| CI GitHub (Linux et Windows) | ⏳ à exécuter sur la pull request |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout et accessibilité, cœur natif (run 45020946150 et, sur la pull request, 45020972116) ; build Windows MSI et NSIS avec test de démarrage (run 45020946186), commit `17dfd8e` |
 
 ### Défauts corrigés en cours de phase
 
@@ -542,31 +540,16 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 5 — Notes** (spec §8), branche `phase/5-notes`. Tâches 5.1 à 5.7 réalisées et poussées
-(commits `07ada80`, `89f43d1`, `2cb54db`, `f122d27`) ; validation déjà exécutée sur ces commits : 188 tests
-Rust, 112 tests unitaires, 49 tests de bout en bout, clippy, formatage. Prochaine tâche : **5.8**, dans cet ordre :
-
-1. Tests unitaires des notes (`src/app/Phase5.test.tsx`) : création (`Ctrl+N`), enregistrement automatique et
-   état, conflit de révision (`stale_revision`), brouillon de récupération, liens et rétroliens, sélecteur de
-   liens, filtres de la liste, actions (dupliquer, renommer, déplacer, étiquettes, corbeille, purge), import et
-   export Markdown (`markdownPicks`, `exports` du double), gestionnaire d'étiquettes, déplacement de dossier,
-   pages personnelles, notes liées d'un document, aperçu Markdown (images et HTML écartés).
-2. Tests de bout en bout `tests/e2e/phase5.spec.ts` avec axe sur les écrans des notes et les nouvelles boîtes
-   de dialogue ; scénarios visuels complémentaires (gestionnaire d'étiquettes, déplacement de dossier, aperçu
-   Markdown) dans `tests/e2e/visual.spec.ts`, puis relecture des captures.
-3. Validation native `scripts/validate-native-phase5.py` (Xvfb + xdotool, comme `validate-native-phase4.py`) :
-   saisie réelle dans l'éditeur, enregistrement automatique vérifié dans SQLite, liens et relations, import
-   d'un vrai `.md` par le sélecteur GTK, export par la boîte d'enregistrement, relance.
-4. Documentation (section Phase 5 ici, ARCHITECTURE, CHANGELOG, README, `docs/screenshots/phase-5`), CI,
-   pull request par l'API REST, fusion par commit de fusion.
+**Phase 6 — Recherche intelligente** (spec §9), branche `phase/6-recherche` à créer depuis `main`. Prochaine
+tâche : **6.1**. L'architecture prévue est décrite dans ARCHITECTURE §9 (index FTS5 unifié alimenté par les
+services, `bm25()` pondéré, extraits sans HTML, requêtes jamais concaténées dans la syntaxe FTS5).
 
 | # | Tâche |
 |---|---|
-| **5.1** | Dépendances et décisions : TipTap 3 (StarterKit, soulignement, listes de tâches, tableaux, liens), format de stockage (JSON TipTap et texte brut pour la recherche), conversion Markdown fidèle dans les deux sens, assainissement des liens |
-| 5.2 | Cœur natif : commandes notes (liste filtrée et triée, lecture, création, enregistrement avec révision pour refuser une écriture fondée sur une version périmée, renommage, duplication, archivage, favori, déplacement, corbeille, restauration, suppression définitive confirmée), étiquettes, liens entre notes et vers des documents, rétroliens, événements de chronologie |
-| 5.3 | Éditeur : barre d'outils sobre, tous les formats de la spec §8.1, enregistrement automatique différé avec état visible (« Enregistré » seulement après la réussite de l'écriture), récupération après redémarrage |
-| 5.4 | Liens internes : insertion d'un lien vers une note, ouverture directe, panneau des rétroliens |
-| 5.5 | Liste des notes, filtres, étiquettes, favoris, espaces ; « Nouvelle note » dans la création rapide, la vue d'ensemble et les espaces ; `Ctrl+N` |
-| 5.6 | Import et export Markdown (sélecteur et enregistrement natifs) ; rendu Markdown dans l'aperçu des documents |
-| 5.7 | Gestion des étiquettes (renommage, suppression avec effet annoncé) et déplacement des dossiers, communs aux documents et aux notes |
-| 5.8 | Validation (spec §21) : tests Rust, unitaires, de bout en bout, accessibilité, validation native, audit visuel, documentation, CI, fusion |
+| **6.1** | Schéma et décisions : migration 2 avec la table FTS5 `search_index` (`unicode61 remove_diacritics 2`) et un index `trigram` des titres pour les correspondances partielles ; découpage des textes longs en passages ; table de l'historique des recherches ; version de l'index pour la reconstruction |
+| 6.2 | Indexation par les services : documents (import, texte extrait par pdf.js, renommage, étiquettes, déplacement, corbeille, restauration, purge), notes (création, enregistrement, renommage, étiquettes, déplacement, corbeille, purge), espaces de travail et étiquettes ; reconstruction au démarrage si l'index est absent ou d'une autre version ; tests Rust de cohérence |
+| 6.3 | Requêtes : analyse sûre (termes échappés, préfixe sur le dernier terme, expressions entre guillemets), filtres (type, espace, étiquette, dates, favoris), classement `bm25()` pondéré avec un léger bonus pour les favoris et les éléments récents, extraits `snippet()` surlignés convertis en segments React, pagination |
+| 6.4 | Recherche globale `Ctrl+K` : palette depuis la barre supérieure, résultats groupés (documents, notes, espaces, étiquettes), navigation au clavier, ouverture de la bonne ressource, états vides honnêtes |
+| 6.5 | Page de résultats : filtres, tri, titre, type, espace, extrait avec les termes surlignés, date, emplacement ; historique et requêtes récentes, effaçables |
+| 6.6 | Expressions de date à règles explicites (« la semaine dernière », « importés en mars »…) affichées comme filtres reconnus, sans prétendre comprendre le langage naturel ; explication claire de l'absence de recherche sémantique (optionnelle, spec §9.4) |
+| 6.7 | Validation (spec §21) : tests Rust (index, requêtes, tentatives d'injection FTS5, accents, sous-chaînes), unitaires, de bout en bout avec axe, audit visuel, validation native (import réel puis recherche dans le contenu extrait et dans les notes), mesure indicative sur un corpus généré, documentation, CI, fusion |
