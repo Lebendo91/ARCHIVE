@@ -5,7 +5,8 @@
 
 ## Phase courante
 
-**Phase 5 — Notes : à démarrer** (branche `phase/5-notes`), prochaine tâche **5.1**.
+**Phase 5 — Notes : en cours** (branche `phase/5-notes`), tâches 5.1 à 5.7 réalisées (dernier commit poussé
+`f122d27`), prochaine tâche **5.8** (validation).
 La Phase 4 est terminée : validée localement (tests, application native, audit visuel), CI Linux et build Windows
 au vert (run 44993052398, commit `78c293d` ; run 44991641331, commit `0220ea4`), fusionnée dans `main` par la
 pull request Lebendo91/ARCHIVE#1 le 2026-11-22. Le porteur du projet a demandé l'enchaînement autonome des phases ; une reprise automatique est
@@ -18,7 +19,7 @@ programmée après chaque réinitialisation de sa limite d'utilisation.
 | 2 | Base de données et stockage local | ✅ Terminée |
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
 | 4 | Bibliothèque | ✅ Terminée |
-| 5 | Notes | ▶ Prochaine |
+| 5 | Notes | ▶ En cours (5.8) |
 | 6 | Recherche intelligente | À faire |
 | 7 | Moteur de mémoire | À faire |
 | 8 | Graphe de connaissances et chronologie | À faire |
@@ -427,9 +428,23 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 5 — Notes** (spec §8), branche `phase/5-notes` à créer depuis `main`. Prochaine tâche : **5.1**.
-Le schéma (`notes`, `note_tags`, `relations`) et le dépôt `repo/notes.rs` (création, enregistrement avec
-révision, favori, archivage, corbeille, restauration, purge) existent depuis la Phase 2 : partir de là.
+**Phase 5 — Notes** (spec §8), branche `phase/5-notes`. Tâches 5.1 à 5.7 réalisées et poussées
+(commits `07ada80`, `89f43d1`, `2cb54db`, `f122d27`) ; validation déjà exécutée sur ces commits : 188 tests
+Rust, 112 tests unitaires, 49 tests de bout en bout, clippy, formatage. Prochaine tâche : **5.8**, dans cet ordre :
+
+1. Tests unitaires des notes (`src/app/Phase5.test.tsx`) : création (`Ctrl+N`), enregistrement automatique et
+   état, conflit de révision (`stale_revision`), brouillon de récupération, liens et rétroliens, sélecteur de
+   liens, filtres de la liste, actions (dupliquer, renommer, déplacer, étiquettes, corbeille, purge), import et
+   export Markdown (`markdownPicks`, `exports` du double), gestionnaire d'étiquettes, déplacement de dossier,
+   pages personnelles, notes liées d'un document, aperçu Markdown (images et HTML écartés).
+2. Tests de bout en bout `tests/e2e/phase5.spec.ts` avec axe sur les écrans des notes et les nouvelles boîtes
+   de dialogue ; scénarios visuels complémentaires (gestionnaire d'étiquettes, déplacement de dossier, aperçu
+   Markdown) dans `tests/e2e/visual.spec.ts`, puis relecture des captures.
+3. Validation native `scripts/validate-native-phase5.py` (Xvfb + xdotool, comme `validate-native-phase4.py`) :
+   saisie réelle dans l'éditeur, enregistrement automatique vérifié dans SQLite, liens et relations, import
+   d'un vrai `.md` par le sélecteur GTK, export par la boîte d'enregistrement, relance.
+4. Documentation (section Phase 5 ici, ARCHITECTURE, CHANGELOG, README, `docs/screenshots/phase-5`), CI,
+   pull request par l'API REST, fusion par commit de fusion.
 
 | # | Tâche |
 |---|---|
