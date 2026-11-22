@@ -11,6 +11,7 @@ et build Windows au vert sur le commit `17dfd8e` (runs 45020946150, 45020972116 
 `main` par la pull request Lebendo91/ARCHIVE#2 le 2026-11-22. Le porteur du projet a demandé l'enchaînement
 autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
 d'utilisation.
+
 | Phase | Intitulé | Statut |
 |---|---|---|
 | 0 | Audit de l'environnement | ✅ Terminée |
