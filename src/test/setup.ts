@@ -3,6 +3,8 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { usePageTitleStore } from '@/app/router/pageTitle';
+import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { useImportStore } from '@/stores/imports';
 import { useToastStore } from '@/stores/toasts';
 import { useUiStore } from '@/stores/ui';
 import { useWorkspaceDialogs } from '@/stores/workspaceDialogs';
@@ -35,8 +37,15 @@ afterEach(() => {
   // outside the desktop runtime unless it installs a runtime double.
   Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
   localStorage.clear();
-  useUiStore.setState({ sidebarCollapsed: false });
+  useUiStore.setState({ sidebarCollapsed: false, libraryView: 'list' });
   useToastStore.setState({ toasts: [] });
   useWorkspaceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   usePageTitleStore.setState({ title: null });
+  useDocumentDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
+  useImportStore.setState({
+    run: null,
+    running: false,
+    completed: 0,
+    context: { target: {}, label: null },
+  });
 });

@@ -551,6 +551,7 @@ function FiltersPopover({
               >
                 {active}
               </span>
+              {/* A separate space, so that the accessible name reads « Filtres (2 filtres actifs) ». */}{' '}
               <span className="sr-only">{tCount('library.filters.activeCount', active)}</span>
             </>
           ) : null}

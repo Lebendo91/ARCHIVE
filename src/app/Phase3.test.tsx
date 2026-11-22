@@ -340,7 +340,7 @@ describe('overview', () => {
         Documents: '0',
         Notes: '0',
         'Espaces de travail': '0',
-        'Stockage utilisé': '2,6 Mo',
+        'Stockage utilisé': '2,6\u00a0Mo',
         'Indexés en 7 jours': '0',
       });
     });

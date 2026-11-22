@@ -423,5 +423,6 @@ export function DocumentPage() {
       </div>
     );
   }
-  return <DocumentView detail={detail.data} />;
+  // Keyed by document: another document starts with its own preview, not the view chosen for the last one.
+  return <DocumentView key={detail.data.document.id} detail={detail.data} />;
 }
