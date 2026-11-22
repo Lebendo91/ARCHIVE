@@ -18,6 +18,7 @@ import {
 } from './fixtures';
 import { libraryState, pickedFixture } from './library';
 import { notesState } from './notes';
+import { searchState } from './search';
 
 /**
  * Screenshots for the visual audit (specification §20). They are written to visual-audit/ (kept between runs) and
@@ -67,11 +68,10 @@ test.describe('@visual screenshots', () => {
       });
       await page.getByRole('button', { name: 'Déplier la barre latérale' }).click();
 
+      // The search entry of the top bar opens the palette (Phase 6): its hover state, without a tooltip.
       await page.getByRole('button', { name: /Rechercher dans ARCHIVE/ }).hover();
-      await expect(page.getByRole('tooltip')).toBeVisible();
-      await page.screenshot({
-        path: `visual-audit/${size}/state-search-unavailable.png`,
-      });
+      await expect(page.getByRole('tooltip')).toHaveCount(0);
+      await page.screenshot({ path: `visual-audit/${size}/state-search-entry-hover.png` });
 
       await page.goto('/#/dev/ui');
       await waitForFonts(page);
@@ -420,6 +420,64 @@ test.describe('@visual screenshots', () => {
       await page.keyboard.type(' Fin.');
       await expect(page.getByRole('alert').filter({ hasText: 'modifiée ailleurs' })).toBeVisible();
       await shot('save-conflict');
+    });
+
+    test(`search at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const seeds = searchState();
+      const minute = 60 * 1000;
+      await seedCore(page, {
+        ...seeds.state,
+        searchHistory: [
+          { id: 'h3', query: 'interruptions', searchedAt: Date.now() - 5 * minute },
+          { id: 'h2', query: 'notes sur la sécurité', searchedAt: Date.now() - 60 * minute },
+          { id: 'h1', query: '"montage astable" -pdf', searchedAt: Date.now() - 600 * minute },
+        ],
+      });
+      const shot = async (name: string) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase6-${name}.png` });
+      };
+      const palette = page.getByRole('dialog', { name: 'Rechercher dans ARCHIVE' });
+
+      await page.goto('/#/');
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await page.keyboard.press('Control+k');
+      await expect(palette.getByRole('option', { name: 'interruptions' })).toBeVisible();
+      await shot('palette-recent');
+      await page.keyboard.type('astable');
+      await expect(palette.getByRole('option', { name: /Voir les 3 résultats/ })).toBeVisible();
+      await shot('palette-results');
+      await page.keyboard.press('Control+a');
+      await page.keyboard.type('notes sur la sécurité');
+      await expect(palette.getByRole('option', { name: /^Sécurité électrique/ })).toBeVisible();
+      await shot('palette-recognized');
+      await page.keyboard.press('Escape');
+
+      await page.goto('/#/search');
+      await expect(page.getByRole('region', { name: 'Recherches récentes' })).toBeVisible();
+      await shot('page-empty');
+      await page.goto('/#/search?q=interruptions');
+      await expect(page.getByRole('status').filter({ hasText: /^2 résultats$/ })).toBeVisible();
+      await shot('page-results');
+      await page.goto(`/#/search?q=${encodeURIComponent('notes modifiées ces 7 derniers jours')}`);
+      await expect(page.getByRole('status').filter({ hasText: /^2 résultats$/ })).toBeVisible();
+      await shot('page-recognized');
+      await page.goto(
+        `/#/search?q=montage&workspace=${seeds.electronics.workspace.id}&period=30&sort=date`,
+      );
+      await expect(page.getByRole('status').filter({ hasText: /^3 résultats$/ })).toBeVisible();
+      await page.getByRole('button', { name: /^Filtres/ }).click();
+      await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeVisible();
+      await shot('page-filters');
+      await page.keyboard.press('Escape');
+      await page.goto(`/#/search?tag=${seeds.tags.project.id}`);
+      await expect(page.getByRole('status').filter({ hasText: /^3 résultats$/ })).toBeVisible();
+      await shot('page-tag');
+      await page.goto('/#/search?q=transistor%20bipolaire');
+      await expect(page.getByRole('heading', { name: 'Aucun résultat' })).toBeVisible();
+      await shot('page-no-results');
     });
 
     test(`first run at ${size}`, async ({ page }) => {

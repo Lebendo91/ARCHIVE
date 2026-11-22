@@ -11,11 +11,11 @@ use super::query::{
 use crate::db::Database;
 use crate::db::testing::open_temporary;
 use crate::error::AppResult;
+use crate::repo::TokenColor;
 use crate::repo::documents::{self, NewDocument};
 use crate::repo::notes::{self, NoteContent, NoteFormat};
 use crate::repo::tags::{self, Tagged};
 use crate::repo::workspaces::{self, NewWorkspace};
-use crate::repo::{EntityKind, TokenColor};
 use crate::util::new_id;
 
 fn request(text: &str) -> SearchRequest {
@@ -457,7 +457,6 @@ fn the_index_is_rebuilt_from_the_data_when_its_version_changes() {
     let rebuilt = database.write(index::ensure_current).expect("rebuilt");
     assert_eq!(rebuilt, Some(1));
     assert_eq!(run(&database, &request("sonde ")).total, 1);
-    let _ = EntityKind::Note;
 }
 
 #[test]

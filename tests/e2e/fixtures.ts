@@ -290,6 +290,7 @@ export const ROUTES: readonly { path: string; title: string; name: string }[] = 
   { path: '/', title: 'Vue d’ensemble', name: 'overview' },
   { path: '/library', title: 'Bibliothèque', name: 'library' },
   { path: '/notes', title: 'Notes', name: 'notes' },
+  { path: '/search', title: 'Recherche', name: 'search' },
   { path: '/graph', title: 'Graphe de connaissances', name: 'graph' },
   { path: '/timeline', title: 'Chronologie', name: 'timeline' },
   { path: '/assistant', title: 'Assistant IA', name: 'assistant' },

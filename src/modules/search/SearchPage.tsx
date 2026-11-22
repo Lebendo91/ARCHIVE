@@ -410,19 +410,26 @@ export function SearchPage() {
   const tag = tags.data?.find((candidate) => candidate.id === tagParam);
   const tagId = tagParam && (tag || !tags.isSuccess) ? tagParam : undefined;
 
-  // The field follows the address when it changes from elsewhere (the palette, a recent search).
+  // The field follows the address when it changes from elsewhere (the palette, a tag result, the back
+  // button), not when the address catches up with what was typed: the user may have typed more since.
   const [input, setInput] = useState(q);
-  const [shown, setShown] = useState(q);
-  if (q !== shown) {
-    setShown(q);
-    if (q !== input.trim()) {
+  const [previous, setPrevious] = useState(q);
+  const [pushed, setPushed] = useState(q);
+  if (q !== previous) {
+    setPrevious(q);
+    if (q !== pushed) {
       setInput(q);
+      setPushed(q);
     }
   }
+  const push = (query: string) => {
+    setPushed(query);
+    update({ q: query });
+  };
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (input.trim() !== q) {
-        update({ q: input.trim() });
+      if (input.trim() !== pushed) {
+        push(input.trim());
       }
     }, DEBOUNCE_MS);
     return () => {
@@ -494,7 +501,7 @@ export function SearchPage() {
 
   const submit = (query: string) => {
     setInput(query);
-    update({ q: query });
+    push(query);
     record(query);
   };
   const kindValue: KindChoice = explicitKind ?? built.applied.kind ?? 'all';
