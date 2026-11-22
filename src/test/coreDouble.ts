@@ -25,6 +25,12 @@ import type { Tag } from '../types/bindings/Tag';
 import type { TimelineEvent } from '../types/bindings/TimelineEvent';
 import type { TimelineEventType } from '../types/bindings/TimelineEventType';
 import type { TokenColor } from '../types/bindings/TokenColor';
+import type { SearchHistoryEntry } from '../types/bindings/SearchHistoryEntry';
+import type { SearchHit } from '../types/bindings/SearchHit';
+import type { SearchKind } from '../types/bindings/SearchKind';
+import type { SearchRequest } from '../types/bindings/SearchRequest';
+import type { SearchResults } from '../types/bindings/SearchResults';
+import type { TextSegment } from '../types/bindings/TextSegment';
 import type { Workspace } from '../types/bindings/Workspace';
 import type { WorkspaceDeletion } from '../types/bindings/WorkspaceDeletion';
 import type { WorkspaceDeletionReport } from '../types/bindings/WorkspaceDeletionReport';
@@ -92,6 +98,8 @@ export interface CoreDoubleState {
   exports: { id: string; markdown: string }[];
   /** Addresses opened in the default application, in order. */
   openedUrls: string[];
+  /** Searches the user ran, most recent first. */
+  searchHistory: SearchHistoryEntry[];
 }
 
 export type CoreDoubleHandler = (args: Record<string, unknown> | undefined) => unknown;
@@ -155,6 +163,7 @@ export function createCoreDouble(
     markdownPicks: initial?.markdownPicks ?? [],
     exports: initial?.exports ?? [],
     openedUrls: initial?.openedUrls ?? [],
+    searchHistory: initial?.searchHistory ?? [],
   };
 
   const fail = (code: string, message: string): never => {
@@ -724,6 +733,547 @@ export function createCoreDouble(
       .map((entry) => ({ note: noteSummaryOf(entry), tags: noteTagsOf(entry) }));
     return { items, total: matches.length };
   };
+
+  // --- Search -------------------------------------------------------------------------------------------
+  // Double of the full-text index of the core (src-tauri/src/search): the same rules on the words typed
+  // (quoted words, prefix on the last one, phrases, exclusions, common words, accents and ligatures), the
+  // same passages (pages of a PDF), filters, counts and dates; a simpler ranking.
+  const SEARCH_STOP_WORDS = new Set([
+    'a',
+    'au',
+    'aux',
+    'avec',
+    'ce',
+    'ces',
+    'cet',
+    'cette',
+    'd',
+    'dans',
+    'de',
+    'des',
+    'du',
+    'elle',
+    'en',
+    'et',
+    'il',
+    'l',
+    'la',
+    'le',
+    'les',
+    'leur',
+    'leurs',
+    'ma',
+    'mes',
+    'mon',
+    'ne',
+    'nos',
+    'notre',
+    'on',
+    'ou',
+    'par',
+    'pas',
+    'pour',
+    'qu',
+    'que',
+    'qui',
+    'sa',
+    'sans',
+    'se',
+    'ses',
+    'son',
+    'sur',
+    'ta',
+    'tes',
+    'ton',
+    'un',
+    'une',
+    'vos',
+    'votre',
+    'y',
+    'an',
+    'and',
+    'are',
+    'as',
+    'at',
+    'be',
+    'by',
+    'for',
+    'from',
+    'in',
+    'is',
+    'it',
+    'its',
+    'my',
+    'of',
+    'or',
+    'our',
+    'that',
+    'the',
+    'their',
+    'these',
+    'this',
+    'those',
+    'to',
+    'was',
+    'were',
+    'with',
+    'without',
+    'your',
+  ]);
+  interface SearchToken {
+    word: string;
+    start: number;
+    end: number;
+  }
+  const searchTokens = (text: string): SearchToken[] => {
+    const found: SearchToken[] = [];
+    const pattern = /[\p{L}\p{N}]+/gu;
+    for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+      found.push({ word: fold(match[0]), start: match.index, end: pattern.lastIndex });
+    }
+    return found;
+  };
+  interface SearchTerm {
+    text: string;
+    words: string[];
+    phrase: boolean;
+    negated: boolean;
+    prefix: boolean;
+  }
+  const parseSearch = (input: string): SearchTerm[] => {
+    const terms: SearchTerm[] = [];
+    const push = (text: string, phrase: boolean, negated: boolean) => {
+      const words = searchTokens(text).map((token) => token.word);
+      if (words.length > 0) {
+        terms.push({ text: text.trim(), words, phrase, negated, prefix: false });
+      }
+    };
+    let openLast = false;
+    let index = 0;
+    while (index < input.length) {
+      const character = input.charAt(index);
+      if (/\s/.test(character)) {
+        index += 1;
+        openLast = false;
+        continue;
+      }
+      const negated =
+        character === '-' && index + 1 < input.length && !/\s/.test(input.charAt(index + 1));
+      if (negated) {
+        index += 1;
+      }
+      if (input.charAt(index) === '"') {
+        const close = input.indexOf('"', index + 1);
+        push(input.slice(index + 1, close === -1 ? input.length : close), true, negated);
+        index = close === -1 ? input.length : close + 1;
+        openLast = false;
+      } else {
+        let end = index;
+        while (end < input.length && !/\s/.test(input.charAt(end)) && input.charAt(end) !== '"') {
+          end += 1;
+        }
+        push(input.slice(index, end), false, negated);
+        index = end;
+        openLast = !negated;
+      }
+    }
+    const isStopWord = (term: SearchTerm) =>
+      !term.phrase && term.words.length === 1 && SEARCH_STOP_WORDS.has(term.words[0] ?? '');
+    const kept = terms.some((term) => !term.negated && !isStopWord(term))
+      ? terms.filter(
+          (term, position) =>
+            term.negated || !isStopWord(term) || (openLast && position === terms.length - 1),
+        )
+      : terms;
+    const positives = kept.filter((term) => !term.negated);
+    const last = positives.at(-1);
+    if (last && openLast && !last.phrase && Array.from(last.text).length >= 2) {
+      last.prefix = true;
+    }
+    return kept;
+  };
+  /** Positions where the words of a term follow each other (the last one may be a prefix). */
+  const termAt = (term: SearchTerm, tokens: SearchToken[]): number[] => {
+    const positions: number[] = [];
+    for (let start = 0; start + term.words.length <= tokens.length; start += 1) {
+      const all = term.words.every((word, offset) => {
+        const token = tokens[start + offset]?.word ?? '';
+        return term.prefix && offset === term.words.length - 1
+          ? token.startsWith(word)
+          : token === word;
+      });
+      if (all) {
+        positions.push(start);
+      }
+    }
+    return positions;
+  };
+  const wordMatches = (terms: SearchTerm[], word: string) =>
+    terms.some((term) =>
+      term.words.some((termWord, offset) =>
+        term.prefix && offset === term.words.length - 1
+          ? word.startsWith(termWord)
+          : word === termWord,
+      ),
+    );
+  const collapse = (text: string) => text.replace(/\s+/g, ' ');
+  const markWords = (text: string, terms: SearchTerm[]): TextSegment[] => {
+    const segments: TextSegment[] = [];
+    let last = 0;
+    for (const token of searchTokens(text)) {
+      if (wordMatches(terms, token.word)) {
+        if (token.start > last) {
+          segments.push({ text: collapse(text.slice(last, token.start)), matched: false });
+        }
+        segments.push({ text: text.slice(token.start, token.end), matched: true });
+        last = token.end;
+      }
+    }
+    if (last < text.length) {
+      segments.push({ text: collapse(text.slice(last)), matched: false });
+    }
+    return segments.filter((segment) => segment.text !== '');
+  };
+  const beginningOf = (text: string): TextSegment[] => {
+    const start = collapse(text.slice(0, 240)).trim();
+    return start === '' ? [] : [{ text: start, matched: false }];
+  };
+  const excerptOf = (body: string, terms: SearchTerm[]): TextSegment[] => {
+    const tokens = searchTokens(body);
+    const first = tokens.findIndex((token) => wordMatches(terms, token.word));
+    if (first === -1) {
+      return beginningOf(body);
+    }
+    const from = Math.max(0, first - 8);
+    const to = Math.min(tokens.length - 1, first + 15);
+    const slice = body.slice(tokens[from]?.start ?? 0, tokens[to]?.end ?? body.length);
+    const segments = markWords(slice, terms);
+    if (from > 0) {
+      segments.unshift({ text: '…', matched: false });
+    }
+    if (to < tokens.length - 1) {
+      segments.push({ text: '…', matched: false });
+    }
+    return segments;
+  };
+  /** Parts of a title holding the words typed (three characters or more), anywhere in a word. */
+  const markParts = (title: string, words: string[]): TextSegment[] => {
+    let folded = '';
+    const origin: number[] = [];
+    for (let offset = 0; offset < title.length;) {
+      const character = String.fromCodePoint(title.codePointAt(offset) ?? 0);
+      for (const piece of fold(character)) {
+        folded += piece;
+        origin.push(offset);
+      }
+      offset += character.length;
+    }
+    origin.push(title.length);
+    const marked = new Array<boolean>(title.length).fill(false);
+    for (const word of words) {
+      for (let at = folded.indexOf(word); at !== -1; at = folded.indexOf(word, at + 1)) {
+        for (
+          let index = origin[at] ?? 0;
+          index < (origin[at + word.length] ?? title.length);
+          index += 1
+        ) {
+          marked[index] = true;
+        }
+      }
+    }
+    const segments: TextSegment[] = [];
+    for (let index = 0; index < title.length; index += 1) {
+      const matched = marked[index] ?? false;
+      const previous = segments.at(-1);
+      if (previous?.matched === matched) {
+        previous.text += title.charAt(index);
+      } else {
+        segments.push({ text: title.charAt(index), matched });
+      }
+    }
+    return segments;
+  };
+  interface SearchEntity {
+    kind: SearchKind;
+    id: string;
+    title: string;
+    rows: { body: string; page: number | null }[];
+    tags: string[];
+    meta: string;
+    workspaceId: string | null;
+    folderId: string | null;
+    fileExtension: string | null;
+    added: number;
+    updated: number;
+    favorite: boolean;
+    archived: boolean;
+    tagIds: string[];
+  }
+  const searchEntities = (): SearchEntity[] => {
+    const rowsOf = (text: string) => {
+      if (text.includes('\f')) {
+        return text
+          .split('\f')
+          .map((body, index) => ({ body, page: index + 1 }))
+          .filter((row) => row.body.trim() !== '');
+      }
+      return text.trim() === '' ? [] : [{ body: text, page: null }];
+    };
+    const tagNames = (ids: string[]) =>
+      state.tags.filter((tag) => ids.includes(tag.id)).map((tag) => tag.name);
+    return [
+      ...state.documents
+        .filter((entry) => entry.document.deletedAt === null)
+        .map((entry): SearchEntity => {
+          const { metadata } = entry.document;
+          const meta = [entry.document.originalFilename, metadata.documentTitle, metadata.author]
+            .filter((value): value is string => typeof value === 'string')
+            .join('\n');
+          return {
+            kind: 'document',
+            id: entry.document.id,
+            title: entry.document.title,
+            rows: rowsOf(entry.content ?? ''),
+            tags: tagNames(entry.tagIds),
+            meta,
+            workspaceId: entry.document.workspaceId,
+            folderId: entry.document.folderId,
+            fileExtension: entry.document.fileExtension,
+            added: entry.document.importedAt,
+            updated: entry.document.updatedAt,
+            favorite: entry.document.isFavorite,
+            archived: entry.document.isArchived,
+            tagIds: entry.tagIds,
+          };
+        }),
+      ...state.notes
+        .filter((entry) => entry.note.deletedAt === null)
+        .map((entry): SearchEntity => ({
+          kind: 'note',
+          id: entry.note.id,
+          title: entry.note.title,
+          rows: rowsOf(entry.contentText),
+          tags: tagNames(entry.tagIds),
+          meta: '',
+          workspaceId: entry.note.workspaceId,
+          folderId: entry.note.folderId,
+          fileExtension: null,
+          added: entry.note.createdAt,
+          updated: entry.note.updatedAt,
+          favorite: entry.note.isFavorite,
+          archived: entry.note.isArchived,
+          tagIds: entry.tagIds,
+        })),
+      ...state.workspaces.map((entry): SearchEntity => ({
+        kind: 'workspace',
+        id: entry.workspace.id,
+        title: entry.workspace.name,
+        rows: rowsOf(entry.workspace.description),
+        tags: [],
+        meta: '',
+        workspaceId: null,
+        folderId: null,
+        fileExtension: null,
+        added: entry.workspace.createdAt,
+        updated: entry.workspace.updatedAt,
+        favorite: false,
+        archived: entry.workspace.isArchived,
+        tagIds: [],
+      })),
+      ...state.tags.map((tag): SearchEntity => ({
+        kind: 'tag',
+        id: tag.id,
+        title: tag.name,
+        rows: [],
+        tags: [],
+        meta: '',
+        workspaceId: null,
+        folderId: null,
+        fileExtension: null,
+        added: tag.createdAt,
+        updated: tag.createdAt,
+        favorite: false,
+        archived: false,
+        tagIds: [],
+      })),
+    ];
+  };
+  const searchQuery = (request: SearchRequest): SearchResults => {
+    if (Array.from(request.text).length > 500) {
+      fail('invalid_input', 'a search holds 500 characters at most');
+    }
+    if (request.limit < 1 || request.limit > 100) {
+      fail('invalid_input', 'a page holds 1 to 100 results');
+    }
+    const terms = parseSearch(request.text);
+    const positives = terms.filter((term) => !term.negated);
+    const negatives = terms.filter((term) => term.negated);
+    const parts = positives
+      .filter((term) => Array.from(term.text).length >= 3)
+      .map((term) => fold(term.text));
+    const words = positives.map((term) => term.text);
+    const kinds = request.kinds ?? [];
+    const filtered = Boolean(
+      request.workspaceId ??
+      request.tagId ??
+      request.dateFrom ??
+      request.dateTo ??
+      (request.favoritesOnly || kinds.length > 0 ? true : undefined),
+    );
+    if (positives.length === 0 && !filtered) {
+      return {
+        hits: [],
+        total: 0,
+        counts: { documents: 0, notes: 0, workspaces: 0, tags: 0 },
+        words,
+      };
+    }
+    const updatedField = request.dateField === 'updated';
+    const now = Date.now();
+    const found: { entity: SearchEntity; score: number; row: number; partial: boolean }[] = [];
+    for (const entity of searchEntities()) {
+      // Filters.
+      const isItem = entity.kind === 'document' || entity.kind === 'note';
+      if (!isItem && (request.tagId || request.favoritesOnly || request.workspaceId)) {
+        continue;
+      }
+      if (request.workspaceId && entity.workspaceId !== request.workspaceId) {
+        continue;
+      }
+      if (request.tagId && !entity.tagIds.includes(request.tagId)) {
+        continue;
+      }
+      if (request.favoritesOnly && !entity.favorite) {
+        continue;
+      }
+      const date =
+        entity.kind === 'tag' ? entity.added : updatedField ? entity.updated : entity.added;
+      if (request.dateFrom != null && date < request.dateFrom) {
+        continue;
+      }
+      if (request.dateTo != null && date >= request.dateTo) {
+        continue;
+      }
+      if (positives.length === 0) {
+        found.push({ entity, score: 0, row: -1, partial: false });
+        continue;
+      }
+      // Words: every word in one passage (the title, tags and metadata count with each passage).
+      const head = {
+        title: searchTokens(entity.title),
+        tags: searchTokens(entity.tags.join('\n')),
+        meta: searchTokens(entity.meta),
+      };
+      const rows = entity.rows.length > 0 ? entity.rows : [{ body: '', page: null }];
+      // Score of a passage: the weights of the fields where each word appears; null if one is missing.
+      const rowScore = (body: string): number | null => {
+        const fields: [SearchToken[], number][] = [
+          [head.title, 10],
+          [searchTokens(body), 1],
+          [head.tags, 5],
+          [head.meta, 2],
+        ];
+        let score = 0;
+        for (const term of positives) {
+          const weights = fields
+            .filter(([tokens]) => termAt(term, tokens).length > 0)
+            .map(([, weight]) => weight);
+          if (weights.length === 0) {
+            return null;
+          }
+          score += weights.reduce((sum, weight) => sum + weight, 0);
+        }
+        return negatives.some((term) => fields.some(([tokens]) => termAt(term, tokens).length > 0))
+          ? null
+          : score;
+      };
+      let chosen: { score: number; row: number } | null = null;
+      for (const [index, row] of rows.entries()) {
+        const score = rowScore(row.body);
+        if (score !== null && (chosen === null || score > chosen.score)) {
+          chosen = { score, row: index };
+        }
+      }
+      if (chosen) {
+        let factor = 1;
+        if (entity.favorite) {
+          factor += 0.2;
+        }
+        const shown = entity.kind === 'note' || updatedField ? entity.updated : entity.added;
+        if (now - shown < 30 * DAY) {
+          factor += 0.1;
+        }
+        found.push({ entity, score: -chosen.score * factor, row: chosen.row, partial: false });
+        continue;
+      }
+      // Part of a word, in the title (or a document's original file name).
+      const titles = fold(
+        `${entity.title}\n${entity.kind === 'document' ? (entity.meta.split('\n')[0] ?? '') : ''}`,
+      );
+      if (parts.length > 0 && parts.every((part) => titles.includes(part))) {
+        found.push({ entity, score: 0, row: -1, partial: true });
+      }
+    }
+    const counts = { documents: 0, notes: 0, workspaces: 0, tags: 0 };
+    for (const { entity } of found) {
+      counts[`${entity.kind}s`] += 1;
+    }
+    const kept =
+      kinds.length > 0 ? found.filter(({ entity }) => kinds.includes(entity.kind)) : found;
+    const shownDate = (entity: SearchEntity) =>
+      entity.kind === 'note' || updatedField ? entity.updated : entity.added;
+    kept.sort((a, b) =>
+      request.sort === 'date'
+        ? shownDate(b.entity) - shownDate(a.entity) || a.score - b.score
+        : a.score - b.score ||
+          shownDate(b.entity) - shownDate(a.entity) ||
+          a.entity.title.localeCompare(b.entity.title),
+    );
+    const workspaceName = (id: string | null) =>
+      state.workspaces.find((entry) => entry.workspace.id === id)?.workspace.name ?? null;
+    const folderName = (id: string | null) =>
+      state.folders.find((folder) => folder.id === id)?.name ?? null;
+    const hits = kept
+      .slice(request.offset, request.offset + request.limit)
+      .map(({ entity, row, partial }): SearchHit => {
+        const passage = entity.rows[row];
+        const titleSegments = partial
+          ? markParts(entity.title, parts)
+          : positives.length > 0
+            ? markWords(entity.title, positives)
+            : [{ text: entity.title, matched: false }];
+        const excerpt =
+          passage && positives.length > 0
+            ? excerptOf(passage.body, positives)
+            : beginningOf(entity.rows[0]?.body ?? '');
+        const shownUpdate = entity.kind === 'note' || (updatedField && entity.kind !== 'tag');
+        return {
+          kind: entity.kind,
+          id: entity.id,
+          title:
+            titleSegments.length > 0 ? titleSegments : [{ text: entity.title, matched: false }],
+          excerpt,
+          page: passage && !partial ? passage.page : null,
+          matchedTags:
+            positives.length > 0 && !partial
+              ? entity.tags.filter((tag) =>
+                  searchTokens(tag).some((token) => wordMatches(positives, token.word)),
+                )
+              : [],
+          workspaceId: entity.kind === 'workspace' ? null : entity.workspaceId,
+          workspaceName: entity.kind === 'workspace' ? null : workspaceName(entity.workspaceId),
+          folderName: folderName(entity.folderId),
+          fileExtension: entity.fileExtension,
+          date: shownUpdate ? entity.updated : entity.added,
+          dateField: shownUpdate ? 'updated' : 'added',
+          isFavorite: entity.favorite,
+          isArchived: entity.archived,
+          partial,
+        };
+      });
+    return { hits, total: kept.length, counts, words };
+  };
+  const historyKey = (query: string) => fold(query).split(/\s+/).filter(Boolean).join(' ');
 
   const handlers: Record<string, CoreDoubleHandler> = {
     workspaces_list: (args) =>
@@ -1451,6 +2001,40 @@ export function createCoreDouble(
       const entry = findNote(args?.id);
       state.exports.push({ id: entry.note.id, markdown: String(args?.markdown) });
       return changed(true);
+    },
+    search_query: (args) => searchQuery(args?.request as SearchRequest),
+    search_history_list: (args) =>
+      state.searchHistory
+        .slice(0, Math.min(Number(args?.limit ?? 10), 50))
+        .map((entry) => ({ ...entry })),
+    search_history_record: (args) => {
+      const query = (typeof args?.query === 'string' ? args.query : '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .join(' ');
+      if (query === '') {
+        fail('invalid_input', 'an empty search is not recorded');
+      }
+      const key = historyKey(query);
+      const existing = state.searchHistory.find((entry) => historyKey(entry.query) === key);
+      const entry: SearchHistoryEntry = {
+        id: existing?.id ?? crypto.randomUUID(),
+        query,
+        searchedAt: Math.max(Date.now(), (state.searchHistory[0]?.searchedAt ?? 0) + 1),
+      };
+      state.searchHistory = [
+        entry,
+        ...state.searchHistory.filter((other) => other !== existing),
+      ].slice(0, 50);
+      return changed({ ...entry });
+    },
+    search_history_delete: (args) => {
+      state.searchHistory = state.searchHistory.filter((entry) => entry.id !== args?.id);
+      return changed(null);
+    },
+    search_history_clear: () => {
+      state.searchHistory = [];
+      return changed(null);
     },
     app_open_url: (args) => {
       const url = typeof args?.url === 'string' ? args.url : '';

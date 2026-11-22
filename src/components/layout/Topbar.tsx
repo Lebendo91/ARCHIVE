@@ -2,33 +2,31 @@ import { ChevronRight, Search } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCurrentPageTitle } from '@/app/router/handles';
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
-import { KeyCombo, Tooltip } from '@/components/ui';
+import { KeyCombo } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { useSearchPalette } from '@/stores/searchPalette';
 import { ProfileMenu } from './ProfileMenu';
 import { QuickCreateMenu } from './QuickCreateMenu';
 
-/**
- * Entry point of the global search. Search needs indexed content (Phase 6): until then the entry point is
- * visibly unavailable and explains why, instead of opening a search that cannot find anything.
- */
+/** Entry point of the global search (specification §9.1): opens the search palette, like Ctrl+K. */
 function SearchEntry() {
   const { t } = useI18n();
+  const open = useSearchPalette((state) => state.open);
   const keys = formatCombination(getShortcut('openSearch').combination, t);
   return (
-    <Tooltip content={t('topbar.searchUnavailable')} side="bottom">
-      <button
-        type="button"
-        aria-disabled="true"
-        onClick={(event) => {
-          event.preventDefault();
-        }}
-        className="flex h-8 w-56 shrink-0 cursor-not-allowed items-center gap-2 rounded-control border border-line bg-obsidian px-3 text-left text-sm text-fg-muted opacity-60 xl:w-80"
-      >
-        <Search size={16} className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{t('topbar.search')}</span>
-        <KeyCombo keys={keys} />
-      </button>
-    </Tooltip>
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      aria-keyshortcuts="Control+K"
+      onClick={() => {
+        open();
+      }}
+      className="flex h-8 w-56 shrink-0 cursor-default items-center gap-2 rounded-control border border-line bg-obsidian px-3 text-left text-sm text-fg-secondary transition-colors duration-150 ease-standard hover:border-fg-disabled hover:text-fg xl:w-80"
+    >
+      <Search size={16} aria-hidden="true" className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{t('topbar.search')}</span>
+      <KeyCombo keys={keys} />
+    </button>
   );
 }
 

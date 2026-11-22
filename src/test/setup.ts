@@ -4,6 +4,7 @@ import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { usePageTitleStore } from '@/app/router/pageTitle';
 import { useResourceDialogs } from '@/stores/resourceDialogs';
+import { useSearchPalette } from '@/stores/searchPalette';
 import { useImportStore } from '@/stores/imports';
 import { useToastStore } from '@/stores/toasts';
 import { useUiStore } from '@/stores/ui';
@@ -65,6 +66,7 @@ afterEach(() => {
   useWorkspaceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   usePageTitleStore.setState({ title: null });
   useResourceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
+  useSearchPalette.setState({ isOpen: false, initialText: '' });
   useImportStore.setState({
     run: null,
     running: false,
