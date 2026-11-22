@@ -175,10 +175,9 @@ fn decode_utf8_prefix(bytes: &[u8], truncated: bool) -> Option<String> {
 }
 
 fn decode_utf16(bytes: &[u8], read: fn([u8; 2]) -> u16) -> String {
-    let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| read([pair[0], pair[1]]))
-        .collect();
+    // A trailing odd byte (a cut file) is ignored, like a truncated character.
+    let (pairs, _) = bytes.as_chunks::<2>();
+    let units: Vec<u16> = pairs.iter().map(|pair| read(*pair)).collect();
     String::from_utf16_lossy(&units)
 }
 
