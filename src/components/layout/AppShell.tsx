@@ -3,6 +3,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useDesktopBehavior } from '@/app/shortcuts/useDesktopBehavior';
 import { useGlobalShortcuts } from '@/app/shortcuts/useGlobalShortcuts';
 import { ResourceDialogs } from '@/components/resources/ResourceDialogs';
+import { flushPendingSaves } from '@/modules/notes/closeGuard';
+import { SearchPalette } from '@/modules/search/SearchPalette';
+import { useSearchPalette } from '@/stores/searchPalette';
 import { Toaster } from '@/components/ui';
 import { useFocusRecovery } from '@/hooks/useFocusRecovery';
 import { useI18n } from '@/i18n';
@@ -26,6 +29,16 @@ export function AppShell() {
   const createNote = useCreateNote();
 
   useGlobalShortcuts({
+    openSearch: () => {
+      // Never replaces another dialog; the palette itself stays open (its input has the focus).
+      if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        useSearchPalette.getState().open();
+      }
+    },
+    save: () => {
+      // Never the save dialog of the web view: the changes of the note being edited are saved now.
+      void flushPendingSaves();
+    },
     openSettings: () => {
       void navigate('/settings');
     },
@@ -80,6 +93,7 @@ export function AppShell() {
       <RouteAnnouncer />
       <WorkspaceDialogs />
       <ResourceDialogs />
+      <SearchPalette />
       <ImportController />
       <Toaster />
     </div>

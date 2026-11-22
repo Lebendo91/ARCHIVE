@@ -31,7 +31,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'openSearch',
     combination: { key: 'k', ctrl: true },
     labelKey: 'shortcuts.openSearch',
-    available: false,
+    available: true,
   },
   {
     id: 'newNote',
@@ -55,7 +55,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'save',
     combination: { key: 's', ctrl: true },
     labelKey: 'shortcuts.save',
-    available: false,
+    available: true,
   },
   {
     id: 'openSettings',

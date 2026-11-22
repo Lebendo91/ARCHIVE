@@ -114,16 +114,29 @@ impl Database {
     }
 
     /// Runs `operation` inside an immediate write transaction, committed if it succeeds and rolled back
-    /// otherwise (specification §5.2: related operations are transactional).
+    /// otherwise (specification §5.2: related operations are transactional). The search index follows the
+    /// entities the operation changed, in the same transaction.
     pub fn write<T>(
         &self,
         operation: impl FnOnce(&Transaction<'_>) -> AppResult<T>,
     ) -> AppResult<T> {
         let mut connection = lock(&self.writer);
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let value = operation(&transaction)?;
-        transaction.commit()?;
-        Ok(value)
+        crate::search::index::discard_pending();
+        let result = operation(&transaction).and_then(|value| {
+            crate::search::index::flush_pending(&transaction)?;
+            Ok(value)
+        });
+        match result {
+            Ok(value) => {
+                transaction.commit()?;
+                Ok(value)
+            }
+            Err(error) => {
+                crate::search::index::discard_pending();
+                Err(error)
+            }
+        }
     }
 
     /// Runs `operation` with the write connection outside any transaction (maintenance operations).

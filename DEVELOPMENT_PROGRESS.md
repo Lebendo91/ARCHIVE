@@ -5,12 +5,11 @@
 
 ## Phase courante
 
-**Phase 6 — Recherche intelligente : à démarrer** (branche `phase/6-recherche`), prochaine tâche **6.1**.
-La Phase 5 est terminée : validée localement (tests, accessibilité, audit visuel, application native), CI Linux
-et build Windows au vert sur le commit `17dfd8e` (runs 45020946150, 45020972116 et 45020946186), fusionnée dans
-`main` par la pull request Lebendo91/ARCHIVE#2 le 2026-11-22. Le porteur du projet a demandé l'enchaînement
-autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
-d'utilisation.
+**Phase 6 — Recherche intelligente : terminée et validée localement** (branche `phase/6-recherche`) ; reste la
+CI sur la pull request, puis la fusion dans `main`. Ensuite : **Phase 7 — Moteur de mémoire**, tâche **7.1**.
+La Phase 5 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#2 le 2026-11-22. Le porteur du
+projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après chaque
+réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -20,8 +19,8 @@ d'utilisation.
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
 | 4 | Bibliothèque | ✅ Terminée |
 | 5 | Notes | ✅ Terminée |
-| 6 | Recherche intelligente | ▶ Prochaine |
-| 7 | Moteur de mémoire | À faire |
+| 6 | Recherche intelligente | ✅ Terminée (fusion en attente de la CI) |
+| 7 | Moteur de mémoire | ▶ Prochaine |
 | 8 | Graphe de connaissances et chronologie | À faire |
 | 9 | Assistant IA | À faire |
 | 10 | Sauvegarde, sécurité, optimisation et packaging | À faire |
@@ -35,6 +34,99 @@ d'utilisation.
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 6 — Recherche intelligente (terminée le 2026-11-22)
+
+### Tâches réalisées
+
+- [x] **6.1** Schéma et décisions (ARCHITECTURE §9) : migration 2 avec l'index FTS5 par passage
+      (`unicode61 remove_diacritics 2`), les trigrammes des titres, la correspondance élément → lignes, la
+      version de l'index et l'historique des recherches.
+- [x] **6.2** Indexation dans la transaction qui écrit les données : documents (import, texte extrait par
+      pdf.js page par page, renommage, métadonnées, étiquettes, déplacement, corbeille, restauration, purge),
+      notes, espaces de travail, étiquettes ; reconstruction au démarrage quand la version de l'index change.
+- [x] **6.3** Requêtes sûres : mots entre guillemets, préfixe sur le dernier mot, expressions, exclusions, mots
+      vides, ligatures ; filtres (types, espace, étiquette, date et période, favoris), comptes par type,
+      pagination ; classement `bm25()` pondéré avec un bonus pour les favoris et les éléments récents ;
+      extraits et titres surlignés convertis en segments, numéro de page du passage.
+- [x] **6.4** Recherche globale `Ctrl+K` : palette depuis la barre supérieure, résultats groupés par type,
+      navigation au clavier, ouverture de la bonne ressource, recherches récentes, états vides honnêtes.
+- [x] **6.5** Page `/search` : chaque résultat avec son titre, son type (et son format), son espace et son
+      dossier, sa page, sa date, son extrait, les termes trouvés et les étiquettes correspondantes ; types avec
+      leurs comptes, filtres en puces conservés dans l'adresse, tri, « Afficher plus » ; historique effaçable.
+      Les résultats en cache sont rafraîchis après toute modification des données.
+- [x] **6.6** Dates et types reconnus par des règles explicites, affichés comme filtres (« Compris : … »), avec
+      « Chercher le texte tel quel » ; l'absence de recherche sémantique est expliquée.
+- [x] **6.7** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-6/`.
+
+### Validation (critères de la spec §21, Phase 6)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| SQLite FTS5 et chaîne d'indexation | ✅ | Tests Rust : ce qui est écrit est trouvé, chaque modification atteint l'index dans la même transaction, une opération annulée ne laisse rien dans l'index, reconstruction quand la version change. **Natif** : après un vrai import, l'index contient chaque document et la note, le texte du PDF page par page ; vidé et marqué périmé, il est reconstruit au lancement suivant (« search index built: 8 entries » dans le journal) |
+| Interface de recherche, `Ctrl+K` | ✅ | **Natif** : `Ctrl+K` puis Entrée ouvre le PDF trouvé par le texte de sa page 2, le document Word trouvé sans accents, la note, puis la note par des mots ajoutés à l'instant (ouvertures relues en base). De bout en bout : groupes, flèches, Entrée, `Ctrl+Entrée` |
+| Filtres | ✅ | Unitaires et de bout en bout : type, espace, étiquette, période, favoris, puces, réinitialisation, conservation dans l'adresse après un rechargement |
+| Classement | ✅ | Tests Rust : le titre passe avant le texte, un favori avant un élément comparable, les mots entiers avant les parties de titre ; tri par date |
+| Extraits et surlignage | ✅ | Tests Rust (segments, pages) ; de bout en bout : mots surlignés dans la palette et sur la page, numéro de page |
+| Historique de recherche | ✅ | Unitaires et de bout en bout : enregistrement à l'ouverture d'un résultat ou à la validation, suppression d'une entrée (le focus passe à la suivante), effacement complet. **Natif** : historique relu en base, conservé après un redémarrage |
+| Sécurité de la saisie | ✅ | Tests Rust : guillemets, `NEAR`, `*`, `^`, deux-points, parenthèses et colonnes tapés par l'utilisateur ne sont jamais interprétés comme syntaxe FTS5 |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 213/213 (+ 1 mesure de performance ignorée par défaut) |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 147/147 (20 fichiers, dont 11 tests de la page de recherche, de l'historique et de la palette, et 4 de l'interprétation des dates et des types) |
+| `npm run test:e2e` (dont axe-core sur la palette et la page de recherche : historique, résultats, filtres, aucun résultat ; `/search` rejoint les écrans contrôlés un par un) | ✅ 67/67 ; les 9 tests de la phase répétés 3 fois sans échec |
+| `npm run test:visual` (33 scénarios, 3 résolutions) | ✅ captures revues |
+| `scripts/validate-native-phase6.py` : binaire de production, vraie base SQLite, sélecteur GTK, trois lancements sous Xvfb | ✅ 22/22 vérifications |
+| `cargo test --release --lib search::perf -- --ignored --nocapture` (mesure indicative) | ✅ chiffres dans ARCHITECTURE §9 |
+| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+
+### Défauts corrigés en cours de phase
+
+- **Cœur** :
+  - `bm25()` refusé par SQLite dans une sous-requête (« unable to use function bm25 in the requested
+    context ») : les correspondances passent par une expression de table matérialisée ;
+  - une exclusion seule (« -mot ») produisait une expression FTS5 invalide ;
+  - deux recherches enregistrées dans la même milliseconde pouvaient s'inverser dans l'historique.
+- **Interface** :
+  - une note sans titre apparaissait sans nom dans les résultats ; elle est désormais « Sans titre » ;
+  - sur la page de recherche, le champ pouvait reprendre une ancienne saisie quand l'adresse se mettait à jour
+    en retard sur la frappe (trouvé par les tests de bout en bout) ;
+  - le scénario d'audit visuel attendait encore l'info-bulle « recherche indisponible » de la Phase 1.
+
+### Dépendances ajoutées
+
+Aucune : FTS5 et le tokenizer `trigram` sont fournis par le SQLite embarqué de `rusqlite` (version 3.53).
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Recherche sémantique** (optionnelle, spec §9.4) : elle dépend d'un fournisseur d'IA configuré (Phase 9) ;
+  l'interface dit qu'elle n'est pas activée.
+- **Ouverture d'un PDF à la page trouvée** : le résultat indique la page, mais l'aperçu s'ouvre au début du
+  document → Phase 10 (amélioration de l'aperçu).
+- **File de traitement persistante** (`processing_jobs`) → Phase 7, avec l'analyse ; l'indexation n'en a pas
+  besoin.
+
+### Limites restantes
+
+- Les mots d'une recherche doivent figurer dans un même passage (une page de PDF, ou environ 2 000 octets), ou
+  dans le titre, les étiquettes et les métadonnées, répétés sur chaque passage.
+- Pas de racinisation : « interruption » ne trouve pas « interruptions », sauf pour le dernier mot tapé, qui
+  est un préfixe.
+- Le texte est stocké deux fois (contenu du document et index) : la base pèse environ 3,7 fois le texte indexé
+  (151 Mo pour 41 Mo). Une table FTS5 à contenu externe pourra être étudiée en Phase 10.
+- Un mot présent dans presque tous les éléments prend environ 100 ms sur 5 000 éléments (mesure dans le
+  conteneur cloud) ; la palette attend 150 ms après la dernière touche.
+- Les expressions de date reconnues forment une liste fixe, en français et en anglais ; les autres sont
+  cherchées comme du texte.
+- Le double de test de l'interface classe plus simplement que le cœur : le classement est vérifié par les tests
+  Rust et la validation native.
 
 ---
 
@@ -541,16 +633,18 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 6 — Recherche intelligente** (spec §9), branche `phase/6-recherche` à créer depuis `main`. Prochaine
-tâche : **6.1**. L'architecture prévue est décrite dans ARCHITECTURE §9 (index FTS5 unifié alimenté par les
-services, `bm25()` pondéré, extraits sans HTML, requêtes jamais concaténées dans la syntaxe FTS5).
+1. **Terminer la Phase 6** : pull request `phase/6-recherche` → `main`, CI verte (Linux et Windows), fusion par
+   merge commit, puis consigner les numéros des runs ici.
+2. **Phase 7 — Moteur de mémoire** (spec §10 et §21), branche `phase/7-memoire` à créer depuis `main`.
+   Prochaine tâche : **7.1**. L'architecture prévue est décrite dans ARCHITECTURE §8 (pipeline à statuts par
+   étape, relations à origine, statut, confiance et provenance, concepts séparés du contenu).
 
 | # | Tâche |
 |---|---|
-| **6.1** | Schéma et décisions : migration 2 avec la table FTS5 `search_index` (`unicode61 remove_diacritics 2`) et un index `trigram` des titres pour les correspondances partielles ; découpage des textes longs en passages ; table de l'historique des recherches ; version de l'index pour la reconstruction |
-| 6.2 | Indexation par les services : documents (import, texte extrait par pdf.js, renommage, étiquettes, déplacement, corbeille, restauration, purge), notes (création, enregistrement, renommage, étiquettes, déplacement, corbeille, purge), espaces de travail et étiquettes ; reconstruction au démarrage si l'index est absent ou d'une autre version ; tests Rust de cohérence |
-| 6.3 | Requêtes : analyse sûre (termes échappés, préfixe sur le dernier terme, expressions entre guillemets), filtres (type, espace, étiquette, dates, favoris), classement `bm25()` pondéré avec un léger bonus pour les favoris et les éléments récents, extraits `snippet()` surlignés convertis en segments React, pagination |
-| 6.4 | Recherche globale `Ctrl+K` : palette depuis la barre supérieure, résultats groupés (documents, notes, espaces, étiquettes), navigation au clavier, ouverture de la bonne ressource, états vides honnêtes |
-| 6.5 | Page de résultats : filtres, tri, titre, type, espace, extrait avec les termes surlignés, date, emplacement ; historique et requêtes récentes, effaçables |
-| 6.6 | Expressions de date à règles explicites (« la semaine dernière », « importés en mars »…) affichées comme filtres reconnus, sans prétendre comprendre le langage naturel ; explication claire de l'absence de recherche sémantique (optionnelle, spec §9.4) |
-| 6.7 | Validation (spec §21) : tests Rust (index, requêtes, tentatives d'injection FTS5, accents, sous-chaînes), unitaires, de bout en bout avec axe, audit visuel, validation native (import réel puis recherche dans le contenu extrait et dans les notes), mesure indicative sur un corpus généré, documentation, CI, fusion |
+| **7.1** | Schéma et décisions : migration 3 avec la file persistante `processing_jobs` (étape, élément, statut `pending`, `processing`, `completed`, `failed` ou `needs_attention`, tentatives, erreur), `concepts` et `concept_mentions` (source et passage), et l'usage de `relations` (origine `user`, `rule` ou `ai`, statut `suggested`, `accepted` ou `rejected`, confiance, provenance) |
+| 7.2 | Worker d'arrière-plan : file reprise au démarrage, nouvelles tentatives espacées, annulation ; statut visible pour chaque étape (import, extraction, normalisation, indexation, analyse, relations) ; commandes de lecture et de relance |
+| 7.3 | Analyse sans IA : métadonnées normalisées (spec §10.2, jamais inventées : langue seulement si elle est déclarée ou détectée de façon vérifiable, longueur du contenu, pages), termes distinctifs de chaque élément (vocabulaire FTS5) |
+| 7.4 | Relations détectées par des règles, avec provenance et confiance : liens explicites, étiquettes partagées, même espace de travail, termes distinctifs communs ; suggestions jamais présentées comme des faits |
+| 7.5 | Contrôle par l'utilisateur (spec §10.5) : relations de chaque document et de chaque note, accepter, rejeter, modifier, retirer une suggestion, créer une relation manuelle ; vue des traitements (statuts, erreurs, relance) |
+| 7.6 | Interface d'extraction de concepts indépendante du fournisseur (trait `ConceptExtractor`) : désactivée et expliquée tant qu'aucun fournisseur n'est configuré ; résultats stockés à part, avec la référence de leur source |
+| 7.7 | Validation (spec §21) : tests Rust (file, reprise, règles, provenance), unitaires, de bout en bout avec axe, audit visuel, validation native, documentation, CI, fusion |

@@ -285,6 +285,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
     onSaved: () => {
       // The links and backlinks of the side panel, and the lists, follow the saved note.
       void client.invalidateQueries({ queryKey: queryKeys.notes });
+      void client.invalidateQueries({ queryKey: queryKeys.search });
       void client.invalidateQueries({ queryKey: queryKeys.dashboard });
       void client.invalidateQueries({ queryKey: queryKeys.documents });
     },

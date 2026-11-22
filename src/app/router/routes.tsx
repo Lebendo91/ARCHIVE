@@ -9,6 +9,7 @@ import { LibraryPage } from '@/modules/library/LibraryPage';
 import { NotePage } from '@/modules/notes/NotePage';
 import { NotesPage } from '@/modules/notes/NotesPage';
 import { ArchivedPage, FavoritesPage, RecentPage } from '@/modules/personal/PersonalPages';
+import { SearchPage } from '@/modules/search/SearchPage';
 import { AboutSettings } from '@/modules/settings/AboutSettings';
 import { SettingsLayout } from '@/modules/settings/SettingsLayout';
 import {
@@ -78,6 +79,11 @@ export const appRoutes: RouteObject[] = [
               titleKey: 'library.detail.fallbackTitle',
               parent: LIBRARY_PARENT,
             } satisfies RouteHandle,
+          },
+          {
+            path: 'search',
+            element: <SearchPage />,
+            handle: { titleKey: 'nav.search' } satisfies RouteHandle,
           },
           {
             path: 'notes',

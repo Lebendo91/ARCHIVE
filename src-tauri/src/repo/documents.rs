@@ -172,6 +172,7 @@ pub fn insert(transaction: &Transaction<'_>, input: &NewDocument) -> AppResult<D
             ],
         )
         .map_err(|error| map_write_error(error, ENTITY))?;
+    crate::search::index::mark(super::EntityKind::Document, &input.id);
     get(transaction, &input.id)
 }
 
@@ -183,6 +184,7 @@ pub fn rename(transaction: &Transaction<'_>, id: &str, title: &str) -> AppResult
         params![id, title, now_ms()],
     )?;
     expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Document, id);
     get(transaction, id)
 }
 
@@ -239,7 +241,9 @@ pub fn set_metadata(
         "UPDATE documents SET metadata_json = ?2 WHERE id = ?1",
         params![id, metadata],
     )?;
-    expect_one(affected, ENTITY)
+    expect_one(affected, ENTITY)?;
+    crate::search::index::mark(super::EntityKind::Document, id);
+    Ok(())
 }
 
 /// Stores the extracted text of a document (derived data, replaced on each extraction).
@@ -257,6 +261,7 @@ pub fn set_content(
                                                  extracted_at = excluded.extracted_at",
         params![id, text, extractor, now_ms()],
     ).map_err(|error| map_write_error(error, ENTITY))?;
+    crate::search::index::mark(super::EntityKind::Document, id);
     Ok(())
 }
 
@@ -306,6 +311,7 @@ pub fn purge(transaction: &Transaction<'_>, id: &str) -> AppResult<Document> {
     }
     crate::repo::relations::delete_for_entity(transaction, super::EntityKind::Document, id)?;
     transaction.execute("DELETE FROM documents WHERE id = ?1", [id])?;
+    crate::search::index::mark(super::EntityKind::Document, id);
     Ok(document)
 }
 

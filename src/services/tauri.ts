@@ -28,6 +28,9 @@ import type { PdfExtraction } from '@/types/bindings/PdfExtraction';
 import type { SettingsPatch } from '@/types/bindings/SettingsPatch';
 import type { StorageFolder } from '@/types/bindings/StorageFolder';
 import type { StorageOverview } from '@/types/bindings/StorageOverview';
+import type { SearchHistoryEntry } from '@/types/bindings/SearchHistoryEntry';
+import type { SearchRequest } from '@/types/bindings/SearchRequest';
+import type { SearchResults } from '@/types/bindings/SearchResults';
 import type { Tag } from '@/types/bindings/Tag';
 import type { TagUsage } from '@/types/bindings/TagUsage';
 import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
@@ -133,6 +136,11 @@ export interface CommandSignatures {
   notes_restore: { args: { id: string }; result: Note };
   notes_purge: { args: { id: string }; result: null };
   notes_mark_opened: { args: { id: string }; result: null };
+  search_query: { args: { request: SearchRequest }; result: SearchResults };
+  search_history_list: { args: { limit: number }; result: SearchHistoryEntry[] };
+  search_history_record: { args: { query: string }; result: SearchHistoryEntry };
+  search_history_delete: { args: { id: string }; result: null };
+  search_history_clear: { args: undefined; result: null };
   /** `null` when the user closes the file picker without choosing. */
   notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
   /** `false` when the user closes the save dialog. */

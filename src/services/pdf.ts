@@ -23,6 +23,9 @@ export function loadPdfJs(): Promise<PdfJs> {
 /** Files up to this size are read at once; larger ones are read by ranges, on demand. */
 const WHOLE_FILE_MAX = 4 * 1024 * 1024;
 const RANGE_CHUNK = 1024 * 1024;
+/** Separator of the pages of a PDF in its extracted text (as in `pdftotext`). */
+export const PAGE_BREAK = '\f';
+
 /** Extraction stops reading pages beyond this many characters: the core keeps 16 MiB at most. */
 const EXTRACTED_CHARS_MAX = 16 * 1024 * 1024;
 
@@ -99,7 +102,8 @@ export async function extractPdfText(id: string, size: number): Promise<PdfExtra
       pages.push(text);
       length += text.length;
     }
-    return { kind: 'text', text: pages.join('\n\n'), pageCount: pdf.numPages };
+    // Pages are separated by a form feed: the search index knows on which page a passage is.
+    return { kind: 'text', text: pages.join(PAGE_BREAK), pageCount: pdf.numPages };
   } catch (error) {
     const name = error instanceof Error ? error.name : '';
     if (name === 'PasswordException') {

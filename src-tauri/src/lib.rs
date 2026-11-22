@@ -10,6 +10,7 @@ pub mod import;
 mod logging;
 pub mod paths;
 pub mod repo;
+pub mod search;
 pub mod services;
 pub mod state;
 pub mod storage;
@@ -112,6 +113,11 @@ pub fn run() {
             commands::notes::notes_restore,
             commands::notes::notes_purge,
             commands::notes::notes_mark_opened,
+            commands::search::search_query,
+            commands::search::search_history_list,
+            commands::search::search_history_record,
+            commands::search::search_history_delete,
+            commands::search::search_history_clear,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

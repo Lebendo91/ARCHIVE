@@ -48,6 +48,8 @@ export const queryKeys = {
   notes: ['notes'] as const,
   notePages: ['notes', 'pages'] as const,
   note: (id: string) => ['notes', 'detail', id] as const,
+  /** Prefix of every search query (results and history): any change of the data may change them. */
+  search: ['search'] as const,
 };
 
 /**
@@ -148,6 +150,7 @@ async function refreshWorkspaceViews(
     // Deleting a workspace moves its documents and folders.
     client.invalidateQueries({ queryKey: queryKeys.documents }),
     client.invalidateQueries({ queryKey: queryKeys.folders }),
+    client.invalidateQueries({ queryKey: queryKeys.search }),
   ]);
 }
 
@@ -246,6 +249,7 @@ export async function refreshLibraryViews(client: QueryClient): Promise<void> {
     client.invalidateQueries({ queryKey: queryKeys.workspaces }),
     client.invalidateQueries({ queryKey: queryKeys.dashboard }),
     client.invalidateQueries({ queryKey: queryKeys.storageOverview }),
+    client.invalidateQueries({ queryKey: queryKeys.search }),
   ]);
 }
 

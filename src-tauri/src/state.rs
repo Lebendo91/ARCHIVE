@@ -74,6 +74,17 @@ fn open_database(paths: &AppPaths) -> DatabaseState {
                         .unwrap_or("none, new database")
                 );
             }
+            // The search index is derived data: it is built again when its rules changed, or was never built
+            // (a database from before Phase 6). Search is then only incomplete, never the rest of the app.
+            let started = std::time::Instant::now();
+            match database.write(crate::search::index::ensure_current) {
+                Ok(Some(count)) => log::info!(
+                    "search index built: {count} entries in {} ms",
+                    started.elapsed().as_millis()
+                ),
+                Ok(None) => {}
+                Err(error) => log::error!("search index could not be built: {error}"),
+            }
             DatabaseState::Ready {
                 database: Arc::new(database),
                 report,

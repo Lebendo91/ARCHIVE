@@ -43,6 +43,11 @@ async function subscribe(): Promise<void> {
   }
 }
 
+/** Saves now every pending change (Ctrl+S): the autosave would have done it a moment later. */
+export async function flushPendingSaves(): Promise<void> {
+  await Promise.allSettled([...pending.values()].map((flush) => flush()));
+}
+
 /**
  * Declares (or withdraws, with `null`) the unsaved changes of an editor. While any exist, closing the window
  * first saves them; otherwise the window closes as usual, without depending on the interface.

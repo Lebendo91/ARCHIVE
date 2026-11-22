@@ -6,6 +6,30 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 6 : Recherche intelligente (2026-11-22)
+
+- Recherche plein texte dans tout ARCHIVE, sur cet appareil : titres, texte extrait des documents (PDF page par
+  page, Word, texte, Markdown, CSV, JSON), notes, étiquettes, espaces de travail, noms de fichier et auteurs.
+  - Insensible à la casse et aux accents ; le dernier mot tapé peut être un début de mot ; `"…"` cherche une
+    expression exacte et `-mot` exclut un mot ; une partie de titre est trouvée aussi (« 555 » dans « NE555 »).
+  - Les résultats les plus pertinents d'abord (un titre passe avant une simple mention), ou les plus récents.
+- Recherche globale `Ctrl+K`, depuis n'importe quel écran ou la barre supérieure : résultats groupés par type,
+  mots trouvés surlignés, page du PDF indiquée ; flèches et Entrée pour ouvrir, `Ctrl+Entrée` pour tous les
+  résultats ; recherches récentes.
+- Page de résultats : titre, type, espace de travail et dossier, page, date, extrait, termes trouvés ; filtres
+  par type (avec leurs comptes), espace de travail, étiquette, date d'ajout ou de modification et période,
+  favoris ; tri ; filtres conservés dans l'adresse.
+- Dates et types compris quand ils sont écrits simplement (« notes sur la sécurité », « documents importés la
+  semaine dernière », « modifiés en mars ») : ce qui est compris est affiché comme un filtre, et « Chercher le
+  texte tel quel » l'annule. La recherche sémantique n'est pas activée, et l'interface le dit.
+- Historique des recherches : chaque recherche lancée une seule fois, la plus récente d'abord ; suppression
+  d'une entrée ou effacement complet.
+- Un résultat « étiquette » ouvre la liste des documents et des notes qui la portent.
+
+### Corrigé — Phase 6
+
+- Une note sans titre apparaît « Sans titre » dans les résultats de recherche, au lieu d'une ligne vide.
+
 ### Ajouté — Phase 5 : Notes (2026-11-22)
 
 - Éditeur de notes riche :

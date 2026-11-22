@@ -101,10 +101,19 @@ describe('application shell', () => {
     expect(await screen.findByText('0.1.0')).toBeInTheDocument();
   });
 
-  it('keeps the search entry visibly unavailable until search exists', () => {
-    renderApp('/');
-    const search = screen.getByRole('button', { name: /Rechercher dans ARCHIVE/ });
-    expect(search).toHaveAttribute('aria-disabled', 'true');
+  it('opens the search palette from the top bar and with Ctrl+K', async () => {
+    const { user } = renderApp('/');
+    await user.click(screen.getByRole('button', { name: /Rechercher dans ARCHIVE/ }));
+    const palette = await screen.findByRole('dialog', { name: 'Rechercher dans ARCHIVE' });
+    expect(within(palette).getByRole('combobox', { name: 'Rechercher' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    await user.keyboard('{Control>}k{/Control}');
+    expect(
+      await screen.findByRole('dialog', { name: 'Rechercher dans ARCHIVE' }),
+    ).toBeInTheDocument();
   });
 
   it('lists every shortcut with its availability in Help', () => {
@@ -115,8 +124,10 @@ describe('application shell', () => {
       within(table).getByRole('row', { name: /Ouvrir les paramètres.*Disponible/ }),
     ).toBeInTheDocument();
     expect(
-      within(table).getByRole('row', { name: /Recherche globale.*Bientôt disponible/ }),
+      within(table).getByRole('row', { name: /Recherche globale.*Disponible/ }),
     ).toBeInTheDocument();
+    // Every shortcut works: none is announced for later.
+    expect(within(table).queryByText('Bientôt disponible')).not.toBeInTheDocument();
   });
 
   it('shows a not-found page with a way back', async () => {
