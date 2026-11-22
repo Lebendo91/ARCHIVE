@@ -1,5 +1,9 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { createCoreDouble, type CoreDoubleState } from '../../src/test/coreDouble';
+import {
+  createCoreDouble,
+  type CoreDoubleFile,
+  type CoreDoubleState,
+} from '../../src/test/coreDouble';
 
 export const MOCK_APP_INFO = {
   name: 'ARCHIVE',
@@ -58,15 +62,16 @@ function nativeRuntimeDouble(
     >;
   // Created on the first command, once every init script (seeds included) has run.
   let core: ReturnType<typeof createCore> | undefined;
-  const coreHandlers = () => {
+  const coreInstance = () => {
     core ??= createCore(
       JSON.parse(sessionStorage.getItem(coreKey) ?? 'null') as Partial<CoreDoubleState> | null,
       (state) => {
         sessionStorage.setItem(coreKey, JSON.stringify(state));
       },
     );
-    return core.handlers;
+    return core;
   };
+  const coreHandlers = () => coreInstance().handlers;
   const handlers: Record<string, (args: Record<string, unknown> | undefined) => unknown> = {
     app_info: () => appInfo,
     app_status: status,
@@ -77,21 +82,26 @@ function nativeRuntimeDouble(
       sessionStorage.setItem('archive-e2e-settings', JSON.stringify(next));
       return next;
     },
-    storage_overview: () => ({
-      dataDir,
-      databaseFile: `${dataDir}\\archive.db`,
-      filesDir: `${dataDir}\\files`,
-      backupsDir: `${dataDir}\\backups`,
-      logsDir: `${dataDir}\\logs`,
-      databaseBytes: 98_304,
-      filesBytes: 0,
-      filesCount: 0,
-      backupsBytes: 0,
-      logsBytes: 4_096,
-      totalBytes: 102_400,
-      diskAvailableBytes: 128 * 1024 ** 3,
-      diskTotalBytes: 512 * 1024 ** 3,
-    }),
+    storage_overview: () => {
+      // The managed copies are those of the documents of the knowledge base, trash included.
+      const documents = coreInstance().state.documents;
+      const filesBytes = documents.reduce((sum, entry) => sum + entry.document.fileSize, 0);
+      return {
+        dataDir,
+        databaseFile: `${dataDir}\\archive.db`,
+        filesDir: `${dataDir}\\files`,
+        backupsDir: `${dataDir}\\backups`,
+        logsDir: `${dataDir}\\logs`,
+        databaseBytes: 98_304,
+        filesBytes,
+        filesCount: documents.length,
+        backupsBytes: 0,
+        logsBytes: 4_096,
+        totalBytes: 98_304 + 4_096 + filesBytes,
+        diskAvailableBytes: 128 * 1024 ** 3,
+        diskTotalBytes: 512 * 1024 ** 3,
+      };
+    },
     storage_open_folder: () => null,
     database_check_integrity: () => ({ ok: true, problems: [], checkedAt: Date.now() }),
     log_frontend_event: (args) => {
@@ -126,6 +136,10 @@ function nativeRuntimeDouble(
   Object.assign(window, {
     __ARCHIVE_E2E_DIAGNOSTICS__: diagnostics,
     __ARCHIVE_E2E_EMIT__: emitEvent,
+    // Files the next file picker or drag and drop returns.
+    __ARCHIVE_E2E_PICK__: (files: CoreDoubleState['picks']) => {
+      coreInstance().state.picks.push(...files);
+    },
     // Installed by the event plugin of the real runtime; `unlisten` calls it before the command.
     __TAURI_EVENT_PLUGIN_INTERNALS__: {
       unregisterListener: (event: string, eventId: number) => {
@@ -254,4 +268,13 @@ export async function emitNativeEvent(page: Page, event: string, payload: unknow
     },
     { name: event, data: payload },
   );
+}
+
+/** The next file picker (or drag and drop) returns these files. */
+export async function pickFiles(page: Page, files: CoreDoubleFile[]): Promise<void> {
+  await page.evaluate((picked) => {
+    (
+      window as unknown as { __ARCHIVE_E2E_PICK__: (files: CoreDoubleFile[]) => void }
+    ).__ARCHIVE_E2E_PICK__(picked);
+  }, files);
 }

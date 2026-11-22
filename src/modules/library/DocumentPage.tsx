@@ -9,6 +9,7 @@ import {
   Button,
   ButtonLink,
   EmptyState,
+  IconButton,
   SectionCard,
   SegmentedControl,
   Skeleton,
@@ -34,10 +35,11 @@ import {
 import { isCommandError } from '@/services/tauri';
 import { useDocumentDialogs } from '@/stores/documentDialogs';
 import { toast } from '@/stores/toasts';
+import { cn } from '@/utils/cn';
 import { DocumentActionsMenu } from './documentActions';
 import { INDEXING_TONES, kindLabelKey, textStateMessage } from './documentFormat';
 import { DocumentKindIcon } from './DocumentKindIcon';
-import { ImagePreview, PdfViewer, TextPreview } from './DocumentPreview';
+import { CsvPreview, ImagePreview, JsonPreview, PdfViewer, TextPreview } from './DocumentPreview';
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -108,9 +110,13 @@ function DocumentInfo({ detail }: { detail: DocumentDetail }) {
         {encoding ? <InfoRow label={t('library.detail.encoding')}>{encoding}</InfoRow> : null}
         <InfoRow label={t('library.detail.textState')}>
           <span className="flex flex-col items-start gap-1">
-            <Badge tone={INDEXING_TONES[document.indexingStatus]}>
-              {t(`library.indexing.${document.indexingStatus}`)}
-            </Badge>
+            {isImageKind(documentKind(document)) && document.indexingStatus === 'completed' ? (
+              <Badge>{t('library.noText')}</Badge>
+            ) : (
+              <Badge tone={INDEXING_TONES[document.indexingStatus]}>
+                {t(`library.indexing.${document.indexingStatus}`)}
+              </Badge>
+            )}
             {message ? <span className="text-xs text-fg-secondary">{t(message)}</span> : null}
           </span>
         </InfoRow>
@@ -205,7 +211,9 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
   const client = useQueryClient();
   const { document } = detail;
   const kind = documentKind(document);
-  const hasVisualPreview = kind === 'pdf' || isImageKind(kind);
+  const image = isImageKind(kind);
+  // Formats whose preview differs from their extracted text offer both views; images have no text.
+  const hasPreview = kind === 'pdf' || kind === 'csv' || kind === 'json' || image;
   const [mode, setMode] = useState<PreviewMode>('preview');
   const inTrash = document.deletedAt !== null;
 
@@ -222,8 +230,9 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
       });
   };
 
+  const dataText = kind === 'csv' || kind === 'json';
   let preview: ReactNode;
-  if (!hasVisualPreview) {
+  if (!hasPreview) {
     preview = (
       <div className="flex flex-col gap-3">
         {kind === 'docx' ? (
@@ -232,31 +241,34 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
         <TextPreview content={detail.content} />
       </div>
     );
-  } else if (mode === 'text' && kind === 'pdf') {
-    preview = <TextPreview content={detail.content} />;
+  } else if (mode === 'text' && !image) {
+    preview = <TextPreview content={detail.content} variant={dataText ? 'code' : 'prose'} />;
   } else if (kind === 'pdf') {
     preview = <PdfViewer key={document.id} document={document} />;
+  } else if (kind === 'csv') {
+    preview = <CsvPreview content={detail.content} title={document.title} />;
+  } else if (kind === 'json') {
+    preview = <JsonPreview key={document.id} document={document} content={detail.content} />;
   } else {
     preview = <ImagePreview key={document.id} document={document} />;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-start gap-5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card border border-line-subtle bg-steel text-fg-secondary">
-          <DocumentKindIcon document={document} size={24} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h2 className="font-display text-2xl font-semibold break-words text-fg">
-            {document.title}
-          </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {inTrash ? <Badge tone="danger">{t('library.detail.inTrash')}</Badge> : null}
-            {document.isArchived ? <Badge>{t('workspaces.archivedBadge')}</Badge> : null}
-            {document.isFavorite ? (
-              <Badge tone="brand" icon={Star}>
-                {t('library.favorite')}
-              </Badge>
+      <header className="flex flex-wrap items-start gap-x-5 gap-y-4">
+        <div className="flex min-w-72 flex-1 items-start gap-5">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card border border-line-subtle bg-steel text-fg-secondary">
+            <DocumentKindIcon document={document} size={24} />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h2 className="font-display text-2xl font-semibold break-words text-fg">
+              {document.title}
+            </h2>
+            {inTrash || document.isArchived ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {inTrash ? <Badge tone="danger">{t('library.detail.inTrash')}</Badge> : null}
+                {document.isArchived ? <Badge>{t('workspaces.archivedBadge')}</Badge> : null}
+              </div>
             ) : null}
           </div>
         </div>
@@ -271,8 +283,10 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
               >
                 {t('library.actions.openExternal')}
               </Button>
-              <Button
+              <IconButton
                 icon={Download}
+                label={t('library.actions.export')}
+                variant="secondary"
                 onClick={() => {
                   exportDocument(document.id)
                     .then((saved) => {
@@ -284,12 +298,13 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
                       toast.error(t(errorMessageKey(error)));
                     });
                 }}
-              >
-                {t('library.actions.export')}
-              </Button>
-              <Button
+              />
+              <IconButton
                 icon={Star}
+                label={t('library.favorite')}
+                variant="secondary"
                 aria-pressed={document.isFavorite}
+                className={cn(document.isFavorite && '[&_svg]:fill-amber [&_svg]:text-amber')}
                 onClick={() => {
                   run(
                     () => setDocumentFavorite(document.id, !document.isFavorite),
@@ -300,9 +315,7 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
                     ),
                   );
                 }}
-              >
-                {t('library.favorite')}
-              </Button>
+              />
             </>
           )}
           <DocumentActionsMenu
@@ -316,9 +329,9 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
       <div className="grid grid-cols-3 gap-6">
         <section
           aria-label={t('library.detail.viewLabel')}
-          className="col-span-2 flex flex-col gap-4"
+          className="col-span-2 flex min-w-0 flex-col gap-4"
         >
-          {hasVisualPreview && kind === 'pdf' ? (
+          {hasPreview && !image ? (
             <SegmentedControl
               label={t('library.detail.viewLabel')}
               value={mode}
@@ -327,11 +340,12 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
                 { value: 'text', label: t('library.detail.text') },
               ]}
               onChange={setMode}
+              className="self-start"
             />
           ) : null}
           {preview}
         </section>
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <DocumentInfo detail={detail} />
           <LocationCard detail={detail} />
           <TagsCard detail={detail} />

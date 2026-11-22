@@ -1,10 +1,11 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { ChevronLeft, ChevronRight, MoveHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconButton, Spinner } from '@/components/ui';
 import { formatNumber, useI18n } from '@/i18n';
 import { readDocumentBytes, type Document } from '@/services/documents';
 import { openPdf } from '@/services/pdf';
+import { cn } from '@/utils/cn';
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const;
 
@@ -291,15 +292,240 @@ export function ImagePreview({ document }: { document: Document }) {
   );
 }
 
-/** Extracted text, as stored by the core. */
-export function TextPreview({ content }: { content: string | null }) {
+/** Scrollable panel that keyboard users can focus and scroll, named for screen readers. */
+function ScrollPanel({ label, children }: { label: string; children: ReactNode }) {
+  // A scrollable region must be focusable, so that the keyboard can scroll it.
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className="max-h-[70vh] overflow-auto rounded-card border border-line-subtle bg-obsidian"
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Text kept by the core for search: prose in the reading font (PDF, Word, text, Markdown), data in the code
+ * font (CSV, JSON).
+ */
+export function TextPreview({
+  content,
+  variant = 'prose',
+}: {
+  content: string | null;
+  variant?: 'prose' | 'code';
+}) {
   const { t } = useI18n();
   if (!content) {
     return <p className="text-sm text-fg-secondary">{t('library.detail.noContent')}</p>;
   }
   return (
-    <pre className="max-h-[70vh] overflow-auto rounded-card border border-line-subtle bg-obsidian p-4 font-mono text-xs whitespace-pre-wrap text-fg">
-      {content}
-    </pre>
+    <ScrollPanel label={t('library.detail.text')}>
+      <pre
+        className={cn(
+          'p-4 whitespace-pre-wrap text-fg',
+          variant === 'code' ? 'font-mono text-xs' : 'font-sans text-sm leading-relaxed',
+        )}
+      >
+        {content}
+      </pre>
+    </ScrollPanel>
+  );
+}
+
+/** Most data rows a CSV preview shows; the whole text stays searchable. */
+const CSV_PREVIEW_ROWS = 500;
+
+/**
+ * Splits CSV text into rows of cells (quoted cells as in RFC 4180), with the separator its first line uses
+ * most among comma, semicolon and tab. Stops after `maxRows` rows.
+ */
+export function parseCsv(text: string, maxRows: number): { rows: string[][]; truncated: boolean } {
+  const lineEnd = text.indexOf('\n');
+  const firstLine = lineEnd === -1 ? text : text.slice(0, lineEnd);
+  const occurrences = (separator: string) => firstLine.split(separator).length - 1;
+  const separator = [';', '\t'].reduce(
+    (best, candidate) => (occurrences(candidate) > occurrences(best) ? candidate : best),
+    ',',
+  );
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  let index = 0;
+  while (index < text.length) {
+    const character = text.charAt(index);
+    index += 1;
+    if (quoted) {
+      if (character !== '"') {
+        cell += character;
+      } else if (text.charAt(index) === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = false;
+      }
+    } else if (character === '"' && cell === '') {
+      quoted = true;
+    } else if (character === separator) {
+      row.push(cell);
+      cell = '';
+    } else if (character === '\n' || character === '\r') {
+      if (character === '\r' && text.charAt(index) === '\n') {
+        index += 1;
+      }
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+      if (rows.length >= maxRows) {
+        return { rows, truncated: text.slice(index).trim() !== '' };
+      }
+    } else {
+      cell += character;
+    }
+  }
+  if (cell !== '' || row.length > 0) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return { rows, truncated: false };
+}
+
+/** CSV preview: a table whose first row gives the column names. */
+export function CsvPreview({ content, title }: { content: string | null; title: string }) {
+  const { t, locale } = useI18n();
+  const parsed = useMemo(
+    () => (content ? parseCsv(content, CSV_PREVIEW_ROWS + 1) : null),
+    [content],
+  );
+  const [header, ...body] = parsed?.rows ?? [];
+  if (!parsed || !header) {
+    return <TextPreview content={content} variant="code" />;
+  }
+  const columns = Math.max(...parsed.rows.map((row) => row.length));
+  const cells = (row: string[]) =>
+    Array.from({ length: columns }, (_, column) => row[column] ?? '');
+  return (
+    <div className="flex flex-col gap-2">
+      <ScrollPanel label={t('library.detail.tableLabel', { title })}>
+        <table className="w-full border-collapse text-left text-xs">
+          <thead className="sticky top-0 bg-graphite">
+            <tr>
+              {cells(header).map((cell, column) => (
+                <th
+                  key={column}
+                  scope="col"
+                  className="border-b border-line px-3 py-2 font-semibold whitespace-nowrap text-fg"
+                >
+                  {cell}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {body.map((row, line) => (
+              <tr key={line} className="border-b border-line-subtle last:border-b-0">
+                {cells(row).map((cell, column) => (
+                  <td key={column} className="px-3 py-2 whitespace-nowrap text-fg-secondary">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollPanel>
+      {parsed.truncated ? (
+        <p className="text-xs text-fg-secondary">
+          {t('library.detail.rowsShown', { count: formatNumber(CSV_PREVIEW_ROWS, locale) })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Largest JSON file the preview reads and formats; beyond it, the extracted text is shown. */
+const JSON_PREVIEW_MAX = 2 * 1024 * 1024;
+
+/** Decodes a text file: UTF-8 unless it starts with a UTF-16 byte order mark, like the native extractor. */
+function decodeText(bytes: Uint8Array): string {
+  const encoding =
+    bytes[0] === 0xff && bytes[1] === 0xfe
+      ? 'utf-16le'
+      : bytes[0] === 0xfe && bytes[1] === 0xff
+        ? 'utf-16be'
+        : 'utf-8';
+  return new TextDecoder(encoding).decode(bytes);
+}
+
+type JsonState = { status: 'loading' } | { status: 'ready'; text: string; raw: boolean };
+
+/**
+ * JSON preview: the file formatted with indentation, read from the managed copy. An invalid file is shown as
+ * it is, so that it can be understood and fixed.
+ */
+export function JsonPreview({ document, content }: { document: Document; content: string | null }) {
+  const { t } = useI18n();
+  const [state, setState] = useState<JsonState>({ status: 'loading' });
+  const tooLarge = document.fileSize > JSON_PREVIEW_MAX;
+  useEffect(() => {
+    if (tooLarge) {
+      return undefined;
+    }
+    let cancelled = false;
+    readDocumentBytes(document.id, document.fileSize)
+      .then((bytes) => {
+        const text = decodeText(bytes);
+        let next: JsonState;
+        try {
+          next = { status: 'ready', text: JSON.stringify(JSON.parse(text), null, 2), raw: false };
+        } catch {
+          next = { status: 'ready', text, raw: true };
+        }
+        if (!cancelled) {
+          setState(next);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState({ status: 'ready', text: '', raw: true });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [document.id, document.fileSize, tooLarge]);
+
+  if (tooLarge) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-fg-secondary">{t('library.detail.previewTooLarge')}</p>
+        <TextPreview content={content} variant="code" />
+      </div>
+    );
+  }
+  if (state.status === 'loading') {
+    return (
+      <div className="flex min-h-32 items-center justify-center">
+        <Spinner size={20} />
+      </div>
+    );
+  }
+  if (state.text === '') {
+    return <p className="text-sm text-fg-secondary">{t('library.pdf.error')}</p>;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {state.raw ? (
+        <p className="text-sm text-fg-secondary">{t('library.detail.rawContent')}</p>
+      ) : null}
+      <ScrollPanel label={t('library.detail.preview')}>
+        <pre className="p-4 font-mono text-xs whitespace-pre-wrap text-fg">{state.text}</pre>
+      </ScrollPanel>
+    </div>
   );
 }

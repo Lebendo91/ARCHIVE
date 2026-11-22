@@ -29,6 +29,7 @@ export { EmptyState } from './EmptyState';
 export { IconButton } from './IconButton';
 export { Input } from './Input';
 export { Kbd, KeyCombo } from './Kbd';
+export { Popover, PopoverContent, PopoverTrigger } from './Popover';
 export { SectionCard } from './SectionCard';
 export { SegmentedControl } from './SegmentedControl';
 export { Select } from './Select';

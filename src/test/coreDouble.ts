@@ -1085,6 +1085,28 @@ export function seedDocument(
   };
 }
 
+/** Folder to seed the double with, in `workspace` (under `parent` when given). */
+export function seedFolder(
+  workspace: CoreDoubleWorkspace,
+  name: string,
+  parent: Folder | null = null,
+): Folder {
+  const at = Date.now() - 24 * 60 * 60 * 1000;
+  return {
+    id: seedId('a000'),
+    workspaceId: workspace.workspace.id,
+    parentId: parent?.id ?? null,
+    name,
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/** Tag to seed the double with. */
+export function seedTag(name: string, color: TokenColor = 'amber'): Tag {
+  return { id: seedId('b000'), name, color, createdAt: Date.now() - 24 * 60 * 60 * 1000 };
+}
+
 /** Event of a seeded document's import, for the timeline. */
 export function importEvent(entry: CoreDoubleDocument): TimelineEvent {
   return {

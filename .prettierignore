@@ -11,3 +11,5 @@ src-tauri/gen
 src-tauri/icons
 src/types/bindings
 *.md
+# Test files kept byte for byte (scripts/make-library-fixtures.py)
+tests/fixtures/

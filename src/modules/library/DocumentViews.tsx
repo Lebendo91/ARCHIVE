@@ -1,8 +1,8 @@
 import { Star } from 'lucide-react';
 import { Link } from 'react-router';
 import { Badge, Card } from '@/components/ui';
-import { formatFileSize, formatShortDate, useI18n } from '@/i18n';
-import type { DocumentItem } from '@/services/documents';
+import { formatFileSize, formatShortDate, useI18n, type MessageKey } from '@/i18n';
+import type { Document, DocumentItem } from '@/services/documents';
 import type { WorkspaceSummary } from '@/services/workspaces';
 import { DocumentActionsMenu, DocumentContextMenu } from './documentActions';
 import { INDEXING_TONES, kindLabelKey } from './documentFormat';
@@ -18,6 +18,22 @@ function FavoriteMark() {
   );
 }
 
+/**
+ * The state of a document's text, only when it deserves attention (waiting, failed, to check): a ready text,
+ * or an image that has none by nature, shows nothing.
+ */
+export function IndexingBadge({ document }: { document: Document }) {
+  const { t } = useI18n();
+  if (document.indexingStatus === 'completed') {
+    return null;
+  }
+  return (
+    <Badge tone={INDEXING_TONES[document.indexingStatus]}>
+      {t(`library.indexing.${document.indexingStatus}`)}
+    </Badge>
+  );
+}
+
 function workspaceName(
   workspaceId: string | null,
   workspaces: readonly WorkspaceSummary[],
@@ -28,13 +44,37 @@ function workspaceName(
   );
 }
 
+/** Which date the views show: the one the documents are sorted by. */
+export type DateColumn = 'imported' | 'updated' | 'opened';
+
+const DATE_LABELS: Record<DateColumn, MessageKey> = {
+  imported: 'library.columns.imported',
+  updated: 'library.columns.updated',
+  opened: 'library.columns.opened',
+};
+
+function dateOf(document: Document, column: DateColumn): number | null {
+  if (column === 'updated') {
+    return document.updatedAt;
+  }
+  return column === 'opened' ? document.lastOpenedAt : document.importedAt;
+}
+
 export interface DocumentViewProps {
   items: readonly DocumentItem[];
   workspaces: readonly WorkspaceSummary[];
+  /** False when every document belongs to the same workspace (the Library filtered on one). */
+  showWorkspace?: boolean;
+  dateColumn?: DateColumn;
 }
 
 /** List view: one row per document, the title links to its page, right click opens its actions. */
-export function DocumentTable({ items, workspaces }: DocumentViewProps) {
+export function DocumentTable({
+  items,
+  workspaces,
+  showWorkspace = true,
+  dateColumn = 'imported',
+}: DocumentViewProps) {
   const { t, locale } = useI18n();
   return (
     <div className="overflow-hidden rounded-card border border-line-subtle bg-graphite">
@@ -44,17 +84,16 @@ export function DocumentTable({ items, workspaces }: DocumentViewProps) {
             <th scope="col" className="px-4 py-3">
               {t('library.columns.title')}
             </th>
-            <th scope="col" className="w-44 px-4 py-3">
-              {t('library.columns.workspace')}
-            </th>
+            {showWorkspace ? (
+              <th scope="col" className="w-48 px-4 py-3">
+                {t('library.columns.workspace')}
+              </th>
+            ) : null}
             <th scope="col" className="w-24 px-4 py-3 text-right">
               {t('library.columns.size')}
             </th>
             <th scope="col" className="w-32 px-4 py-3">
-              {t('library.columns.imported')}
-            </th>
-            <th scope="col" className="w-40 px-4 py-3">
-              {t('library.columns.status')}
+              {t(DATE_LABELS[dateColumn])}
             </th>
             <th scope="col" className="w-14 px-2 py-3">
               <span className="sr-only">{t('library.columns.actions')}</span>
@@ -64,6 +103,7 @@ export function DocumentTable({ items, workspaces }: DocumentViewProps) {
         <tbody>
           {items.map(({ document }) => {
             const kind = kindLabelKey(document);
+            const date = dateOf(document, dateColumn);
             return (
               <DocumentContextMenu key={document.id} document={document}>
                 <tr className="border-b border-line-subtle transition-colors duration-150 last:border-b-0 hover:bg-steel/40">
@@ -84,26 +124,28 @@ export function DocumentTable({ items, workspaces }: DocumentViewProps) {
                           </Link>
                           {document.isFavorite ? <FavoriteMark /> : null}
                         </span>
-                        <span className="truncate text-xs text-fg-secondary">
-                          {kind ? `${t(kind)} · ` : ''}
-                          {document.originalFilename}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-xs text-fg-secondary">
+                            {kind ? `${t(kind)} · ` : ''}
+                            {document.originalFilename}
+                          </span>
+                          <IndexingBadge document={document} />
                         </span>
                       </div>
                     </div>
                   </td>
-                  <td className="truncate px-4 py-3 text-fg-secondary">
-                    {workspaceName(document.workspaceId, workspaces, t('library.noWorkspace'))}
-                  </td>
+                  {showWorkspace ? (
+                    <td className="truncate px-4 py-3 text-fg-secondary">
+                      {workspaceName(document.workspaceId, workspaces, t('library.noWorkspace'))}
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 text-right text-fg-secondary tabular-nums">
                     {formatFileSize(document.fileSize, locale)}
                   </td>
                   <td className="px-4 py-3 text-fg-secondary">
-                    {formatShortDate(new Date(document.importedAt), locale)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={INDEXING_TONES[document.indexingStatus]}>
-                      {t(`library.indexing.${document.indexingStatus}`)}
-                    </Badge>
+                    {date === null
+                      ? t('library.neverOpened')
+                      : formatShortDate(new Date(date), locale)}
                   </td>
                   <td className="px-2 py-3 text-right">
                     <DocumentActionsMenu document={document} />
@@ -119,12 +161,26 @@ export function DocumentTable({ items, workspaces }: DocumentViewProps) {
 }
 
 /** Grid view: one card per document; the title link covers the card, the menu sits above it. */
-export function DocumentGrid({ items, workspaces }: DocumentViewProps) {
+export function DocumentGrid({
+  items,
+  workspaces,
+  showWorkspace = true,
+  dateColumn = 'imported',
+}: DocumentViewProps) {
   const { t, locale } = useI18n();
   return (
     <ul className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
       {items.map(({ document, tags }) => {
         const kind = kindLabelKey(document);
+        const date = dateOf(document, dateColumn);
+        const details = [
+          showWorkspace
+            ? workspaceName(document.workspaceId, workspaces, t('library.noWorkspace'))
+            : null,
+          date === null
+            ? t('library.dates.never')
+            : t(`library.dates.${dateColumn}`, { date: formatShortDate(new Date(date), locale) }),
+        ];
         return (
           <li key={document.id}>
             <DocumentContextMenu document={document}>
@@ -153,18 +209,16 @@ export function DocumentGrid({ items, workspaces }: DocumentViewProps) {
                     <DocumentActionsMenu document={document} />
                   </div>
                 </div>
-                <div className="mt-auto flex flex-wrap items-center gap-2">
-                  <Badge tone={INDEXING_TONES[document.indexingStatus]}>
-                    {t(`library.indexing.${document.indexingStatus}`)}
-                  </Badge>
-                  {tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag.id}>{tag.name}</Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-fg-secondary">
-                  {workspaceName(document.workspaceId, workspaces, t('library.noWorkspace'))}
-                  {' · '}
-                  {formatShortDate(new Date(document.importedAt), locale)}
+                {document.indexingStatus !== 'completed' || tags.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <IndexingBadge document={document} />
+                    {tags.slice(0, 3).map((tag) => (
+                      <Badge key={tag.id}>{tag.name}</Badge>
+                    ))}
+                  </div>
+                ) : null}
+                <p className="mt-auto truncate text-xs text-fg-secondary">
+                  {details.filter(Boolean).join(' · ')}
                 </p>
               </Card>
             </DocumentContextMenu>

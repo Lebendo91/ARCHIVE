@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FolderInput,
   FolderOpen,
+  FolderSearch,
   Pencil,
   RotateCcw,
   Star,
@@ -127,7 +128,7 @@ export function useDocumentActions() {
       },
       {
         id: 'reveal',
-        icon: FolderInput,
+        icon: FolderSearch,
         labelKey: 'library.actions.reveal',
         run: () => {
           perform(() => revealDocument(document.id));

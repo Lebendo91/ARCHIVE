@@ -1,0 +1,1 @@
+Résumé : le condensateur se charge à travers R1 et R2.

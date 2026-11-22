@@ -31,11 +31,18 @@ function FileRow({ file, current }: { file: ImportFileState; current: boolean })
   if (current && !outcome) {
     detail = null;
   } else if (outcome?.status === 'imported') {
-    Icon = CircleCheck;
-    tone = 'text-success';
+    // Imported, but its text could not be extracted (or only partly): the document page explains why.
+    const issueKey: MessageKey | null =
+      outcome.issue === null
+        ? null
+        : outcome.issue === 'truncated'
+          ? 'library.import.importedTruncated'
+          : 'library.import.importedNoText';
+    Icon = issueKey ? CircleAlert : CircleCheck;
+    tone = issueKey ? 'text-warning' : 'text-success';
     detail = (
       <Link to={`/library/${outcome.document.id}`} className="rounded-sm hover:text-fg">
-        {t('library.import.importedFile')}
+        {t(issueKey ?? 'library.import.importedFile')}
       </Link>
     );
   } else if (outcome?.status === 'duplicate') {
@@ -167,9 +174,9 @@ function DropOverlay() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-obsidian/80 p-12"
+      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-obsidian/95 p-12"
     >
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-modal border-2 border-dashed border-amber text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-modal border-2 border-dashed border-amber bg-amber/5 text-center">
         <Upload size={40} className="text-amber" />
         <p className="font-display text-2xl font-semibold text-fg">
           {t('library.import.dropTitle')}

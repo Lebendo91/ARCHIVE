@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { QueryError } from '@/components/feedback/QueryError';
 import { Button, EmptyState, Skeleton } from '@/components/ui';
 import { useI18n } from '@/i18n';
-import { DocumentTable } from '@/modules/library/DocumentViews';
+import { DocumentTable, type DateColumn } from '@/modules/library/DocumentViews';
 import { GridSkeleton, WorkspaceGrid } from '@/modules/workspaces/WorkspacesPage';
 import type { DocumentQuery } from '@/services/documents';
 import { useDocumentPages, useWorkspaces } from '@/services/queries';
@@ -20,10 +20,13 @@ const BASE_QUERY: Omit<DocumentQuery, 'offset'> = {
 /** Documents of a personal view, as a table with « Show more ». */
 function DocumentSection({
   query,
+  dateColumn,
   title,
   empty,
 }: {
   query: Omit<DocumentQuery, 'offset'>;
+  /** The date shown: the one the section is sorted by. */
+  dateColumn: DateColumn;
   /** Section title; without one the documents are the whole page. */
   title?: string;
   /** Shown when nothing matches; `null` hides the section instead. */
@@ -55,7 +58,7 @@ function DocumentSection({
       <p className="text-sm text-fg-secondary">
         {tCount('library.count', pages.data.pages[0]?.total ?? items.length)}
       </p>
-      <DocumentTable items={items} workspaces={workspaces.data ?? []} />
+      <DocumentTable items={items} workspaces={workspaces.data ?? []} dateColumn={dateColumn} />
       {pages.hasNextPage ? (
         <Button
           className="self-center"
@@ -77,6 +80,7 @@ export function FavoritesPage() {
   return (
     <DocumentSection
       query={{ ...BASE_QUERY, favoritesOnly: true }}
+      dateColumn="updated"
       empty={
         <EmptyState
           icon={Star}
@@ -95,6 +99,7 @@ export function RecentPage() {
   return (
     <DocumentSection
       query={{ ...BASE_QUERY, openedOnly: true, sort: 'last_opened_at' }}
+      dateColumn="opened"
       empty={
         <EmptyState
           icon={Clock}
@@ -151,6 +156,7 @@ export function ArchivedPage() {
       ) : null}
       <DocumentSection
         query={{ ...BASE_QUERY, state: 'archived' }}
+        dateColumn="updated"
         title={t('modules.archived.documentsTitle')}
         empty={null}
       />
