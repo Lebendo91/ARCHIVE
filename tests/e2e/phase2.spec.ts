@@ -3,13 +3,16 @@ import { expect, expectNoViolations, MOCK_DATA_DIR, test } from './fixtures';
 test.describe('settings persisted by the native core', () => {
   test('switches the interface to English and keeps it after a reload', async ({ page }) => {
     await page.goto('/#/settings/general');
-    await page.getByRole('radio', { name: 'English' }).check();
+    // The choice is shown once the native core has saved it: click, then wait for the new state.
+    await page.getByRole('radio', { name: 'English' }).click();
+    await expect(page.getByRole('radio', { name: 'English' })).toBeChecked();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('General');
     await expect(page.getByText('Interface language updated.', { exact: true })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await page.reload();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('General');
-    await page.getByRole('radio', { name: 'Français' }).check();
+    await page.getByRole('radio', { name: 'Français' }).click();
+    await expect(page.getByRole('radio', { name: 'Français' })).toBeChecked();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Général');
   });
 
