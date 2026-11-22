@@ -541,6 +541,18 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
 
+### Décisions prises en Phase 5
+
+| Décision | Justification |
+|---|---|
+| Éditeur TipTap 3.33.1 : StarterKit (titres, gras, italique, souligné, barré, listes, citation, code, liens, séparateur), listes de tâches, tableaux, extension Markdown officielle ; versions **exactes** et alignées | Éditeur ProseMirror éprouvé, schéma strict et navigation au clavier ; les paquets TipTap exigent la même version entre eux, la montée de version est donc délibérée |
+| Contenu stocké en JSON TipTap, accompagné de son texte brut (`content_text`) | Fidélité complète du document ; le texte sert aux extraits, à la recherche de la liste des notes et à l'indexation de la Phase 6 |
+| Markdown converti dans l'interface par `@tiptap/markdown` (avec `marked`), selon le schéma de l'éditeur | Aller-retour vérifié sur les titres, listes, tâches, tableaux, code, citations et liens ; le soulignement, sans équivalent en Markdown, s'écrit `<u>…</u>` et se relit tel quel |
+| Liens internes : liens ordinaires vers `archive://note/<id>` ou `archive://document/<id>` | Syntaxe Markdown standard, exportée et réimportée sans perte ; la cible est désignée par son identifiant, pas par un titre ambigu. Le cœur les garde comme relations `links_to`, d'où sont lus les rétroliens et les notes qui citent un document |
+| Enregistrement par révision : une écriture fondée sur une révision périmée est refusée (`stale_revision`) | Aucune perte silencieuse (spec §8.3) : l'interface propose de recharger la version enregistrée ou de garder la sienne |
+| Événement « note modifiée » au plus une fois par heure et par note | L'enregistrement automatique saturerait sinon la chronologie |
+| Import Markdown : fichiers choisis dans le sélecteur natif, lus, vérifiés et décodés par le cœur (UTF-8, UTF-16, Windows-1252) ; export écrit par le cœur à l'endroit choisi dans le dialogue natif | Aucun chemin ne traverse la frontière ; mêmes vérifications que la Bibliothèque |
+
 ### Décisions prises en Phase 4
 
 | Décision | Justification |
