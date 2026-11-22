@@ -21,3 +21,8 @@ export function folderTree(folders: readonly Folder[]): { folder: Folder; depth:
   visit(null, 0);
   return ordered;
 }
+
+/** Label of a folder in a drop-down list, indented by its depth: ordinary spaces would be collapsed. */
+export function folderOptionLabel(name: string, depth: number): string {
+  return `${'\u00a0\u00a0\u00a0'.repeat(depth)}${name}`;
+}

@@ -1240,6 +1240,44 @@ export function createCoreDouble(
       tag.name = cleanName(args?.name, 64);
       return changed({ ...tag });
     },
+    folders_move: (args) => {
+      const folder = findFolder(args?.id);
+      const parentId = (args?.parentId ?? null) as string | null;
+      if (parentId !== null) {
+        if (findFolder(parentId).workspaceId !== folder.workspaceId) {
+          fail('invalid_input', 'the parent folder belongs to another workspace');
+        }
+        for (let ancestor: string | null = parentId; ancestor !== null;) {
+          if (ancestor === folder.id) {
+            fail('invalid_input', 'a folder cannot be moved inside itself');
+          }
+          ancestor = findFolder(ancestor).parentId;
+        }
+      }
+      if (
+        state.folders.some(
+          (other) =>
+            other !== folder &&
+            other.workspaceId === folder.workspaceId &&
+            other.parentId === parentId &&
+            nameKey(other.name) === nameKey(folder.name),
+        )
+      ) {
+        fail('name_taken', 'folder name already used');
+      }
+      folder.parentId = parentId;
+      folder.updatedAt = Date.now();
+      return changed({ ...folder });
+    },
+    tags_usage: () =>
+      state.tags
+        .slice()
+        .sort((a, b) => nameKey(a.name).localeCompare(nameKey(b.name)))
+        .map((tag) => ({
+          tag,
+          documents: state.documents.filter((doc) => doc.tagIds.includes(tag.id)).length,
+          notes: state.notes.filter((note) => note.tagIds.includes(tag.id)).length,
+        })),
     tags_delete: (args) => {
       if (!state.tags.some((tag) => tag.id === args?.id)) fail('not_found', 'tag not found');
       state.tags = state.tags.filter((tag) => tag.id !== args?.id);

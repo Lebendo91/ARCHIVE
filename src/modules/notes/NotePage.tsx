@@ -16,7 +16,7 @@ import {
   Tags,
 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { usePageTitle } from '@/app/router/pageTitle';
 import { QueryError } from '@/components/feedback/QueryError';
 import {
@@ -33,7 +33,6 @@ import { errorMessageKey } from '@/services/errors';
 import {
   getNote,
   markNoteOpened,
-  openExternalUrl,
   restoreNote,
   setNoteFavorite,
   type LinkedResource,
@@ -55,10 +54,10 @@ import { EditorToolbar } from './EditorToolbar';
 import { LinkDialog, LinkPicker } from './LinkDialogs';
 import { plainText } from './markdown';
 import { NoteActionsMenu, useNoteTitle } from './noteActions';
-import { isExternalUrl, parseArchiveHref } from './noteContent';
 import { readNoteContent } from './readNoteContent';
 import type { NewNoteState } from './useCreateNote';
 import { useNoteAutosave, type SaveStatus } from './useNoteAutosave';
+import { useOpenLink } from './useOpenLink';
 import { useNoteEditor } from './useNoteEditor';
 
 const STATUS_ICONS = {
@@ -249,7 +248,6 @@ function recoverableDraft(detail: NoteDetail): NoteDraft | null {
 function NoteEditorView({ detail }: { detail: NoteDetail }) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const navigate = useNavigate();
   const location = useLocation();
   const titleId = useId();
   const { note } = detail;
@@ -260,9 +258,11 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
   const titleRef = useRef<HTMLInputElement>(null);
   const initialContent = useMemo(() => readNoteContent(note), [note]);
   const changed = useRef<() => void>(() => undefined);
+  const openLink = useOpenLink();
   usePageTitle(title.trim() === '' ? t('notes.untitled') : title);
 
   const editor = useNoteEditor({
+    mode: 'edit',
     content: initialContent,
     editable: !inTrash,
     placeholder: t('notes.editor.placeholder'),
@@ -270,16 +270,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
     onChange: () => {
       changed.current();
     },
-    onOpenLink: (href) => {
-      const target = parseArchiveHref(href);
-      if (target) {
-        void navigate(target.kind === 'note' ? `/notes/${target.id}` : `/library/${target.id}`);
-      } else if (isExternalUrl(href)) {
-        openExternalUrl(href).catch(() => {
-          toast.error(t('notes.links.openFailed'));
-        });
-      }
-    },
+    onOpenLink: openLink,
   });
 
   const { status, saver } = useNoteAutosave({

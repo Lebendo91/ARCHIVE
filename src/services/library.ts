@@ -1,9 +1,10 @@
 import type { Folder } from '@/types/bindings/Folder';
 import type { Tag } from '@/types/bindings/Tag';
+import type { TagUsage } from '@/types/bindings/TagUsage';
 import type { TokenColor } from '@/types/bindings/TokenColor';
 import { callCommand } from './tauri';
 
-export type { Folder, Tag };
+export type { Folder, Tag, TagUsage };
 
 export function listFolders(workspaceId: string): Promise<Folder[]> {
   return callCommand('folders_list', { workspaceId });
@@ -21,6 +22,11 @@ export function renameFolder(id: string, name: string): Promise<Folder> {
   return callCommand('folders_rename', { id, name });
 }
 
+/** Moves a folder under `parentId` (same workspace), or to the root with `null`. */
+export function moveFolder(id: string, parentId: string | null): Promise<Folder> {
+  return callCommand('folders_move', { id, parentId });
+}
+
 /** Deletes an empty folder; the core refuses a folder that still holds anything. */
 export function deleteFolder(id: string): Promise<null> {
   return callCommand('folders_delete', { id });
@@ -28,6 +34,11 @@ export function deleteFolder(id: string): Promise<null> {
 
 export function listTags(): Promise<Tag[]> {
   return callCommand('tags_list');
+}
+
+/** Every tag with the number of documents and notes carrying it. */
+export function tagUsage(): Promise<TagUsage[]> {
+  return callCommand('tags_usage');
 }
 
 export function createTag(name: string, color: TokenColor): Promise<Tag> {

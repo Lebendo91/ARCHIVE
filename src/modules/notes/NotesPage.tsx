@@ -6,10 +6,12 @@ import {
   Search,
   SearchX,
   SlidersHorizontal,
+  Tags,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { QueryError } from '@/components/feedback/QueryError';
 import { FilterChip, useListParams } from '@/components/resources/listControls';
+import { TagManagerDialog } from '@/components/resources/TagManagerDialog';
 import {
   Button,
   EmptyState,
@@ -61,89 +63,113 @@ function NoteFilters({ active, workspace, tag, updated, favoritesOnly, onChange 
   const workspaces = useWorkspaces();
   const tags = useTags();
   const favoritesId = useId();
+  const [open, setOpen] = useState(false);
+  const [managingTags, setManagingTags] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button icon={SlidersHorizontal}>
-          {t('library.filters.label')}
-          {active > 0 ? (
-            <>
-              <span
-                aria-hidden="true"
-                className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber px-1 text-2xs font-semibold text-obsidian"
-              >
-                {active}
-              </span>
-              {/* A separate space, so that the accessible name reads « Filtres (2 filtres actifs) ». */}{' '}
-              <span className="sr-only">{tCount('library.filters.activeCount', active)}</span>
-            </>
-          ) : null}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent label={t('library.filters.label')} className="w-80">
-        <div className="flex flex-col gap-4">
-          <Select
-            label={t('library.filters.workspace')}
-            value={workspace}
-            onChange={(event) => {
-              onChange({ workspace: event.target.value, folder: null });
-            }}
-          >
-            <option value="">{t('library.filters.allWorkspaces')}</option>
-            <option value="none">{t('library.filters.unassigned')}</option>
-            {(workspaces.data ?? []).map(({ workspace: entry }) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.name}
-              </option>
-            ))}
-          </Select>
-          {(tags.data ?? []).length > 0 ? (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button ref={triggerRef} icon={SlidersHorizontal}>
+            {t('library.filters.label')}
+            {active > 0 ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber px-1 text-2xs font-semibold text-obsidian"
+                >
+                  {active}
+                </span>
+                {/* A separate space, so that the accessible name reads « Filtres (2 filtres actifs) ». */}{' '}
+                <span className="sr-only">{tCount('library.filters.activeCount', active)}</span>
+              </>
+            ) : null}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent label={t('library.filters.label')} className="w-80">
+          <div className="flex flex-col gap-4">
             <Select
-              label={t('library.filters.tag')}
-              value={tag}
+              label={t('library.filters.workspace')}
+              value={workspace}
               onChange={(event) => {
-                onChange({ tag: event.target.value });
+                onChange({ workspace: event.target.value, folder: null });
               }}
             >
-              <option value="">{t('library.filters.allTags')}</option>
-              {(tags.data ?? []).map((entry) => (
+              <option value="">{t('library.filters.allWorkspaces')}</option>
+              <option value="none">{t('library.filters.unassigned')}</option>
+              {(workspaces.data ?? []).map(({ workspace: entry }) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.name}
                 </option>
               ))}
             </Select>
-          ) : null}
-          <Select
-            label={t('library.filters.updated')}
-            value={updated}
-            onChange={(event) => {
-              onChange({ updated: event.target.value });
-            }}
-          >
-            <option value="">{t('library.filters.anyDate')}</option>
-            {DATE_PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
-                {t(`library.filters.updatedLast${preset}`)}
-              </option>
-            ))}
-          </Select>
-          <div className="flex items-center gap-2">
-            <input
-              id={favoritesId}
-              type="checkbox"
-              checked={favoritesOnly}
+            {(tags.data ?? []).length > 0 ? (
+              <Select
+                label={t('library.filters.tag')}
+                value={tag}
+                onChange={(event) => {
+                  onChange({ tag: event.target.value });
+                }}
+              >
+                <option value="">{t('library.filters.allTags')}</option>
+                {(tags.data ?? []).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <Select
+              label={t('library.filters.updated')}
+              value={updated}
               onChange={(event) => {
-                onChange({ favorites: event.target.checked ? '1' : null });
+                onChange({ updated: event.target.value });
               }}
-              className="h-4 w-4 accent-blue"
-            />
-            <label htmlFor={favoritesId} className="text-sm text-fg">
-              {t('library.filters.favorites')}
-            </label>
+            >
+              <option value="">{t('library.filters.anyDate')}</option>
+              {DATE_PRESETS.map((preset) => (
+                <option key={preset} value={preset}>
+                  {t(`library.filters.updatedLast${preset}`)}
+                </option>
+              ))}
+            </Select>
+            <div className="flex items-center gap-2">
+              <input
+                id={favoritesId}
+                type="checkbox"
+                checked={favoritesOnly}
+                onChange={(event) => {
+                  onChange({ favorites: event.target.checked ? '1' : null });
+                }}
+                className="h-4 w-4 accent-blue"
+              />
+              <label htmlFor={favoritesId} className="text-sm text-fg">
+                {t('library.filters.favorites')}
+              </label>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Tags}
+              className="self-start"
+              onClick={() => {
+                setOpen(false);
+                setManagingTags(true);
+              }}
+            >
+              {t('library.tagManager.open')}
+            </Button>
           </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+      <TagManagerDialog
+        open={managingTags}
+        returnFocus={triggerRef}
+        onClose={() => {
+          setManagingTags(false);
+        }}
+      />
+    </>
   );
 }
 

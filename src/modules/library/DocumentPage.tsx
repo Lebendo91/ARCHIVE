@@ -49,6 +49,7 @@ import { DocumentActionsMenu } from './documentActions';
 import { INDEXING_TONES, kindLabelKey, textStateMessage } from './documentFormat';
 import { DocumentKindIcon } from './DocumentKindIcon';
 import { CsvPreview, ImagePreview, JsonPreview, PdfViewer, TextPreview } from './DocumentPreview';
+import { MarkdownPreview } from './MarkdownPreview';
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -222,7 +223,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
   const kind = documentKind(document);
   const image = isImageKind(kind);
   // Formats whose preview differs from their extracted text offer both views; images have no text.
-  const hasPreview = kind === 'pdf' || kind === 'csv' || kind === 'json' || image;
+  const hasPreview =
+    kind === 'pdf' || kind === 'csv' || kind === 'json' || kind === 'markdown' || image;
   const [mode, setMode] = useState<PreviewMode>('preview');
   const inTrash = document.deletedAt !== null;
 
@@ -239,7 +241,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
       });
   };
 
-  const dataText = kind === 'csv' || kind === 'json';
+  // Data and Markdown sources read best in the code font.
+  const dataText = kind === 'csv' || kind === 'json' || kind === 'markdown';
   let preview: ReactNode;
   if (!hasPreview) {
     preview = (
@@ -258,6 +261,8 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
     preview = <CsvPreview content={detail.content} title={document.title} />;
   } else if (kind === 'json') {
     preview = <JsonPreview key={document.id} document={document} content={detail.content} />;
+  } else if (kind === 'markdown') {
+    preview = <MarkdownPreview content={detail.content} />;
   } else {
     preview = <ImagePreview key={document.id} document={document} />;
   }

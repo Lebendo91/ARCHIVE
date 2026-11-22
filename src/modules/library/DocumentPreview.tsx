@@ -293,7 +293,7 @@ export function ImagePreview({ document }: { document: Document }) {
 }
 
 /** Scrollable panel that keyboard users can focus and scroll, named for screen readers. */
-function ScrollPanel({ label, children }: { label: string; children: ReactNode }) {
+export function ScrollPanel({ label, children }: { label: string; children: ReactNode }) {
   // A scrollable region must be focusable, so that the keyboard can scroll it.
   return (
     <div

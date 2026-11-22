@@ -19,7 +19,7 @@ import {
 import { isCommandError } from '@/services/tauri';
 import { useResourceDialogs, type DialogResource } from '@/stores/resourceDialogs';
 import { toast } from '@/stores/toasts';
-import { folderTree } from './folderTree';
+import { folderOptionLabel, folderTree } from './folderTree';
 
 /** What differs between a document and a note in the shared dialogs: operations, wording, addresses. */
 const RESOURCES = {
@@ -238,7 +238,7 @@ function MoveDialog({ open, resource, onClose, onCloseAutoFocus }: DialogProps) 
               <option value="">{t('library.move.root')}</option>
               {folderTree(folders.data ?? []).map(({ folder, depth }) => (
                 <option key={folder.id} value={folder.id}>
-                  {`${' '.repeat(depth)}${folder.name}`}
+                  {folderOptionLabel(folder.name, depth)}
                 </option>
               ))}
             </Select>

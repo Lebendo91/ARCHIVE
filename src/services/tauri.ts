@@ -29,6 +29,7 @@ import type { SettingsPatch } from '@/types/bindings/SettingsPatch';
 import type { StorageFolder } from '@/types/bindings/StorageFolder';
 import type { StorageOverview } from '@/types/bindings/StorageOverview';
 import type { Tag } from '@/types/bindings/Tag';
+import type { TagUsage } from '@/types/bindings/TagUsage';
 import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
 import type { TimelineQuery } from '@/types/bindings/TimelineQuery';
 import type { TokenColor } from '@/types/bindings/TokenColor';
@@ -107,7 +108,10 @@ export interface CommandSignatures {
   };
   folders_rename: { args: { id: string; name: string }; result: Folder };
   folders_delete: { args: { id: string }; result: null };
+  /** Under another folder of the same workspace, or to the root (`null`); never inside itself. */
+  folders_move: { args: { id: string; parentId: string | null }; result: Folder };
   tags_list: { args: undefined; result: Tag[] };
+  tags_usage: { args: undefined; result: TagUsage[] };
   tags_create: { args: { name: string; color: TokenColor }; result: Tag };
   tags_rename: { args: { id: string; name: string }; result: Tag };
   tags_delete: { args: { id: string }; result: null };
