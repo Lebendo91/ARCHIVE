@@ -14,7 +14,16 @@ import type { ImportProgress } from '@/types/bindings/ImportProgress';
 import type { ImportSummary } from '@/types/bindings/ImportSummary';
 import type { ImportTarget } from '@/types/bindings/ImportTarget';
 import type { IntegrityReport } from '@/types/bindings/IntegrityReport';
+import type { LinkTarget } from '@/types/bindings/LinkTarget';
+import type { MarkdownFile } from '@/types/bindings/MarkdownFile';
+import type { NewNote } from '@/types/bindings/NewNote';
 import type { NewWorkspace } from '@/types/bindings/NewWorkspace';
+import type { Note } from '@/types/bindings/Note';
+import type { NoteContent } from '@/types/bindings/NoteContent';
+import type { NoteDetail } from '@/types/bindings/NoteDetail';
+import type { NoteLocation } from '@/types/bindings/NoteLocation';
+import type { NotePage } from '@/types/bindings/NotePage';
+import type { NoteQuery } from '@/types/bindings/NoteQuery';
 import type { PdfExtraction } from '@/types/bindings/PdfExtraction';
 import type { SettingsPatch } from '@/types/bindings/SettingsPatch';
 import type { StorageFolder } from '@/types/bindings/StorageFolder';
@@ -102,6 +111,30 @@ export interface CommandSignatures {
   tags_create: { args: { name: string; color: TokenColor }; result: Tag };
   tags_rename: { args: { id: string; name: string }; result: Tag };
   tags_delete: { args: { id: string }; result: null };
+  notes_list: { args: { query: NoteQuery }; result: NotePage };
+  notes_get: { args: { id: string }; result: NoteDetail };
+  notes_create: { args: { input: NewNote }; result: Note };
+  /** Refused with `stale_revision` when the note changed since `revision`. */
+  notes_save: {
+    args: { id: string; revision: number; content: NoteContent; links: LinkTarget[] };
+    result: Note;
+  };
+  notes_rename: { args: { id: string; title: string }; result: Note };
+  notes_duplicate: { args: { id: string; title: string }; result: Note };
+  notes_move: { args: { id: string; location: NoteLocation }; result: Note };
+  notes_set_favorite: { args: { id: string; favorite: boolean }; result: Note };
+  notes_set_archived: { args: { id: string; archived: boolean }; result: Note };
+  notes_set_tags: { args: { id: string; tagIds: string[] }; result: Tag[] };
+  notes_trash: { args: { id: string }; result: Note };
+  notes_restore: { args: { id: string }; result: Note };
+  notes_purge: { args: { id: string }; result: null };
+  notes_mark_opened: { args: { id: string }; result: null };
+  /** `null` when the user closes the file picker without choosing. */
+  notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
+  /** `false` when the user closes the save dialog. */
+  notes_export_markdown: { args: { id: string; markdown: string }; result: boolean };
+  /** Opens a web or e-mail address in the default application (other schemes are refused). */
+  app_open_url: { args: { url: string }; result: null };
 }
 
 export type CommandName = keyof CommandSignatures;

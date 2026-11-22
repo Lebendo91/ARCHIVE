@@ -2,7 +2,7 @@ import { Check, type LucideIcon } from 'lucide-react';
 import { Badge, Card, EmptyState, type IconTone } from '@/components/ui';
 import { useI18n } from '@/i18n';
 
-export type PlaceholderModule = 'notes' | 'graph' | 'timeline' | 'assistant';
+export type PlaceholderModule = 'graph' | 'timeline' | 'assistant';
 
 export interface ModulePlaceholderProps {
   module: PlaceholderModule;

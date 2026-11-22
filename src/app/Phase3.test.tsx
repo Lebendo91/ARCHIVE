@@ -101,9 +101,8 @@ describe('workspace creation', () => {
 
     const quickCreate = screen.getByRole('button', { name: 'Créer' });
     await user.click(quickCreate);
-    expect(await screen.findByRole('menuitem', { name: /Nouvelle note/ })).toHaveAttribute(
+    expect(await screen.findByRole('menuitem', { name: /Nouvelle note/ })).not.toHaveAttribute(
       'aria-disabled',
-      'true',
     );
     expect(screen.getByRole('menuitem', { name: /Importer un document/ })).not.toHaveAttribute(
       'aria-disabled',
@@ -349,7 +348,7 @@ describe('overview', () => {
       screen.getByText('Votre activité (imports, notes, espaces de travail) apparaîtra ici.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Importer un document/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /Nouvelle note/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Nouvelle note/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Ouvrir l’assistant IA/ })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Créer un espace de travail' }));

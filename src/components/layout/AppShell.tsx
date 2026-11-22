@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useDesktopBehavior } from '@/app/shortcuts/useDesktopBehavior';
 import { useGlobalShortcuts } from '@/app/shortcuts/useGlobalShortcuts';
+import { ResourceDialogs } from '@/components/resources/ResourceDialogs';
 import { Toaster } from '@/components/ui';
 import { useFocusRecovery } from '@/hooks/useFocusRecovery';
 import { useI18n } from '@/i18n';
-import { DocumentDialogs } from '@/modules/library/DocumentDialogs';
 import { ImportController } from '@/modules/library/ImportController';
 import { usePdfExtraction } from '@/modules/library/usePdfExtraction';
 import { useStartImport } from '@/modules/library/useStartImport';
+import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { RouteAnnouncer } from './RouteAnnouncer';
@@ -22,6 +23,7 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const startImport = useStartImport();
+  const createNote = useCreateNote();
 
   useGlobalShortcuts({
     openSettings: () => {
@@ -36,6 +38,11 @@ export function AppShell() {
       // Never replaces a dialog that is already open.
       if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
         workspaceDialogs.create();
+      }
+    },
+    newNote: () => {
+      if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        void createNote();
       }
     },
   });
@@ -72,7 +79,7 @@ export function AppShell() {
       </div>
       <RouteAnnouncer />
       <WorkspaceDialogs />
-      <DocumentDialogs />
+      <ResourceDialogs />
       <ImportController />
       <Toaster />
     </div>

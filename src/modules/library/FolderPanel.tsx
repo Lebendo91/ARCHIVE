@@ -29,7 +29,7 @@ import { refreshLibraryViews, useFolders } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
 import { toast } from '@/stores/toasts';
 import { cn } from '@/utils/cn';
-import { folderTree } from './DocumentDialogs';
+import { folderTree } from '@/components/resources/folderTree';
 
 type FolderDialog =
   | { kind: 'create'; parent: Folder | null }

@@ -9,6 +9,7 @@ import {
   waitForFonts,
 } from './fixtures';
 import { libraryState, pickedFixture } from './library';
+import { notesState } from './notes';
 
 /**
  * Screenshots for the visual audit (specification §20). They are written to visual-audit/ (kept between runs) and
@@ -296,6 +297,45 @@ test.describe('@visual screenshots', () => {
         page.getByRole('button', { name: 'Réessayer les fichiers en échec' }),
       ).toBeVisible();
       await shot('import-panel');
+    });
+
+    test(`notes at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const notes = notesState();
+      await seedCore(page, notes.state);
+      const shot = async (name: string) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase5-${name}.png` });
+      };
+
+      await page.goto('/#/notes');
+      await expect(page.getByRole('status').filter({ hasText: '4 notes' })).toBeVisible();
+      await shot('notes-list');
+      await page.goto(`/#/notes/${notes.notes.kirchhoff.note.id}`);
+      await expect(page.getByRole('textbox', { name: 'Contenu de la note' })).toBeVisible();
+      await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
+      await shot('note-editor');
+      await page.getByRole('textbox', { name: 'Contenu de la note' }).click();
+      await page.keyboard.press('Control+End');
+      await page.keyboard.type(' Nouvelle phrase.');
+      await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Lien vers une note ou un document…' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Idées de projets' })).toBeVisible();
+      await shot('link-picker');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Insérer' }).click();
+      await expect(page.getByRole('menu')).toBeVisible();
+      await shot('insert-menu');
+      await page.keyboard.press('Escape');
+      await page.goto(`/#/notes/${notes.notes.ohm.note.id}`);
+      await expect(page.getByRole('link', { name: 'Lois de Kirchhoff' })).toBeVisible();
+      await shot('note-backlinks');
+      await page.goto('/#/notes');
+      await page.getByRole('button', { name: 'Nouvelle note' }).click();
+      await expect(page.getByRole('textbox', { name: 'Titre de la note' })).toBeFocused();
+      await shot('new-note');
     });
 
     test(`first run at ${size}`, async ({ page }) => {

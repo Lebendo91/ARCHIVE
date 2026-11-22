@@ -6,22 +6,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { useStartImport } from '@/modules/library/useStartImport';
+import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 
-/**
- * Quick Create (spec §3.4). Creations whose module is not delivered yet are listed as upcoming and cannot
- * be selected.
- */
+/** Quick Create (spec §3.4): a workspace, a note or an import, from anywhere. */
 export function QuickCreateMenu() {
   const { t } = useI18n();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const startImport = useStartImport();
+  const createNote = useCreateNote();
   const keys = (id: ShortcutId) => formatCombination(getShortcut(id).combination, t);
 
   return (
@@ -42,6 +39,15 @@ export function QuickCreateMenu() {
           {t('shortcuts.newWorkspace')}
         </DropdownMenuItem>
         <DropdownMenuItem
+          icon={NotebookPen}
+          shortcut={keys('newNote')}
+          onSelect={() => {
+            void createNote();
+          }}
+        >
+          {t('shortcuts.newNote')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           icon={FileUp}
           shortcut={keys('importDocument')}
           onSelect={() => {
@@ -49,15 +55,6 @@ export function QuickCreateMenu() {
           }}
         >
           {t('shortcuts.importDocument')}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>
-          <span className="text-2xs font-semibold tracking-label text-fg-secondary uppercase">
-            {t('common.comingSoon')}
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuItem icon={NotebookPen} shortcut={keys('newNote')} disabled>
-          {t('shortcuts.newNote')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

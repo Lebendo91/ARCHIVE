@@ -50,6 +50,8 @@ function routeFor(event: TimelineEvent): string | undefined {
       return `/workspaces/${event.entityId}`;
     case 'document':
       return `/library/${event.entityId}`;
+    case 'note':
+      return `/notes/${event.entityId}`;
     default:
       return undefined;
   }

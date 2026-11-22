@@ -3,7 +3,7 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { usePageTitleStore } from '@/app/router/pageTitle';
-import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { useResourceDialogs } from '@/stores/resourceDialogs';
 import { useImportStore } from '@/stores/imports';
 import { useToastStore } from '@/stores/toasts';
 import { useUiStore } from '@/stores/ui';
@@ -41,7 +41,7 @@ afterEach(() => {
   useToastStore.setState({ toasts: [] });
   useWorkspaceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   usePageTitleStore.setState({ title: null });
-  useDocumentDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
+  useResourceDialogs.setState({ dialog: null, isOpen: false, returnFocus: null });
   useImportStore.setState({
     run: null,
     running: false,

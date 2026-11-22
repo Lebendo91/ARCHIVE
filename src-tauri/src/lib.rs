@@ -48,6 +48,7 @@ pub fn run() {
             commands::app::app_info,
             commands::app::app_status,
             commands::app::database_retry,
+            commands::app::app_open_url,
             commands::diagnostics::log_frontend_event,
             commands::settings::settings_get,
             commands::settings::settings_update,

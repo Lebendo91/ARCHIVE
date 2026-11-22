@@ -37,18 +37,12 @@ export function ResourceList({ items, emptyText, date }: ResourceListProps) {
             className="flex items-center gap-3 border-b border-line-subtle py-2 last:border-b-0"
           >
             <Icon size={16} aria-hidden="true" className="shrink-0 text-fg-secondary" />
-            {item.kind === 'document' ? (
-              <Link
-                to={`/library/${item.id}`}
-                className="min-w-0 flex-1 cursor-default truncate rounded-sm text-sm text-fg hover:text-blue"
-              >
-                {item.title || t('activity.untitled')}
-              </Link>
-            ) : (
-              <span className="min-w-0 flex-1 truncate text-sm text-fg">
-                {item.title || t('activity.untitled')}
-              </span>
-            )}
+            <Link
+              to={item.kind === 'document' ? `/library/${item.id}` : `/notes/${item.id}`}
+              className="min-w-0 flex-1 cursor-default truncate rounded-sm text-sm text-fg hover:text-blue"
+            >
+              {item.title || t('activity.untitled')}
+            </Link>
             <span className="sr-only">{t(`activity.kinds.${item.kind}`)}</span>
             <time
               dateTime={when.toISOString()}

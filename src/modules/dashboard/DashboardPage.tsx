@@ -19,6 +19,7 @@ import { Button, ButtonLink, Card, SectionCard, Skeleton, Stat, StatList } from 
 import { useNow } from '@/hooks/useNow';
 import { formatFileSize, formatLongDate, formatNumber, useI18n } from '@/i18n';
 import { useStartImport } from '@/modules/library/useStartImport';
+import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { WorkspaceIcon } from '@/modules/workspaces/WorkspaceIcon';
 import type { DashboardOverview } from '@/services/dashboard';
 import { errorMessageKey } from '@/services/errors';
@@ -80,11 +81,12 @@ function ExampleOrganization() {
 
 /**
  * First steps, while the knowledge base holds no document and no note (spec §6.2): the primary action
- * imports documents; creating a note joins it with the note editor.
+ * imports documents, the secondary one creates a note.
  */
 function Onboarding() {
   const { t } = useI18n();
   const startImport = useStartImport();
+  const createNote = useCreateNote();
   return (
     <Card padding="lg" className="flex items-center gap-8">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -107,15 +109,23 @@ function Onboarding() {
             {t('dashboard.onboarding.action')}
           </Button>
           <Button
+            icon={NotebookPen}
+            onClick={() => {
+              void createNote();
+            }}
+          >
+            {t('dashboard.onboarding.secondaryAction')}
+          </Button>
+          <Button
+            variant="ghost"
             icon={Plus}
             onClick={(event) => {
               workspaceDialogs.create(event.currentTarget);
             }}
           >
-            {t('dashboard.onboarding.secondaryAction')}
+            {t('dashboard.onboarding.workspaceAction')}
           </Button>
         </div>
-        <p className="text-xs text-fg-secondary">{t('dashboard.onboarding.upcoming')}</p>
       </div>
       <ExampleOrganization />
     </Card>
@@ -126,6 +136,7 @@ function Onboarding() {
 function QuickActions() {
   const { t } = useI18n();
   const startImport = useStartImport();
+  const createNote = useCreateNote();
   const actions: QuickAction[] = [
     {
       id: 'workspace',
@@ -145,7 +156,15 @@ function QuickActions() {
         void startImport('pick');
       },
     },
-    { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
+    {
+      id: 'note',
+      icon: NotebookPen,
+      label: t('shortcuts.newNote'),
+      keys: formatCombination(getShortcut('newNote').combination, t),
+      onClick: () => {
+        void createNote();
+      },
+    },
     { id: 'assistant', icon: MessageSquareText, label: t('dashboard.openAssistant') },
   ];
   return <QuickActionList actions={actions} className="grid-cols-2 xl:grid-cols-4" />;

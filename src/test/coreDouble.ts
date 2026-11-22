@@ -9,6 +9,15 @@ import type { ImportOutcome } from '../types/bindings/ImportOutcome';
 import type { ImportProgress } from '../types/bindings/ImportProgress';
 import type { ImportSummary } from '../types/bindings/ImportSummary';
 import type { ImportTarget } from '../types/bindings/ImportTarget';
+import type { LinkedResource } from '../types/bindings/LinkedResource';
+import type { LinkKind } from '../types/bindings/LinkKind';
+import type { LinkTarget } from '../types/bindings/LinkTarget';
+import type { MarkdownFile } from '../types/bindings/MarkdownFile';
+import type { Note } from '../types/bindings/Note';
+import type { NoteContent } from '../types/bindings/NoteContent';
+import type { NoteItem } from '../types/bindings/NoteItem';
+import type { NoteQuery } from '../types/bindings/NoteQuery';
+import type { NoteSummary } from '../types/bindings/NoteSummary';
 import type { PdfExtraction } from '../types/bindings/PdfExtraction';
 import type { ResourceCounts } from '../types/bindings/ResourceCounts';
 import type { ResourceSummary } from '../types/bindings/ResourceSummary';
@@ -41,6 +50,14 @@ export interface CoreDoubleDocument {
   base64: string;
 }
 
+/** A note of the double: the note, its plain text, its tags and the targets of its internal links. */
+export interface CoreDoubleNote {
+  note: Note;
+  contentText: string;
+  tagIds: string[];
+  links: LinkTarget[];
+}
+
 /** A file the next file picker (or drag and drop) returns. */
 export interface CoreDoubleFile {
   name: string;
@@ -68,6 +85,13 @@ export interface CoreDoubleState {
   picks: CoreDoubleFile[];
   /** Files of the latest import that failed temporarily (they succeed when retried). */
   retryable: CoreDoubleFile[];
+  notes: CoreDoubleNote[];
+  /** Markdown files returned by the next Markdown file picker. */
+  markdownPicks: MarkdownFile[];
+  /** Notes exported as Markdown, in order. */
+  exports: { id: string; markdown: string }[];
+  /** Addresses opened in the default application, in order. */
+  openedUrls: string[];
 }
 
 export type CoreDoubleHandler = (args: Record<string, unknown> | undefined) => unknown;
@@ -127,6 +151,10 @@ export function createCoreDouble(
     tags: initial?.tags ?? [],
     picks: initial?.picks ?? [],
     retryable: initial?.retryable ?? [],
+    notes: initial?.notes ?? [],
+    markdownPicks: initial?.markdownPicks ?? [],
+    exports: initial?.exports ?? [],
+    openedUrls: initial?.openedUrls ?? [],
   };
 
   const fail = (code: string, message: string): never => {
@@ -186,7 +214,7 @@ export function createCoreDouble(
   const record = (
     eventType: TimelineEventType,
     entity: {
-      type: 'workspace' | 'document';
+      type: 'workspace' | 'document' | 'note';
       id: string;
       workspaceId: string | null;
       title: string;
@@ -214,6 +242,11 @@ export function createCoreDouble(
         (entry) => entry.document.id === event.entityId && entry.document.deletedAt === null,
       );
     }
+    if (event.entityType === 'note') {
+      return state.notes.some(
+        (entry) => entry.note.id === event.entityId && entry.note.deletedAt === null,
+      );
+    }
     return false;
   };
   const latestEvents = (limit: number, workspaceId?: string, before?: number) =>
@@ -232,9 +265,13 @@ export function createCoreDouble(
     state.documents.filter(
       (entry) => entry.document.workspaceId === workspaceId && entry.document.deletedAt === null,
     );
+  const liveNotes = (workspaceId: string | null) =>
+    state.notes.filter(
+      (entry) => entry.note.workspaceId === workspaceId && entry.note.deletedAt === null,
+    );
   const countsOf = (entry: CoreDoubleWorkspace): ResourceCounts => ({
     documents: entry.counts.documents + liveDocuments(entry.workspace.id).length,
-    notes: entry.counts.notes,
+    notes: entry.counts.notes + liveNotes(entry.workspace.id).length,
     folders:
       entry.counts.folders +
       state.folders.filter((folder) => folder.workspaceId === entry.workspace.id).length,
@@ -261,6 +298,149 @@ export function createCoreDouble(
   const touch = (entry: CoreDoubleDocument, changes: Partial<Document>) => {
     entry.document = { ...entry.document, ...changes, updatedAt: Date.now() };
     return { ...entry.document };
+  };
+
+  // --- Notes ------------------------------------------------------------------------------------------
+  const findNote = (id: unknown) =>
+    state.notes.find((entry) => entry.note.id === id) ?? fail('not_found', 'note not found');
+  const noteTagsOf = (entry: CoreDoubleNote): Tag[] =>
+    state.tags
+      .filter((tag) => entry.tagIds.includes(tag.id))
+      .sort((a, b) => nameKey(a.name).localeCompare(nameKey(b.name)));
+  const noteSummaryOf = (entry: CoreDoubleNote): NoteSummary => ({
+    id: entry.note.id,
+    title: entry.note.title,
+    excerpt: entry.contentText.slice(0, 240),
+    workspaceId: entry.note.workspaceId,
+    folderId: entry.note.folderId,
+    isFavorite: entry.note.isFavorite,
+    isArchived: entry.note.isArchived,
+    createdAt: entry.note.createdAt,
+    updatedAt: entry.note.updatedAt,
+    lastOpenedAt: entry.note.lastOpenedAt,
+    deletedAt: entry.note.deletedAt,
+  });
+  const noteResourceOf = (entry: CoreDoubleNote): ResourceSummary => ({
+    kind: 'note',
+    id: entry.note.id,
+    title: entry.note.title,
+    workspaceId: entry.note.workspaceId,
+    updatedAt: entry.note.updatedAt,
+    lastOpenedAt: entry.note.lastOpenedAt,
+    isFavorite: entry.note.isFavorite,
+  });
+  const noteVisible = (entry: CoreDoubleNote) =>
+    entry.note.deletedAt === null && !entry.note.isArchived;
+  /** Title and availability of a link target, or `null` once it no longer exists. */
+  const linkedResource = (kind: LinkKind, id: string): LinkedResource | null => {
+    if (kind === 'note') {
+      const target = state.notes.find((entry) => entry.note.id === id);
+      return target
+        ? { kind, id, title: target.note.title, available: target.note.deletedAt === null }
+        : null;
+    }
+    const target = state.documents.find((entry) => entry.document.id === id);
+    return target
+      ? { kind, id, title: target.document.title, available: target.document.deletedAt === null }
+      : null;
+  };
+  /** Notes that link to a resource, trash excluded, by title. */
+  const backlinksOf = (kind: LinkKind, id: string): LinkedResource[] =>
+    state.notes
+      .filter(
+        (entry) =>
+          entry.note.deletedAt === null &&
+          entry.links.some((link) => link.kind === kind && link.id === id),
+      )
+      .sort((a, b) => fold(a.note.title).localeCompare(fold(b.note.title)))
+      .map((entry) => ({
+        kind: 'note' as const,
+        id: entry.note.id,
+        title: entry.note.title,
+        available: true,
+      }));
+  /** Links kept for a note: existing targets, once each, never the note itself. */
+  const cleanLinks = (noteId: string, links: unknown): LinkTarget[] => {
+    const kept: LinkTarget[] = [];
+    for (const link of Array.isArray(links) ? (links as LinkTarget[]) : []) {
+      const duplicate = kept.some((other) => other.kind === link.kind && other.id === link.id);
+      const self = link.kind === 'note' && link.id === noteId;
+      if (!duplicate && !self && linkedResource(link.kind, link.id) !== null) {
+        kept.push({ kind: link.kind, id: link.id });
+      }
+    }
+    return kept;
+  };
+  const checkNoteContent = (value: unknown): NoteContent => {
+    const content = (value ?? {}) as NoteContent;
+    const title = typeof content.title === 'string' ? content.title.trim() : '';
+    if (length(title) > 500) {
+      fail('invalid_input', 'note title is too long');
+    }
+    if (content.contentFormat === 'tiptap-json') {
+      let document: unknown;
+      try {
+        document = JSON.parse(content.content);
+      } catch {
+        fail('invalid_input', 'note content is not valid JSON');
+      }
+      if ((document as { type?: unknown } | null)?.type !== 'doc') {
+        fail('invalid_input', 'note content must be a TipTap document');
+      }
+    }
+    return { ...content, title };
+  };
+  const checkLocation = (workspaceId: unknown, folderId: unknown) => {
+    if (folderId != null && workspaceId == null) {
+      fail('invalid_input', 'a folder requires its workspace');
+    }
+    if (workspaceId != null) {
+      find(workspaceId);
+    }
+    if (folderId != null && findFolder(folderId).workspaceId !== workspaceId) {
+      fail('invalid_input', 'the folder belongs to another workspace');
+    }
+  };
+  const noteEvent = (eventType: TimelineEventType, entry: CoreDoubleNote) => {
+    record(eventType, {
+      type: 'note',
+      id: entry.note.id,
+      workspaceId: entry.note.workspaceId,
+      title: entry.note.title,
+    });
+  };
+  const touchNote = (entry: CoreDoubleNote, changes: Partial<Note>) => {
+    entry.note = { ...entry.note, ...changes, updatedAt: Date.now() };
+    return { ...entry.note };
+  };
+  const newNote = (
+    content: NoteContent,
+    workspaceId: string | null,
+    folderId: string | null,
+  ): CoreDoubleNote => {
+    const now = Date.now();
+    const entry: CoreDoubleNote = {
+      note: {
+        id: crypto.randomUUID(),
+        title: content.title,
+        content: content.content,
+        contentFormat: content.contentFormat,
+        workspaceId,
+        folderId,
+        revision: 1,
+        isFavorite: false,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+        lastOpenedAt: null,
+        deletedAt: null,
+      },
+      contentText: content.contentText,
+      tagIds: [],
+      links: [],
+    };
+    state.notes.push(entry);
+    return entry;
   };
 
   // --- Bytes and hashes -------------------------------------------------------------------------------
@@ -489,6 +669,62 @@ export function createCoreDouble(
     return { items, total: matches.length };
   };
 
+  const listNotes = (query: NoteQuery) => {
+    if (query.limit < 1 || query.limit > 200) {
+      fail('invalid_input', 'limit must be between 1 and 200');
+    }
+    const search = query.search?.trim() ? fold(query.search.trim()) : null;
+    const matches = state.notes.filter((entry) => {
+      const { note } = entry;
+      const inState =
+        query.state === 'trashed'
+          ? note.deletedAt !== null
+          : note.deletedAt === null && note.isArchived === (query.state === 'archived');
+      return (
+        inState &&
+        (search === null ||
+          fold(note.title).includes(search) ||
+          fold(entry.contentText).includes(search)) &&
+        (query.workspace === undefined ||
+          (query.workspace.kind === 'unassigned'
+            ? note.workspaceId === null
+            : note.workspaceId === query.workspace.id)) &&
+        (query.folderId === undefined || note.folderId === query.folderId) &&
+        (query.tagId === undefined || entry.tagIds.includes(query.tagId)) &&
+        (!query.favoritesOnly || note.isFavorite) &&
+        (!query.openedOnly || note.lastOpenedAt !== null) &&
+        (query.updatedAfter === undefined || note.updatedAt >= query.updatedAfter)
+      );
+    });
+    const direction = query.descending ? -1 : 1;
+    const key = (note: Note): string | number | null => {
+      switch (query.sort) {
+        case 'title':
+          return fold(note.title);
+        case 'created_at':
+          return note.createdAt;
+        case 'updated_at':
+          return note.updatedAt;
+        case 'last_opened_at':
+          return note.lastOpenedAt;
+      }
+    };
+    matches.sort((a, b) => {
+      const left = key(a.note);
+      const right = key(b.note);
+      if (left === null || right === null) {
+        if (left !== right) return left === null ? 1 : -1;
+      } else if (left !== right) {
+        return (left < right ? -1 : 1) * direction;
+      }
+      return a.note.id < b.note.id ? -1 : 1;
+    });
+    const items: NoteItem[] = matches
+      .slice(query.offset, query.offset + query.limit)
+      .map((entry) => ({ note: noteSummaryOf(entry), tags: noteTagsOf(entry) }));
+    return { items, total: matches.length };
+  };
+
   const handlers: Record<string, CoreDoubleHandler> = {
     workspaces_list: (args) =>
       state.workspaces
@@ -514,6 +750,14 @@ export function createCoreDouble(
                 doc.document.workspaceId === entry.workspace.id,
             )
             .map(resourceOf),
+          ...state.notes
+            .filter(
+              (note) =>
+                noteVisible(note) &&
+                note.note.isFavorite &&
+                note.note.workspaceId === entry.workspace.id,
+            )
+            .map(noteResourceOf),
           ...state.favorites.filter((item) => item.workspaceId === entry.workspace.id),
         ].slice(0, 6),
       };
@@ -583,6 +827,7 @@ export function createCoreDouble(
       const deletion = args?.deletion as WorkspaceDeletion;
       const counts = countsOf(entry);
       const allDocuments = state.documents.filter((doc) => doc.document.workspaceId === id);
+      const allNotes = state.notes.filter((note) => note.note.workspaceId === id);
       const ownFolders = state.folders.filter((folder) => folder.workspaceId === id);
       const report: WorkspaceDeletionReport = {
         documents: counts.documents,
@@ -593,7 +838,12 @@ export function createCoreDouble(
       };
       if (deletion.kind === 'empty') {
         if (
-          counts.documents + counts.notes + counts.folders + entry.trashed + allDocuments.length >
+          counts.documents +
+            counts.notes +
+            counts.folders +
+            entry.trashed +
+            allDocuments.length +
+            allNotes.length >
           0
         ) {
           fail('in_use', 'it still holds folders, documents or notes');
@@ -636,6 +886,13 @@ export function createCoreDouble(
             folderId: doc.document.folderId ?? container.id,
           };
         }
+        for (const note of allNotes) {
+          note.note = {
+            ...note.note,
+            workspaceId: target.workspace.id,
+            folderId: note.note.folderId ?? container.id,
+          };
+        }
         target.counts = {
           documents: target.counts.documents + entry.counts.documents,
           notes: target.counts.notes + entry.counts.notes,
@@ -652,6 +909,9 @@ export function createCoreDouble(
         };
         for (const doc of allDocuments) {
           doc.document = { ...doc.document, workspaceId: null, folderId: null };
+        }
+        for (const note of allNotes) {
+          note.note = { ...note.note, workspaceId: null, folderId: null };
         }
         state.folders = state.folders.filter((folder) => folder.workspaceId !== id);
         report.foldersRemoved = entry.counts.folders + ownFolders.length;
@@ -671,9 +931,19 @@ export function createCoreDouble(
         .filter((doc) => visible(doc) && doc.document.isFavorite)
         .sort((a, b) => b.document.updatedAt - a.document.updatedAt)
         .map(resourceOf);
+      const liveNoteEntries = state.notes.filter((note) => note.note.deletedAt === null);
+      const openedNotes = liveNoteEntries
+        .filter((note) => noteVisible(note) && note.note.lastOpenedAt !== null)
+        .map(noteResourceOf);
+      const favoriteNotes = liveNoteEntries
+        .filter((note) => noteVisible(note) && note.note.isFavorite)
+        .map(noteResourceOf);
+      const byOpening = (a: ResourceSummary, b: ResourceSummary) =>
+        (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0);
+      const byUpdate = (a: ResourceSummary, b: ResourceSummary) => b.updatedAt - a.updatedAt;
       return {
         documents: total('documents') + live.length,
-        notes: total('notes'),
+        notes: total('notes') + liveNoteEntries.length,
         workspaces: state.workspaces.filter((entry) => !entry.workspace.isArchived).length,
         recentlyIndexed:
           state.recentlyIndexed +
@@ -681,8 +951,14 @@ export function createCoreDouble(
             (doc) => doc.content !== null && doc.document.importedAt >= Date.now() - 7 * DAY,
           ).length,
         recentActivity: latestEvents(8),
-        recentlyOpened: [...opened, ...state.recentlyOpened].slice(0, 6),
-        favorites: [...favorites, ...state.favorites].slice(0, 6),
+        recentlyOpened: [
+          ...[...opened, ...openedNotes].sort(byOpening),
+          ...state.recentlyOpened,
+        ].slice(0, 6),
+        favorites: [...[...favorites, ...favoriteNotes].sort(byUpdate), ...state.favorites].slice(
+          0,
+          6,
+        ),
       };
     },
     timeline_list: (args) => {
@@ -727,7 +1003,12 @@ export function createCoreDouble(
     documents_list: (args) => listDocuments(args?.query as DocumentQuery),
     documents_get: (args) => {
       const entry = findDocument(args?.id);
-      return { document: { ...entry.document }, tags: tagsOf(entry), content: entry.content };
+      return {
+        document: { ...entry.document },
+        tags: tagsOf(entry),
+        content: entry.content,
+        linkedNotes: backlinksOf('document', entry.document.id),
+      };
     },
     documents_rename: (args) =>
       changed(touch(findDocument(args?.id), { title: cleanName(args?.title, 500) })),
@@ -929,7 +1210,8 @@ export function createCoreDouble(
       const folder = findFolder(args?.id);
       const held =
         state.folders.filter((other) => other.parentId === folder.id).length +
-        state.documents.filter((doc) => doc.document.folderId === folder.id).length;
+        state.documents.filter((doc) => doc.document.folderId === folder.id).length +
+        state.notes.filter((note) => note.note.folderId === folder.id).length;
       if (held > 0) {
         fail('in_use', 'folders, documents or notes are still inside');
       }
@@ -964,6 +1246,176 @@ export function createCoreDouble(
       for (const doc of state.documents) {
         doc.tagIds = doc.tagIds.filter((id) => id !== args?.id);
       }
+      for (const note of state.notes) {
+        note.tagIds = note.tagIds.filter((id) => id !== args?.id);
+      }
+      return changed(null);
+    },
+
+    // --- Notes ---------------------------------------------------------------------------------------
+    notes_list: (args) => listNotes(args?.query as NoteQuery),
+    notes_get: (args) => {
+      const entry = findNote(args?.id);
+      return {
+        note: { ...entry.note },
+        tags: noteTagsOf(entry),
+        links: entry.links
+          .map((link) => linkedResource(link.kind, link.id))
+          .filter((linked): linked is LinkedResource => linked !== null)
+          .sort((a, b) => fold(a.title).localeCompare(fold(b.title))),
+        backlinks: backlinksOf('note', entry.note.id),
+      };
+    },
+    notes_create: (args) => {
+      const input = (args?.input ?? {}) as {
+        content: unknown;
+        workspaceId?: string;
+        folderId?: string;
+        links?: unknown;
+      };
+      const content = checkNoteContent(input.content);
+      checkLocation(input.workspaceId, input.folderId);
+      const entry = newNote(content, input.workspaceId ?? null, input.folderId ?? null);
+      entry.links = cleanLinks(entry.note.id, input.links);
+      noteEvent('note_created', entry);
+      return changed({ ...entry.note });
+    },
+    notes_save: (args) => {
+      const entry = findNote(args?.id);
+      if (entry.note.deletedAt !== null) {
+        fail('invalid_input', 'a note in the trash cannot be edited');
+      }
+      if (args?.revision !== entry.note.revision) {
+        fail('stale_revision', 'the note changed since this revision');
+      }
+      const content = checkNoteContent(args?.content);
+      const lastEvent = state.events
+        .filter((event) => event.entityType === 'note' && event.entityId === entry.note.id)
+        .at(-1);
+      touchNote(entry, {
+        title: content.title,
+        content: content.content,
+        contentFormat: content.contentFormat,
+        revision: entry.note.revision + 1,
+      });
+      entry.contentText = content.contentText;
+      entry.links = cleanLinks(entry.note.id, args?.links);
+      if (!lastEvent || Date.now() - lastEvent.createdAt >= 60 * 60 * 1000) {
+        noteEvent('note_modified', entry);
+      }
+      return changed({ ...entry.note });
+    },
+    notes_rename: (args) => {
+      const entry = findNote(args?.id);
+      const title = typeof args?.title === 'string' ? args.title.trim() : '';
+      if (length(title) > 500) {
+        fail('invalid_input', 'note title is too long');
+      }
+      return changed(touchNote(entry, { title, revision: entry.note.revision + 1 }));
+    },
+    notes_duplicate: (args) => {
+      const original = findNote(args?.id);
+      if (original.note.deletedAt !== null) {
+        fail('invalid_input', 'a note in the trash cannot be duplicated');
+      }
+      const copy = newNote(
+        {
+          title: typeof args?.title === 'string' ? args.title.trim() : '',
+          content: original.note.content,
+          contentFormat: original.note.contentFormat,
+          contentText: original.contentText,
+        },
+        original.note.workspaceId,
+        original.note.folderId,
+      );
+      copy.tagIds = [...original.tagIds];
+      copy.links = cleanLinks(copy.note.id, original.links);
+      noteEvent('note_created', copy);
+      return changed({ ...copy.note });
+    },
+    notes_move: (args) => {
+      const entry = findNote(args?.id);
+      const location = (args?.location ?? {}) as {
+        workspaceId: string | null;
+        folderId: string | null;
+      };
+      checkLocation(location.workspaceId, location.folderId);
+      return changed(
+        touchNote(entry, { workspaceId: location.workspaceId, folderId: location.folderId }),
+      );
+    },
+    notes_set_favorite: (args) => {
+      const entry = findNote(args?.id);
+      const favorite = args?.favorite === true;
+      const wasFavorite = entry.note.isFavorite;
+      const note = touchNote(entry, { isFavorite: favorite });
+      if (favorite && !wasFavorite) {
+        noteEvent('resource_favorited', entry);
+      }
+      return changed(note);
+    },
+    notes_set_archived: (args) => {
+      const entry = findNote(args?.id);
+      const archived = args?.archived === true;
+      const wasArchived = entry.note.isArchived;
+      const note = touchNote(entry, { isArchived: archived });
+      if (archived !== wasArchived) {
+        noteEvent(archived ? 'resource_archived' : 'resource_restored', entry);
+      }
+      return changed(note);
+    },
+    notes_set_tags: (args) => {
+      const entry = findNote(args?.id);
+      const ids = (args?.tagIds ?? []) as string[];
+      for (const id of ids) {
+        if (!state.tags.some((tag) => tag.id === id)) fail('not_found', 'tag not found');
+      }
+      entry.tagIds = [...new Set(ids)];
+      return changed(noteTagsOf(entry));
+    },
+    notes_trash: (args) => {
+      const entry = findNote(args?.id);
+      if (entry.note.deletedAt !== null) fail('not_found', 'note not found');
+      entry.note = { ...entry.note, deletedAt: Date.now() };
+      return changed({ ...entry.note });
+    },
+    notes_restore: (args) => {
+      const entry = findNote(args?.id);
+      entry.note = { ...entry.note, deletedAt: null };
+      return changed({ ...entry.note });
+    },
+    notes_purge: (args) => {
+      const entry = findNote(args?.id);
+      if (entry.note.deletedAt === null) {
+        fail('invalid_input', 'only a note in the trash can be deleted permanently');
+      }
+      state.notes = state.notes.filter((note) => note !== entry);
+      return changed(null);
+    },
+    notes_mark_opened: (args) => {
+      const entry = findNote(args?.id);
+      entry.note = { ...entry.note, lastOpenedAt: Date.now() };
+      return changed(null);
+    },
+    notes_import_markdown_pick: () => {
+      if (state.markdownPicks.length === 0) {
+        return null;
+      }
+      const files = state.markdownPicks;
+      state.markdownPicks = [];
+      return changed(files);
+    },
+    notes_export_markdown: (args) => {
+      const entry = findNote(args?.id);
+      state.exports.push({ id: entry.note.id, markdown: String(args?.markdown) });
+      return changed(true);
+    },
+    app_open_url: (args) => {
+      const url = typeof args?.url === 'string' ? args.url : '';
+      if (!/^(https?:\/\/[^/\s]+|mailto:)/.test(url)) {
+        fail('invalid_input', 'only web and e-mail addresses can be opened');
+      }
+      state.openedUrls.push(url);
       return changed(null);
     },
   };
@@ -1105,6 +1557,69 @@ export function seedFolder(
 /** Tag to seed the double with. */
 export function seedTag(name: string, color: TokenColor = 'amber'): Tag {
   return { id: seedId('b000'), name, color, createdAt: Date.now() - 24 * 60 * 60 * 1000 };
+}
+
+/** TipTap document of plain paragraphs, the way the editor stores a simple note. */
+export function noteDocument(...paragraphs: string[]): string {
+  return JSON.stringify({
+    type: 'doc',
+    content: paragraphs.map((text) =>
+      text === ''
+        ? { type: 'paragraph' }
+        : { type: 'paragraph', content: [{ type: 'text', text }] },
+    ),
+  });
+}
+
+/** Note to seed the double with, written `ageMs` ago; `text` gives its paragraphs (one per line). */
+export function seedNote(
+  title: string,
+  options: Partial<Note> & {
+    text?: string;
+    tagIds?: string[];
+    links?: LinkTarget[];
+    ageMs?: number;
+  } = {},
+): CoreDoubleNote {
+  const { text = '', tagIds = [], links = [], ageMs = 60 * 60 * 1000, ...overrides } = options;
+  const id = seedId('c000');
+  const at = Date.now() - ageMs;
+  return {
+    note: {
+      id,
+      title,
+      content: noteDocument(...text.split('\n')),
+      contentFormat: 'tiptap-json',
+      workspaceId: null,
+      folderId: null,
+      revision: 1,
+      isFavorite: false,
+      isArchived: false,
+      createdAt: at,
+      updatedAt: at,
+      lastOpenedAt: null,
+      deletedAt: null,
+      ...overrides,
+    },
+    contentText: text,
+    tagIds,
+    links,
+  };
+}
+
+/** Event of a seeded note's creation, for the timeline. */
+export function noteCreationEvent(entry: CoreDoubleNote): TimelineEvent {
+  return {
+    id: `event-${entry.note.id}`,
+    eventType: 'note_created',
+    entityType: 'note',
+    entityId: entry.note.id,
+    workspaceId: entry.note.workspaceId,
+    description: entry.note.title,
+    metadata: {},
+    createdAt: entry.note.createdAt,
+    available: true,
+  };
 }
 
 /** Event of a seeded document's import, for the timeline. */

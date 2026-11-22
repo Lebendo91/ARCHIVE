@@ -3,32 +3,74 @@ import { Plus } from 'lucide-react';
 import { useId, useRef, useState, type SubmitEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Button, ConfirmDialog, Dialog, DialogContent, Input, Select } from '@/components/ui';
-import { useI18n } from '@/i18n';
-import {
-  moveDocument,
-  purgeDocument,
-  renameDocument,
-  setDocumentTags,
-  type Document,
-} from '@/services/documents';
+import { useI18n, type MessageKey } from '@/i18n';
+import { moveDocument, purgeDocument, renameDocument, setDocumentTags } from '@/services/documents';
 import { errorMessageKey } from '@/services/errors';
-import { createTag, type Folder } from '@/services/library';
+import { createTag } from '@/services/library';
+import { moveNote, purgeNote, renameNote, setNoteTags } from '@/services/notes';
 import {
   refreshLibraryViews,
   useDocument,
   useFolders,
+  useNote,
   useTags,
   useWorkspaces,
 } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
-import { useDocumentDialogs } from '@/stores/documentDialogs';
+import { useResourceDialogs, type DialogResource } from '@/stores/resourceDialogs';
 import { toast } from '@/stores/toasts';
+import { folderTree } from './folderTree';
+
+/** What differs between a document and a note in the shared dialogs: operations, wording, addresses. */
+const RESOURCES = {
+  document: {
+    rename: renameDocument,
+    move: moveDocument,
+    setTags: setDocumentTags,
+    purge: purgeDocument,
+    renameTitle: 'library.rename.title',
+    renamed: 'library.toasts.renamed',
+    moved: 'library.toasts.moved',
+    purgeDescription: 'library.purge.description',
+    purged: 'library.toasts.purged',
+    path: (id: string) => `/library/${id}`,
+    trashPath: '/library?state=trashed',
+  },
+  note: {
+    rename: renameNote,
+    move: moveNote,
+    setTags: setNoteTags,
+    purge: purgeNote,
+    renameTitle: 'notes.rename.title',
+    renamed: 'notes.toasts.renamed',
+    moved: 'notes.toasts.moved',
+    purgeDescription: 'notes.purge.description',
+    purged: 'notes.toasts.purged',
+    path: (id: string) => `/notes/${id}`,
+    trashPath: '/notes?state=trashed',
+  },
+} as const satisfies Record<
+  DialogResource['type'],
+  {
+    renameTitle: MessageKey;
+    renamed: MessageKey;
+    moved: MessageKey;
+    purgeDescription: MessageKey;
+    purged: MessageKey;
+  } & Record<string, unknown>
+>;
 
 interface DialogProps {
   open: boolean;
-  document: Document;
+  resource: DialogResource;
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
+}
+
+/** The title shown for a resource: an untitled note is named as such. */
+function useDisplayTitle(resource: DialogResource): string {
+  const { t } = useI18n();
+  return resource.title.trim() === '' ? t('notes.untitled') : resource.title;
 }
 
 function useRefresh() {
@@ -36,14 +78,15 @@ function useRefresh() {
   return () => refreshLibraryViews(client);
 }
 
-function RenameDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) {
+function RenameDialog({ open, resource, onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useI18n();
   const formId = useId();
   const refresh = useRefresh();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState(document.title);
+  const [title, setTitle] = useState(resource.title);
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const kind = RESOURCES[resource.type];
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,15 +96,15 @@ function RenameDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps
       inputRef.current?.focus();
       return;
     }
-    if (trimmed === document.title) {
+    if (trimmed === resource.title) {
       onClose();
       return;
     }
     setPending(true);
     try {
-      await renameDocument(document.id, trimmed);
+      await kind.rename(resource.id, trimmed);
       await refresh();
-      toast.success(t('library.toasts.renamed'));
+      toast.success(t(kind.renamed));
       onClose();
     } catch (failure) {
       toast.error(t(errorMessageKey(failure)));
@@ -80,7 +123,7 @@ function RenameDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps
       }}
     >
       <DialogContent
-        title={t('library.rename.title')}
+        title={t(kind.renameTitle)}
         size="sm"
         onCloseAutoFocus={onCloseAutoFocus}
         footer={
@@ -113,49 +156,29 @@ function RenameDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps
   );
 }
 
-/** Folders in tree order, each with its depth, for an indented list. */
-export function folderTree(folders: readonly Folder[]): { folder: Folder; depth: number }[] {
-  const children = new Map<string | null, Folder[]>();
-  for (const folder of folders) {
-    const siblings = children.get(folder.parentId) ?? [];
-    siblings.push(folder);
-    children.set(folder.parentId, siblings);
-  }
-  const ordered: { folder: Folder; depth: number }[] = [];
-  const visit = (parentId: string | null, depth: number) => {
-    const siblings = (children.get(parentId) ?? []).toSorted((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-    for (const folder of siblings) {
-      ordered.push({ folder, depth });
-      visit(folder.id, depth + 1);
-    }
-  };
-  visit(null, 0);
-  return ordered;
-}
-
-function MoveDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) {
+function MoveDialog({ open, resource, onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useI18n();
   const refresh = useRefresh();
   const workspaces = useWorkspaces();
-  const [workspaceId, setWorkspaceId] = useState(document.workspaceId ?? '');
-  const [folderId, setFolderId] = useState(document.folderId ?? '');
+  const displayTitle = useDisplayTitle(resource);
+  const [workspaceId, setWorkspaceId] = useState(resource.workspaceId ?? '');
+  const [folderId, setFolderId] = useState(resource.folderId ?? '');
   const folders = useFolders(workspaceId === '' ? undefined : workspaceId);
   const [pending, setPending] = useState(false);
+  const kind = RESOURCES[resource.type];
   const options = (workspaces.data ?? []).filter(
-    ({ workspace }) => !workspace.isArchived || workspace.id === document.workspaceId,
+    ({ workspace }) => !workspace.isArchived || workspace.id === resource.workspaceId,
   );
 
   async function confirm() {
     setPending(true);
     try {
-      await moveDocument(document.id, {
+      await kind.move(resource.id, {
         workspaceId: workspaceId === '' ? null : workspaceId,
         folderId: workspaceId === '' || folderId === '' ? null : folderId,
       });
       await refresh();
-      toast.success(t('library.toasts.moved'));
+      toast.success(t(kind.moved));
       onClose();
     } catch (failure) {
       toast.error(t(errorMessageKey(failure)));
@@ -174,7 +197,7 @@ function MoveDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
       }}
     >
       <DialogContent
-        title={t('library.move.title', { title: document.title })}
+        title={t('library.move.title', { title: displayTitle })}
         size="sm"
         onCloseAutoFocus={onCloseAutoFocus}
         footer={
@@ -215,7 +238,7 @@ function MoveDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
               <option value="">{t('library.move.root')}</option>
               {folderTree(folders.data ?? []).map(({ folder, depth }) => (
                 <option key={folder.id} value={folder.id}>
-                  {`${' '.repeat(depth)}${folder.name}`}
+                  {`${' '.repeat(depth)}${folder.name}`}
                 </option>
               ))}
             </Select>
@@ -226,17 +249,20 @@ function MoveDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
   );
 }
 
-function TagsDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) {
+function TagsDialog({ open, resource, onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useI18n();
   const refresh = useRefresh();
   const legendId = useId();
   const tags = useTags();
-  const detail = useDocument(document.id);
+  const displayTitle = useDisplayTitle(resource);
+  const document = useDocument(resource.id, { enabled: resource.type === 'document' });
+  const note = useNote(resource.id, { enabled: resource.type === 'note' });
+  const stored = resource.type === 'document' ? document.data?.tags : note.data?.tags;
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState<string>();
   const [pending, setPending] = useState(false);
-  const current = selected ?? new Set(detail.data?.tags.map((tag) => tag.id) ?? []);
+  const current = selected ?? new Set(stored?.map((tag) => tag.id) ?? []);
 
   const toggle = (id: string) => {
     const next = new Set(current);
@@ -270,7 +296,7 @@ function TagsDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
   async function save() {
     setPending(true);
     try {
-      await setDocumentTags(document.id, [...current]);
+      await RESOURCES[resource.type].setTags(resource.id, [...current]);
       await refresh();
       toast.success(t('library.toasts.tagsSaved'));
       onClose();
@@ -292,7 +318,7 @@ function TagsDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
       }}
     >
       <DialogContent
-        title={t('library.tagsDialog.title', { title: document.title })}
+        title={t('library.tagsDialog.title', { title: displayTitle })}
         size="sm"
         onCloseAutoFocus={onCloseAutoFocus}
         footer={
@@ -362,12 +388,14 @@ function TagsDialog({ open, document, onClose, onCloseAutoFocus }: DialogProps) 
   );
 }
 
-function PurgeDialog({ open, document, onClose }: Omit<DialogProps, 'onCloseAutoFocus'>) {
+function PurgeDialog({ open, resource, onClose }: Omit<DialogProps, 'onCloseAutoFocus'>) {
   const { t } = useI18n();
   const refresh = useRefresh();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const displayTitle = useDisplayTitle(resource);
   const [pending, setPending] = useState(false);
+  const kind = RESOURCES[resource.type];
   return (
     <ConfirmDialog
       open={open}
@@ -376,19 +404,20 @@ function PurgeDialog({ open, document, onClose }: Omit<DialogProps, 'onCloseAuto
           onClose();
         }
       }}
-      title={t('library.purge.title', { title: document.title })}
-      description={t('library.purge.description')}
+      title={t('library.purge.title', { title: displayTitle })}
+      description={t(kind.purgeDescription)}
       confirmLabel={t('library.purge.confirm')}
       loading={pending}
       onConfirm={() => {
         setPending(true);
-        purgeDocument(document.id)
+        kind
+          .purge(resource.id)
           .then(async () => {
-            if (pathname === `/library/${document.id}`) {
-              await navigate('/library?state=trashed');
+            if (pathname === kind.path(resource.id)) {
+              await navigate(kind.trashPath);
             }
             await refresh();
-            toast.success(t('library.toasts.purged', { title: document.title }));
+            toast.success(t(kind.purged, { title: displayTitle }));
             onClose();
           })
           .catch((failure: unknown) => {
@@ -404,23 +433,23 @@ function PurgeDialog({ open, document, onClose }: Omit<DialogProps, 'onCloseAuto
 
 function restoreFocus(event: Event) {
   event.preventDefault();
-  const target = useDocumentDialogs.getState().returnFocus;
+  const target = useResourceDialogs.getState().returnFocus;
   (target?.isConnected && target !== document.body
     ? target
     : document.getElementById('main-content')
   )?.focus();
 }
 
-/** Document dialogs, rendered once by the application frame (see `stores/documentDialogs`). */
-export function DocumentDialogs() {
-  const dialog = useDocumentDialogs((state) => state.dialog);
-  const isOpen = useDocumentDialogs((state) => state.isOpen);
-  const sequence = useDocumentDialogs((state) => state.sequence);
-  const close = useDocumentDialogs((state) => state.close);
+/** Dialogs of documents and notes, rendered once by the application frame (see `stores/resourceDialogs`). */
+export function ResourceDialogs() {
+  const dialog = useResourceDialogs((state) => state.dialog);
+  const isOpen = useResourceDialogs((state) => state.isOpen);
+  const sequence = useResourceDialogs((state) => state.sequence);
+  const close = useResourceDialogs((state) => state.close);
   if (!dialog) {
     return null;
   }
-  const props = { open: isOpen, document: dialog.document, onClose: close };
+  const props = { open: isOpen, resource: dialog.resource, onClose: close };
   switch (dialog.kind) {
     case 'rename':
       return <RenameDialog key={sequence} {...props} onCloseAutoFocus={restoreFocus} />;
