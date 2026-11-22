@@ -190,7 +190,8 @@ function PaletteBody({ initialText, onClose }: { initialText: string; onClose: (
 
   const openAll = () => {
     record(text);
-    void navigate(`/search?q=${encodeURIComponent(text.trim())}`);
+    // The search page shows the same results: the text searched as typed stays so.
+    void navigate(`/search?q=${encodeURIComponent(text.trim())}${literal ? '&literal=1' : ''}`);
     onClose();
   };
   const activate = (option: PaletteOption | undefined) => {

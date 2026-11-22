@@ -80,8 +80,8 @@ réinitialisation de sa limite d'utilisation.
 | `cargo test` | ✅ 213/213 (+ 1 mesure de performance ignorée par défaut) |
 | `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
 | `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
-| `npm test` | ✅ 146/146 (20 fichiers, dont 10 tests de la page de recherche, de l'historique et de la palette, et 4 de l'interprétation des dates et des types) |
-| `npm run test:e2e` (dont axe-core sur la palette et la page de recherche : historique, résultats, filtres, aucun résultat) | ✅ 66/66 ; les 9 tests de la phase répétés 3 fois sans échec |
+| `npm test` | ✅ 147/147 (20 fichiers, dont 11 tests de la page de recherche, de l'historique et de la palette, et 4 de l'interprétation des dates et des types) |
+| `npm run test:e2e` (dont axe-core sur la palette et la page de recherche : historique, résultats, filtres, aucun résultat ; `/search` rejoint les écrans contrôlés un par un) | ✅ 67/67 ; les 9 tests de la phase répétés 3 fois sans échec |
 | `npm run test:visual` (33 scénarios, 3 résolutions) | ✅ captures revues |
 | `scripts/validate-native-phase6.py` : binaire de production, vraie base SQLite, sélecteur GTK, trois lancements sous Xvfb | ✅ 22/22 vérifications |
 | `cargo test --release --lib search::perf -- --ignored --nocapture` (mesure indicative) | ✅ chiffres dans ARCHITECTURE §9 |

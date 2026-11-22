@@ -360,6 +360,31 @@ describe('search palette', () => {
     });
   });
 
+  it('keeps the text searched as typed when opening every result', async () => {
+    mockNativeRuntime({}, { core: knowledgeBase().core });
+    const { user, router } = renderApp('/');
+    await screen.findByRole('heading', { level: 1 });
+    await user.keyboard('{Control>}k{/Control}');
+    const palette = await screen.findByRole('dialog', { name: 'Rechercher dans ARCHIVE' });
+    await user.keyboard('notes sur la sécurité');
+    await user.click(
+      await within(palette).findByRole('button', { name: 'Chercher le texte tel quel' }),
+    );
+    expect(
+      await within(palette).findByRole('button', { name: 'Reconnaître les dates et les types' }),
+    ).toBeVisible();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/search');
+    });
+    expect(router.state.location.search).toBe(
+      `?q=${encodeURIComponent('notes sur la sécurité')}&literal=1`,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Reconnaître les dates et les types' }),
+    ).toBeVisible();
+  });
+
   it('shows an untitled note as such', async () => {
     const untitled = seedNote('', { text: 'Idée de montage à base de relais.' });
     mockNativeRuntime({}, { core: { notes: [untitled] } });
