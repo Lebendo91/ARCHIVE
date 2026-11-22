@@ -1,4 +1,5 @@
-import { ArrowLeft, Boxes, FileUp, NotebookPen, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Boxes, FileUp, NotebookPen, Pencil } from 'lucide-react';
+import { useEffect } from 'react';
 import { useParams } from 'react-router';
 import { QuickActionList } from '@/components/actions/QuickActionList';
 import { ActivityList } from '@/components/activity/ActivityList';
@@ -15,27 +16,49 @@ import {
   Stat,
   StatList,
 } from '@/components/ui';
+import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
 import { formatDate, formatNumber, useI18n } from '@/i18n';
+import { useStartImport } from '@/modules/library/useStartImport';
 import { useWorkspace, useWorkspaces } from '@/services/queries';
 import { isCommandError } from '@/services/tauri';
-import type { WorkspaceDetail } from '@/services/workspaces';
+import type { Workspace, WorkspaceDetail } from '@/services/workspaces';
+import { useImportStore } from '@/stores/imports';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { WorkspaceActionsMenu } from './WorkspaceActionsMenu';
 import { WorkspaceIcon } from './WorkspaceIcon';
 
-/** Actions of the Library and Notes modules, shown as upcoming: no dead button. */
-function UpcomingActions() {
+/** Imports go into this workspace; note creation joins them with the note editor (no dead button). */
+function WorkspaceActions({ workspace }: { workspace: Workspace }) {
   const { t } = useI18n();
+  const startImport = useStartImport();
   return (
     <div className="flex flex-col gap-3">
       <QuickActionList
         className="grid-cols-2"
         actions={[
-          { id: 'document', icon: FileUp, label: t('shortcuts.importDocument') },
+          {
+            id: 'document',
+            icon: FileUp,
+            label: t('shortcuts.importDocument'),
+            keys: formatCombination(getShortcut('importDocument').combination, t),
+            onClick: () => {
+              void startImport('pick', { workspaceId: workspace.id });
+            },
+          },
           { id: 'note', icon: NotebookPen, label: t('shortcuts.newNote') },
         ]}
       />
-      <p className="text-xs text-fg-secondary">{t('workspaces.detail.upcoming')}</p>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs text-fg-secondary">{t('workspaces.detail.upcoming')}</p>
+        <ButtonLink
+          to={`/library?workspace=${workspace.id}`}
+          variant="ghost"
+          size="sm"
+          icon={ArrowRight}
+        >
+          {t('workspaces.detail.viewDocuments')}
+        </ButtonLink>
+      </div>
     </div>
   );
 }
@@ -109,12 +132,16 @@ function WorkspaceDashboard({ detail }: { detail: WorkspaceDetail }) {
         >
           {t('workspaces.detail.actionsTitle')}
         </h3>
-        <UpcomingActions />
+        <WorkspaceActions workspace={workspace} />
       </section>
 
       <div className="grid grid-cols-3 gap-6">
         <SectionCard title={t('workspaces.detail.activity')} className="col-span-2">
-          <ActivityList events={recentActivity} emptyText={t('workspaces.detail.noActivity')} />
+          <ActivityList
+            events={recentActivity}
+            emptyText={t('workspaces.detail.noActivity')}
+            currentEntityId={workspace.id}
+          />
         </SectionCard>
         <SectionCard title={t('workspaces.detail.favorites')}>
           <ResourceList
@@ -156,6 +183,18 @@ export function WorkspacePage() {
   // While the detail loads, the name already known from the list titles the page.
   const listed = useWorkspaces().data?.find((summary) => summary.workspace.id === id);
   usePageTitle(detail.data?.workspace.name ?? listed?.workspace.name);
+
+  // Files dropped while this page is displayed go into this workspace.
+  const name = detail.data?.workspace.name;
+  useEffect(() => {
+    if (name === undefined) {
+      return undefined;
+    }
+    useImportStore.getState().setContext({ target: { workspaceId: id }, label: name });
+    return () => {
+      useImportStore.getState().setContext(null);
+    };
+  }, [id, name]);
 
   if (detail.isError) {
     const missing =

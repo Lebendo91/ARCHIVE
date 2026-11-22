@@ -1,6 +1,15 @@
-import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  QueryClient,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { getAppInfo, getAppStatus, retryDatabase } from './app';
 import { getDashboardOverview } from './dashboard';
+import { getDocument, listDocuments, type DocumentQuery } from './documents';
+import { listFolders, listTags } from './library';
 import { getSettings, updateSettings } from './settings';
 import { checkDatabaseIntegrity, getStorageOverview, openStorageFolder } from './storage';
 import { isNativeRuntime } from './tauri';
@@ -26,6 +35,14 @@ export const queryKeys = {
   workspaceList: ['workspaces', 'list'] as const,
   workspace: (id: string) => ['workspaces', 'detail', id] as const,
   dashboard: ['dashboard'] as const,
+  /** Prefix of every document query (lists and details). */
+  documents: ['documents'] as const,
+  documentList: (query: DocumentQuery) => ['documents', 'list', query] as const,
+  document: (id: string) => ['documents', 'detail', id] as const,
+  /** Prefix of every folder query. */
+  folders: ['folders'] as const,
+  workspaceFolders: (workspaceId: string) => ['folders', workspaceId] as const,
+  tags: ['tags'] as const,
 };
 
 /**
@@ -123,6 +140,9 @@ async function refreshWorkspaceViews(
       predicate: (query) => !isExcepted(query.queryKey),
     }),
     client.invalidateQueries({ queryKey: queryKeys.dashboard }),
+    // Deleting a workspace moves its documents and folders.
+    client.invalidateQueries({ queryKey: queryKeys.documents }),
+    client.invalidateQueries({ queryKey: queryKeys.folders }),
   ]);
 }
 
@@ -166,4 +186,67 @@ export function useDeleteWorkspace() {
       await refreshWorkspaceViews(client, detailKey);
     },
   });
+}
+
+/** A page of the Library. The previous page stays displayed while the next one loads. */
+export function useDocuments(query: DocumentQuery, { enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: queryKeys.documentList(query),
+    queryFn: () => listDocuments(query),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** Library pages loaded one after the other (« Show more »), from offset 0. */
+export function useDocumentPages(query: Omit<DocumentQuery, 'offset'>) {
+  return useInfiniteQuery({
+    queryKey: ['documents', 'pages', query] as const,
+    queryFn: ({ pageParam }) => listDocuments({ ...query, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) => {
+      const loaded = pages.reduce((count, page) => count + page.items.length, 0);
+      return loaded < last.total ? loaded : undefined;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDocument(id: string) {
+  return useQuery({ queryKey: queryKeys.document(id), queryFn: () => getDocument(id) });
+}
+
+export function useFolders(workspaceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workspaceFolders(workspaceId ?? ''),
+    queryFn: () => listFolders(workspaceId ?? ''),
+    enabled: workspaceId !== undefined,
+  });
+}
+
+export function useTags() {
+  return useQuery({ queryKey: queryKeys.tags, queryFn: listTags });
+}
+
+/** Every view a change of documents, folders or tags can affect: lists, details, counts, overview. */
+export async function refreshLibraryViews(client: QueryClient): Promise<void> {
+  await Promise.all([
+    client.invalidateQueries({ queryKey: queryKeys.documents }),
+    client.invalidateQueries({ queryKey: queryKeys.folders }),
+    client.invalidateQueries({ queryKey: queryKeys.tags }),
+    client.invalidateQueries({ queryKey: queryKeys.workspaces }),
+    client.invalidateQueries({ queryKey: queryKeys.dashboard }),
+    client.invalidateQueries({ queryKey: queryKeys.storageOverview }),
+  ]);
+}
+
+/**
+ * Mutation of the Library (document, folder or tag). Like the workspace mutations, it stays pending until
+ * the displayed data is up to date.
+ */
+export function useLibraryMutation<TVariables, TResult>(
+  mutationFn: (variables: TVariables) => Promise<TResult>,
+) {
+  const client = useQueryClient();
+  return useMutation({ mutationFn, onSuccess: () => refreshLibraryViews(client) });
 }

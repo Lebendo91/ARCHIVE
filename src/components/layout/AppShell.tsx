@@ -5,6 +5,10 @@ import { useGlobalShortcuts } from '@/app/shortcuts/useGlobalShortcuts';
 import { Toaster } from '@/components/ui';
 import { useFocusRecovery } from '@/hooks/useFocusRecovery';
 import { useI18n } from '@/i18n';
+import { DocumentDialogs } from '@/modules/library/DocumentDialogs';
+import { ImportController } from '@/modules/library/ImportController';
+import { usePdfExtraction } from '@/modules/library/usePdfExtraction';
+import { useStartImport } from '@/modules/library/useStartImport';
 import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
 import { workspaceDialogs } from '@/stores/workspaceDialogs';
 import { RouteAnnouncer } from './RouteAnnouncer';
@@ -17,10 +21,16 @@ export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+  const startImport = useStartImport();
 
   useGlobalShortcuts({
     openSettings: () => {
       void navigate('/settings');
+    },
+    importDocument: () => {
+      if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        void startImport('pick');
+      }
     },
     newWorkspace: () => {
       // Never replaces a dialog that is already open.
@@ -31,6 +41,7 @@ export function AppShell() {
   });
   useDesktopBehavior();
   useFocusRecovery('main-content');
+  usePdfExtraction();
 
   useEffect(() => {
     if (mainRef.current) {
@@ -61,6 +72,8 @@ export function AppShell() {
       </div>
       <RouteAnnouncer />
       <WorkspaceDialogs />
+      <DocumentDialogs />
+      <ImportController />
       <Toaster />
     </div>
   );

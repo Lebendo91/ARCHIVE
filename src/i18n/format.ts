@@ -41,6 +41,11 @@ export function formatDate(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(LOCALE_TAGS[locale], { dateStyle: 'long' }).format(date);
 }
 
+/** Formats a date briefly, for example « 21 nov. 2026 ». */
+export function formatShortDate(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(LOCALE_TAGS[locale], { dateStyle: 'medium' }).format(date);
+}
+
 /** Formats a date and time, for example « 21 novembre 2026 à 14:05 ». */
 export function formatDateTime(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(LOCALE_TAGS[locale], {

@@ -1,10 +1,14 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+export type LibraryView = 'list' | 'grid';
+
 interface UiState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  libraryView: LibraryView;
+  setLibraryView: (view: LibraryView) => void;
 }
 
 /**
@@ -21,12 +25,19 @@ export const useUiStore = create<UiState>()(
       setSidebarCollapsed: (collapsed) => {
         set({ sidebarCollapsed: collapsed });
       },
+      libraryView: 'list',
+      setLibraryView: (view) => {
+        set({ libraryView: view });
+      },
     }),
     {
       name: 'archive.ui',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed }),
+      partialize: (state) => ({
+        sidebarCollapsed: state.sidebarCollapsed,
+        libraryView: state.libraryView,
+      }),
     },
   ),
 );

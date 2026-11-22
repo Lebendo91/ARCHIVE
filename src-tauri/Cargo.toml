@@ -24,7 +24,7 @@ tauri-plugin-log = "2.10"
 tauri-plugin-opener = "2.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.43", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled", "functions"] }
 uuid = { version = "1.29", features = ["v7"] }
 sha2 = "0.11"
 hex = "0.4"
@@ -33,6 +33,9 @@ log = "0.4"
 fs4 = "1.1"
 # `deny_unknown_fields` does not change the generated types: ts-rs would only warn that it ignores it.
 ts-rs = { version = "12", features = ["no-serde-warnings"] }
+tauri-plugin-dialog = "2.8"
+quick-xml = "0.42"
+zip = { version = "9.8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
 tempfile = "3.27"

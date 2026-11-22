@@ -1,16 +1,28 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, type Channel } from '@tauri-apps/api/core';
 import type { AppInfo } from '@/types/bindings/AppInfo';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
 import type { DashboardOverview } from '@/types/bindings/DashboardOverview';
+import type { Document } from '@/types/bindings/Document';
+import type { DocumentDetail } from '@/types/bindings/DocumentDetail';
+import type { DocumentLocation } from '@/types/bindings/DocumentLocation';
+import type { DocumentPage } from '@/types/bindings/DocumentPage';
+import type { DocumentQuery } from '@/types/bindings/DocumentQuery';
 import type { ErrorCode } from '@/types/bindings/ErrorCode';
+import type { Folder } from '@/types/bindings/Folder';
+import type { ImportProgress } from '@/types/bindings/ImportProgress';
+import type { ImportSummary } from '@/types/bindings/ImportSummary';
+import type { ImportTarget } from '@/types/bindings/ImportTarget';
 import type { IntegrityReport } from '@/types/bindings/IntegrityReport';
 import type { NewWorkspace } from '@/types/bindings/NewWorkspace';
+import type { PdfExtraction } from '@/types/bindings/PdfExtraction';
 import type { SettingsPatch } from '@/types/bindings/SettingsPatch';
 import type { StorageFolder } from '@/types/bindings/StorageFolder';
 import type { StorageOverview } from '@/types/bindings/StorageOverview';
+import type { Tag } from '@/types/bindings/Tag';
 import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
 import type { TimelineQuery } from '@/types/bindings/TimelineQuery';
+import type { TokenColor } from '@/types/bindings/TokenColor';
 import type { Workspace } from '@/types/bindings/Workspace';
 import type { WorkspaceDeletion } from '@/types/bindings/WorkspaceDeletion';
 import type { WorkspaceDeletionReport } from '@/types/bindings/WorkspaceDeletionReport';
@@ -45,6 +57,51 @@ export interface CommandSignatures {
   };
   dashboard_overview: { args: undefined; result: DashboardOverview };
   timeline_list: { args: { query: TimelineQuery }; result: TimelineEvent[] };
+  documents_import_pick: {
+    args: { target: ImportTarget; onProgress: Channel<ImportProgress> };
+    result: ImportSummary | null;
+  };
+  documents_import_dropped: {
+    args: { target: ImportTarget; onProgress: Channel<ImportProgress> };
+    result: ImportSummary;
+  };
+  documents_import_retry: {
+    args: { target: ImportTarget; onProgress: Channel<ImportProgress> };
+    result: ImportSummary;
+  };
+  documents_import_cancel: { args: undefined; result: null };
+  documents_list: { args: { query: DocumentQuery }; result: DocumentPage };
+  documents_get: { args: { id: string }; result: DocumentDetail };
+  documents_rename: { args: { id: string; title: string }; result: Document };
+  documents_move: { args: { id: string; location: DocumentLocation }; result: Document };
+  documents_set_favorite: { args: { id: string; favorite: boolean }; result: Document };
+  documents_set_archived: { args: { id: string; archived: boolean }; result: Document };
+  documents_set_tags: { args: { id: string; tagIds: string[] }; result: Tag[] };
+  documents_trash: { args: { id: string }; result: Document };
+  documents_restore: { args: { id: string }; result: Document };
+  documents_purge: { args: { id: string }; result: null };
+  documents_mark_opened: { args: { id: string }; result: null };
+  documents_open_external: { args: { id: string }; result: null };
+  documents_reveal: { args: { id: string }; result: null };
+  documents_export: { args: { id: string }; result: boolean };
+  /** Bytes of the managed copy (`length` ≤ 16 MiB), returned as binary. */
+  documents_read_range: {
+    args: { id: string; offset: number; length: number };
+    result: ArrayBuffer;
+  };
+  documents_pending_extraction: { args: undefined; result: string[] };
+  documents_save_extraction: { args: { id: string; extraction: PdfExtraction }; result: Document };
+  folders_list: { args: { workspaceId: string }; result: Folder[] };
+  folders_create: {
+    args: { workspaceId: string; parentId: string | null; name: string };
+    result: Folder;
+  };
+  folders_rename: { args: { id: string; name: string }; result: Folder };
+  folders_delete: { args: { id: string }; result: null };
+  tags_list: { args: undefined; result: Tag[] };
+  tags_create: { args: { name: string; color: TokenColor }; result: Tag };
+  tags_rename: { args: { id: string; name: string }; result: Tag };
+  tags_delete: { args: { id: string }; result: null };
 }
 
 export type CommandName = keyof CommandSignatures;

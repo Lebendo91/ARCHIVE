@@ -4,18 +4,31 @@ import { cn } from '@/utils/cn';
 
 export interface SelectProps extends ComponentPropsWithRef<'select'> {
   label: string;
+  /** Keeps the label for assistive technologies but hides it visually (compact filter bars). */
+  hideLabel?: boolean;
   hint?: string;
 }
 
 /** Native drop-down list, styled like `Input`: keyboard and screen reader support come from the platform. */
-export function Select({ label, hint, id, className, children, ...props }: SelectProps) {
+export function Select({
+  label,
+  hideLabel = false,
+  hint,
+  id,
+  className,
+  children,
+  ...props
+}: SelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
   const hintId = hint ? `${selectId}-hint` : undefined;
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label htmlFor={selectId} className="text-xs font-medium text-fg-secondary">
+      <label
+        htmlFor={selectId}
+        className={cn('text-xs font-medium text-fg-secondary', hideLabel && 'sr-only')}
+      >
         {label}
       </label>
       <div className="relative">

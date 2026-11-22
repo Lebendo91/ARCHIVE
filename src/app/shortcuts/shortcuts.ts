@@ -43,7 +43,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'importDocument',
     combination: { key: 'o', ctrl: true },
     labelKey: 'shortcuts.importDocument',
-    available: false,
+    available: true,
   },
   {
     id: 'newWorkspace',

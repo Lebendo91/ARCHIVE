@@ -56,7 +56,7 @@ function ColorPicker({
       </legend>
       <div className="mt-3 flex gap-3">
         {colors.map((color) => (
-          <label key={color} className="cursor-default">
+          <label key={color} className="relative cursor-default">
             <input
               type="radio"
               name={name}
@@ -65,7 +65,7 @@ function ColorPicker({
               onChange={() => {
                 onChange(color);
               }}
-              className="peer sr-only"
+              className="peer absolute inset-0 m-0 cursor-default appearance-none opacity-0"
             />
             <span className="sr-only">{t(`workspaces.colors.${color}`)}</span>
             <span
@@ -112,7 +112,7 @@ function IconPicker({
           const Icon = WORKSPACE_ICONS[icon];
           const checked = value === icon;
           return (
-            <label key={icon} className="cursor-default">
+            <label key={icon} className="relative cursor-default">
               <input
                 type="radio"
                 name={name}
@@ -121,7 +121,7 @@ function IconPicker({
                 onChange={() => {
                   onChange(icon);
                 }}
-                className="peer sr-only"
+                className="peer absolute inset-0 m-0 cursor-default appearance-none opacity-0"
               />
               <span className="sr-only">{t(`workspaces.icons.${icon}`)}</span>
               <span

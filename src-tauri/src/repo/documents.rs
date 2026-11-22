@@ -227,6 +227,21 @@ pub fn set_processing_status(
     expect_one(affected, ENTITY)
 }
 
+/// Replaces the metadata of a document (a JSON object).
+pub fn set_metadata(
+    transaction: &Transaction<'_>,
+    id: &str,
+    metadata: &serde_json::Value,
+) -> AppResult<()> {
+    validate_id(id, "document id")?;
+    let metadata = json_object_text(metadata, "document metadata")?;
+    let affected = transaction.execute(
+        "UPDATE documents SET metadata_json = ?2 WHERE id = ?1",
+        params![id, metadata],
+    )?;
+    expect_one(affected, ENTITY)
+}
+
 /// Stores the extracted text of a document (derived data, replaced on each extraction).
 pub fn set_content(
     transaction: &Transaction<'_>,

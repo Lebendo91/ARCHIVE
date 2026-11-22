@@ -105,9 +105,8 @@ describe('workspace creation', () => {
       'aria-disabled',
       'true',
     );
-    expect(screen.getByRole('menuitem', { name: /Importer un document/ })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: /Importer un document/ })).not.toHaveAttribute(
       'aria-disabled',
-      'true',
     );
     await user.click(screen.getByRole('menuitem', { name: /Nouvel espace de travail/ }));
     expect(
@@ -273,9 +272,9 @@ describe('workspace management', () => {
       id: source.workspace.id,
       deletion: { kind: 'move_to', target: projects.workspace.id },
     });
-    expect(
-      core.workspaces.find((entry) => entry.workspace.id === projects.workspace.id)?.counts,
-    ).toEqual({ documents: 2, notes: 1, folders: 4 });
+    // The three folders and the folder that gathers them are now in « Projets ».
+    expect(await screen.findByText('2 documents · 1 note · 4 dossiers')).toBeInTheDocument();
+    expect(core.folders.map((folder) => folder.name)).toEqual(['Électronique']);
   });
 
   it('keeps the content without workspace when no other workspace can receive it', async () => {
@@ -334,14 +333,14 @@ describe('overview', () => {
     mockNativeRuntime();
     const { user } = renderApp('/');
     expect(
-      await screen.findByRole('heading', { name: 'Commencez par créer un espace de travail' }),
+      await screen.findByRole('heading', { name: 'Commencez par importer vos documents' }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(statistics()).toEqual({
         Documents: '0',
         Notes: '0',
         'Espaces de travail': '0',
-        'Stockage utilisé': '2,6 Mo',
+        'Stockage utilisé': '2,6\u00a0Mo',
         'Indexés en 7 jours': '0',
       });
     });
@@ -349,7 +348,8 @@ describe('overview', () => {
     expect(
       screen.getByText('Votre activité (imports, notes, espaces de travail) apparaîtra ici.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Importer un document/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Importer un document/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Nouvelle note/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Ouvrir l’assistant IA/ })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Créer un espace de travail' }));
@@ -390,7 +390,9 @@ describe('overview', () => {
         'Indexés en 7 jours': '2',
       });
     });
-    expect(screen.queryByRole('heading', { name: /Commencez par créer/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /Commencez par importer/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('il y a 5 minutes')).toBeInTheDocument();
   });
 });

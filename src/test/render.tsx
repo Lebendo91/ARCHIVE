@@ -83,7 +83,7 @@ export function mockNativeRuntime(
   const settings: AppSettings = { language: 'fr' };
   const calls: { command: string; args: Record<string, unknown> | undefined }[] = [];
   const core = createCoreDouble(seed);
-  const handlers: Record<CommandName, Handler> = {
+  const handlers = {
     app_info: () => MOCK_APP_INFO,
     app_status: () => MOCK_READY_STATUS,
     database_retry: () => MOCK_READY_STATUS,
@@ -100,23 +100,21 @@ export function mockNativeRuntime(
       problems: [],
       checkedAt: Date.UTC(2026, 10, 21, 13, 5),
     }),
-    workspaces_list: core.handlers.workspaces_list as Handler,
-    workspaces_get: core.handlers.workspaces_get as Handler,
-    workspaces_create: core.handlers.workspaces_create as Handler,
-    workspaces_update: core.handlers.workspaces_update as Handler,
-    workspaces_set_archived: core.handlers.workspaces_set_archived as Handler,
-    workspaces_delete: core.handlers.workspaces_delete as Handler,
-    dashboard_overview: core.handlers.dashboard_overview as Handler,
-    timeline_list: core.handlers.timeline_list as Handler,
+    // Workspaces, Library, overview and timeline: the in-memory core.
+    ...(core.handlers as Record<string, Handler>),
     ...overrides,
-  };
-  mockIPC((command, args) => {
-    calls.push({ command, args: args as Record<string, unknown> | undefined });
-    const handler = handlers[command as CommandName] as Handler | undefined;
-    if (!handler) {
-      throw new Error(`Unexpected command: ${command}`);
-    }
-    return handler(args as Record<string, unknown> | undefined);
-  });
+  } as Record<CommandName, Handler>;
+  mockIPC(
+    (command, args) => {
+      calls.push({ command, args: args as Record<string, unknown> | undefined });
+      const handler = handlers[command as CommandName] as Handler | undefined;
+      if (!handler) {
+        throw new Error(`Unexpected command: ${command}`);
+      }
+      return handler(args as Record<string, unknown> | undefined);
+      // Events (drag and drop) go through the event plugin mocked by Tauri.
+    },
+    { shouldMockEvents: true },
+  );
   return { calls, settings, core: core.state };
 }

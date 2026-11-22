@@ -14,6 +14,8 @@ export default defineConfig([
     'src-tauri/gen',
     // Generated from the Rust types by ts-rs (`cargo test`).
     'src/types/bindings',
+    // pdf.js resources copied from node_modules by vite.config.ts.
+    'public/pdfjs',
   ]),
   {
     files: ['**/*.{ts,tsx}'],

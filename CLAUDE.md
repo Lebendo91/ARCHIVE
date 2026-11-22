@@ -10,7 +10,8 @@ ce dépôt est la seule source de vérité, et aucune machine locale n'est requi
 2. Lire `ARCHITECTURE.md` : décisions techniques et écarts assumés.
 3. Consulter `docs/SPECIFICATION.md` (cahier des charges maître) pour les sections concernées.
 4. Ne pas refaire l'audit : `docs/ENVIRONMENT_AUDIT.md` fait foi. Vérifier seulement que les dépendances système
-   sont présentes (commande rapide en fin d'audit) et les réinstaller si besoin.
+   sont présentes (commande rapide en fin d'audit) et les réinstaller si besoin. Aligner Rust sur la dernière
+   version stable (`rustup update stable`) : la CI l'utilise, et une nouvelle règle clippy peut la faire échouer.
 5. Inspecter les fichiers concernés avant de les modifier, sans supposer que le travail antérieur est correct.
 6. Reprendre exactement à la prochaine tâche incomplète.
 

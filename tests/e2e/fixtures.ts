@@ -1,5 +1,10 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Page } from '@playwright/test';
-import { createCoreDouble, type CoreDoubleState } from '../../src/test/coreDouble';
+import {
+  createCoreDouble,
+  type CoreDoubleFile,
+  type CoreDoubleState,
+} from '../../src/test/coreDouble';
 
 export const MOCK_APP_INFO = {
   name: 'ARCHIVE',
@@ -58,15 +63,16 @@ function nativeRuntimeDouble(
     >;
   // Created on the first command, once every init script (seeds included) has run.
   let core: ReturnType<typeof createCore> | undefined;
-  const coreHandlers = () => {
+  const coreInstance = () => {
     core ??= createCore(
       JSON.parse(sessionStorage.getItem(coreKey) ?? 'null') as Partial<CoreDoubleState> | null,
       (state) => {
         sessionStorage.setItem(coreKey, JSON.stringify(state));
       },
     );
-    return core.handlers;
+    return core;
   };
+  const coreHandlers = () => coreInstance().handlers;
   const handlers: Record<string, (args: Record<string, unknown> | undefined) => unknown> = {
     app_info: () => appInfo,
     app_status: status,
@@ -77,21 +83,26 @@ function nativeRuntimeDouble(
       sessionStorage.setItem('archive-e2e-settings', JSON.stringify(next));
       return next;
     },
-    storage_overview: () => ({
-      dataDir,
-      databaseFile: `${dataDir}\\archive.db`,
-      filesDir: `${dataDir}\\files`,
-      backupsDir: `${dataDir}\\backups`,
-      logsDir: `${dataDir}\\logs`,
-      databaseBytes: 98_304,
-      filesBytes: 0,
-      filesCount: 0,
-      backupsBytes: 0,
-      logsBytes: 4_096,
-      totalBytes: 102_400,
-      diskAvailableBytes: 128 * 1024 ** 3,
-      diskTotalBytes: 512 * 1024 ** 3,
-    }),
+    storage_overview: () => {
+      // The managed copies are those of the documents of the knowledge base, trash included.
+      const documents = coreInstance().state.documents;
+      const filesBytes = documents.reduce((sum, entry) => sum + entry.document.fileSize, 0);
+      return {
+        dataDir,
+        databaseFile: `${dataDir}\\archive.db`,
+        filesDir: `${dataDir}\\files`,
+        backupsDir: `${dataDir}\\backups`,
+        logsDir: `${dataDir}\\logs`,
+        databaseBytes: 98_304,
+        filesBytes,
+        filesCount: documents.length,
+        backupsBytes: 0,
+        logsBytes: 4_096,
+        totalBytes: 98_304 + 4_096 + filesBytes,
+        diskAvailableBytes: 128 * 1024 ** 3,
+        diskTotalBytes: 512 * 1024 ** 3,
+      };
+    },
     storage_open_folder: () => null,
     database_check_integrity: () => ({ ok: true, problems: [], checkedAt: Date.now() }),
     log_frontend_event: (args) => {
@@ -99,20 +110,46 @@ function nativeRuntimeDouble(
       return null;
     },
   };
-  for (const command of [
-    'workspaces_list',
-    'workspaces_get',
-    'workspaces_create',
-    'workspaces_update',
-    'workspaces_set_archived',
-    'workspaces_delete',
-    'dashboard_overview',
-    'timeline_list',
-  ]) {
+  // Every command of the in-memory core (workspaces, Library, overview, timeline).
+  for (const command of Object.keys(createCore(null).handlers)) {
     handlers[command] = (args) => coreHandlers()[command]?.(args);
   }
+  // Event plugin: the interface listens to native drag-and-drop events, emitted by the tests.
+  const listeners = new Map<string, number[]>();
+  handlers['plugin:event|listen'] = (args) => {
+    const event = String(args?.event);
+    listeners.set(event, [...(listeners.get(event) ?? []), Number(args?.handler)]);
+    return Number(args?.handler);
+  };
+  handlers['plugin:event|unlisten'] = (args) => {
+    const event = String(args?.event);
+    listeners.set(
+      event,
+      (listeners.get(event) ?? []).filter((id) => id !== Number(args?.eventId)),
+    );
+    return null;
+  };
+  const emitEvent = (event: string, payload: unknown) => {
+    for (const id of listeners.get(event) ?? []) {
+      callbacks.get(id)?.({ event, id, payload });
+    }
+  };
   Object.assign(window, {
     __ARCHIVE_E2E_DIAGNOSTICS__: diagnostics,
+    __ARCHIVE_E2E_EMIT__: emitEvent,
+    // Files the next file picker or drag and drop returns.
+    __ARCHIVE_E2E_PICK__: (files: CoreDoubleState['picks']) => {
+      coreInstance().state.picks.push(...files);
+    },
+    // Installed by the event plugin of the real runtime; `unlisten` calls it before the command.
+    __TAURI_EVENT_PLUGIN_INTERNALS__: {
+      unregisterListener: (event: string, eventId: number) => {
+        listeners.set(
+          event,
+          (listeners.get(event) ?? []).filter((id) => id !== eventId),
+        );
+      },
+    },
     __TAURI_INTERNALS__: {
       invoke: (command: string, args: Record<string, unknown> | undefined) => {
         const handler = handlers[command];
@@ -201,6 +238,36 @@ export async function waitForFonts(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Waits until the finite CSS animations and transitions have ended (a dialog fading in, a menu opening), so
+ * that checks measure the settled interface. Infinite ones (spinners) are not waited for.
+ */
+export async function waitForAnimations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
+const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+/**
+ * axe-core with the WCAG 2.2 A and AA rules, on the settled page: measuring the contrast of a dialog while it
+ * fades in would report colours the user never sees. Each violation is listed with its elements.
+ */
+export async function expectNoViolations(page: Page, context: string): Promise<void> {
+  await waitForFonts(page);
+  await waitForAnimations(page);
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  const summary = results.violations.map(
+    (violation) =>
+      `${violation.id}: ${violation.help} → ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
+  );
+  expect(summary, context).toEqual([]);
+}
+
 export const ROUTES: readonly { path: string; title: string; name: string }[] = [
   { path: '/', title: 'Vue d’ensemble', name: 'overview' },
   { path: '/library', title: 'Bibliothèque', name: 'library' },
@@ -221,3 +288,24 @@ export const ROUTES: readonly { path: string; title: string; name: string }[] = 
   { path: '/help', title: 'Aide', name: 'help' },
   { path: '/missing-page', title: 'Page introuvable', name: 'not-found' },
 ];
+
+/** Emits a native event in the page, for example a drag and drop of files onto the window. */
+export async function emitNativeEvent(page: Page, event: string, payload: unknown): Promise<void> {
+  await page.evaluate(
+    ({ name, data }) => {
+      (
+        window as unknown as { __ARCHIVE_E2E_EMIT__: (event: string, payload: unknown) => void }
+      ).__ARCHIVE_E2E_EMIT__(name, data);
+    },
+    { name: event, data: payload },
+  );
+}
+
+/** The next file picker (or drag and drop) returns these files. */
+export async function pickFiles(page: Page, files: CoreDoubleFile[]): Promise<void> {
+  await page.evaluate((picked) => {
+    (
+      window as unknown as { __ARCHIVE_E2E_PICK__: (files: CoreDoubleFile[]) => void }
+    ).__ARCHIVE_E2E_PICK__(picked);
+  }, files);
+}

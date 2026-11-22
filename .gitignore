@@ -3,6 +3,8 @@ node_modules/
 
 # Frontend build output
 dist/
+# pdf.js resources copied from node_modules by vite.config.ts
+/public/pdfjs/
 *.tsbuildinfo
 
 # Rust / Tauri build output

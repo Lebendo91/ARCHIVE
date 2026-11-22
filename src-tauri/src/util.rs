@@ -65,6 +65,35 @@ pub fn name_key(name: &str) -> String {
         .to_lowercase()
 }
 
+/// Folds text for searching: lowercase, without the accents of Latin letters (« Électricité » → « electricite »),
+/// so that a search matches whatever the case and accents typed. Also registered in SQLite as `archive_fold`.
+pub fn fold_for_search(text: &str) -> String {
+    let mut folded = String::with_capacity(text.len());
+    for character in text.chars().flat_map(char::to_lowercase) {
+        match character {
+            'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => folded.push('a'),
+            'ç' | 'ć' | 'ĉ' | 'ċ' | 'č' => folded.push('c'),
+            'ď' | 'đ' => folded.push('d'),
+            'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => folded.push('e'),
+            'ĝ' | 'ğ' | 'ġ' | 'ģ' => folded.push('g'),
+            'ì' | 'í' | 'î' | 'ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' => folded.push('i'),
+            'ñ' | 'ń' | 'ņ' | 'ň' => folded.push('n'),
+            'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ŏ' | 'ő' => folded.push('o'),
+            'ŕ' | 'ř' => folded.push('r'),
+            'ś' | 'ŝ' | 'ş' | 'š' => folded.push('s'),
+            'ţ' | 'ť' => folded.push('t'),
+            'ù' | 'ú' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' => folded.push('u'),
+            'ý' | 'ÿ' => folded.push('y'),
+            'ź' | 'ż' | 'ž' => folded.push('z'),
+            'œ' => folded.push_str("oe"),
+            'æ' => folded.push_str("ae"),
+            'ß' => folded.push_str("ss"),
+            other => folded.push(other),
+        }
+    }
+    folded
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,6 +134,13 @@ mod tests {
         assert!(clean_name("   ", "name", 10).is_err());
         assert!(clean_name("abcdefghijk", "name", 10).is_err());
         assert!(clean_name("a\u{0}b", "name", 10).is_err());
+    }
+
+    #[test]
+    fn search_folding_ignores_case_and_latin_accents() {
+        assert_eq!(fold_for_search("Électricité ŒUVRE"), "electricite oeuvre");
+        assert_eq!(fold_for_search("Ça déçoit à Noël"), "ca decoit a noel");
+        assert_eq!(fold_for_search("NE555 – 10 kΩ"), "ne555 – 10 kω");
     }
 
     #[test]

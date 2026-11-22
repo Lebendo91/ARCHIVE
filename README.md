@@ -26,7 +26,7 @@ suivants (bibliothèque, notes, recherche…) arrivent phase par phase ; en atte
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
 
-![Vue d'ensemble d'ARCHIVE](docs/screenshots/phase-3/overview.png)
+![La Bibliothèque d'ARCHIVE](docs/screenshots/phase-4/library-list.png)
 
 D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 
@@ -92,6 +92,8 @@ npm run tauri dev
 | `npm run test:e2e` | Tests de bout en bout et d'accessibilité (Playwright et axe-core) |
 | `npm run test:visual` | Captures d'audit visuel à trois résolutions, dans `visual-audit/` |
 | `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` | Contrôles du cœur natif (dossier `src-tauri/`) |
+| `python3 scripts/validate-native-phaseN.py` | Validation de l'application de production réelle sous Xvfb (après `npm run tauri build -- --no-bundle`) |
+| `python3 scripts/make-library-fixtures.py` | Régénère les fichiers de test de la Bibliothèque (`tests/fixtures/library/`) |
 
 La galerie du design system est accessible en développement à l'adresse `#/dev/ui`.
 
@@ -102,6 +104,8 @@ archive/
 ├── src/                       # Interface React : app/, components/, modules/, i18n/, services/, stores/, styles/
 ├── src-tauri/                 # Cœur natif Rust (commandes, configuration Tauri, icônes)
 ├── tests/e2e/                 # Tests Playwright : navigation, accessibilité, audit visuel
+├── tests/fixtures/            # Fichiers de test réels (générés par scripts/make-library-fixtures.py)
+├── scripts/                   # Validations natives et générateurs de fichiers de test
 ├── assets/brand/              # Logo et icône d'application (SVG sources)
 ├── docs/
 │   ├── SPECIFICATION.md       # Cahier des charges maître (référence du périmètre)

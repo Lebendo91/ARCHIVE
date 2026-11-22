@@ -2,4 +2,5 @@
 //! one transaction.
 
 pub mod dashboard;
+pub mod documents;
 pub mod workspaces;
