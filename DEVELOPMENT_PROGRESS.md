@@ -134,6 +134,9 @@ chaque réinitialisation de sa limite d'utilisation.
   et un test de démarrage, l'aperçu PDF par les tests de bout en bout dans Chromium.
 - La validation native pilote le sélecteur GTK et l'interface par coordonnées et au clavier (xdotool), sans
   gestionnaire de fenêtres : fiable à 1440 × 900, à adapter si la mise en page change.
+- La CI suit la dernière version stable de Rust : la 1.100 a ajouté une règle clippy (`chunks_exact_to_as_chunks`)
+  qui a fait échouer la CI de la branche sans changement de code. Le conteneur est désormais aligné
+  (`rustup update stable`, consigne ajoutée à CLAUDE.md) et le code corrigé.
 
 ---
 

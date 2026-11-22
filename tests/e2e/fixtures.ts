@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Page } from '@playwright/test';
 import {
   createCoreDouble,
@@ -235,6 +236,36 @@ export async function waitForFonts(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
+}
+
+/**
+ * Waits until the finite CSS animations and transitions have ended (a dialog fading in, a menu opening), so
+ * that checks measure the settled interface. Infinite ones (spinners) are not waited for.
+ */
+export async function waitForAnimations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
+const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+/**
+ * axe-core with the WCAG 2.2 A and AA rules, on the settled page: measuring the contrast of a dialog while it
+ * fades in would report colours the user never sees. Each violation is listed with its elements.
+ */
+export async function expectNoViolations(page: Page, context: string): Promise<void> {
+  await waitForFonts(page);
+  await waitForAnimations(page);
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  const summary = results.violations.map(
+    (violation) =>
+      `${violation.id}: ${violation.help} → ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
+  );
+  expect(summary, context).toEqual([]);
 }
 
 export const ROUTES: readonly { path: string; title: string; name: string }[] = [

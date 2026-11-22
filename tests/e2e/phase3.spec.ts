@@ -1,19 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { creationEvent, seedWorkspace } from '../../src/test/coreDouble';
-import { expect, seedCore, test, waitForFonts } from './fixtures';
-
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-async function expectNoViolations(page: Page, context: string): Promise<void> {
-  await waitForFonts(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map(
-    (violation) =>
-      `${violation.id}: ${violation.help} → ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
-  );
-  expect(summary, context).toEqual([]);
-}
+import { expect, expectNoViolations, seedCore, test } from './fixtures';
 
 /** Accessible names keep the non-breaking spaces of French typography: `\s` matches them. */
 const actionsOf = (name: string) => new RegExp(`Actions de l’espace «\\s${name}\\s»`);

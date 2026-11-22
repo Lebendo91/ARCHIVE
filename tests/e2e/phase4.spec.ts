@@ -1,20 +1,7 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { seedWorkspace } from '../../src/test/coreDouble';
-import { emitNativeEvent, expect, pickFiles, seedCore, test, waitForFonts } from './fixtures';
+import { emitNativeEvent, expect, expectNoViolations, pickFiles, seedCore, test } from './fixtures';
 import { libraryState, pickedFixture } from './library';
-
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-async function expectNoViolations(page: Page, context: string): Promise<void> {
-  await waitForFonts(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map(
-    (violation) =>
-      `${violation.id}: ${violation.help} → ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
-  );
-  expect(summary, context).toEqual([]);
-}
 
 function importPanel(page: Page) {
   return page.getByRole('region', { name: 'Import terminé' });

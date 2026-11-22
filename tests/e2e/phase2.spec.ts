@@ -1,7 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, MOCK_DATA_DIR, test, waitForFonts } from './fixtures';
-
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+import { expect, expectNoViolations, MOCK_DATA_DIR, test } from './fixtures';
 
 test.describe('settings persisted by the native core', () => {
   test('switches the interface to English and keeps it after a reload', async ({ page }) => {
@@ -24,9 +21,7 @@ test.describe('settings persisted by the native core', () => {
     await expect(page.getByText('100 Ko', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Vérifier l’intégrité' }).click();
     await expect(page.getByText('Aucun problème détecté.')).toBeVisible();
-    await waitForFonts(page);
-    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoViolations(page, 'storage settings');
   });
 
   test('shows the space used by ARCHIVE in the sidebar', async ({ page }) => {
@@ -50,8 +45,6 @@ test.describe('safe mode', () => {
     await expect(page.getByText('Vos données n’ont pas été modifiées.')).toBeVisible();
     await page.getByRole('button', { name: 'Réessayer' }).click();
     await expect(page.getByText('La base de données est toujours inaccessible.')).toBeVisible();
-    await waitForFonts(page);
-    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await expectNoViolations(page, 'safe mode');
   });
 });
