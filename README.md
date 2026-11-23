@@ -17,14 +17,15 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phases 1 à 7 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
-et espaces de travail, Bibliothèque, Notes, recherche, moteur de mémoire. On y importe ses documents (PDF, Word,
-texte, Markdown, CSV, JSON, images) sans jamais toucher aux originaux, on y rédige des notes riches, reliées entre
-elles et aux documents, et on retrouve tout avec `Ctrl+K`. En arrière-plan, sur l'appareil et sans IA, ARCHIVE
-décrit chaque contenu, en dégage les termes caractéristiques et suggère des relations entre documents et notes,
-avec leur justification : rien n'est retenu sans l'accord de l'utilisateur. Les modules suivants (graphe,
-chronologie, assistant…) arrivent phase par phase ; en attendant, leurs écrans affichent un état vide honnête, sans
-contenu simulé.
+**Phases 1 à 8 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
+et espaces de travail, Bibliothèque, Notes, recherche, moteur de mémoire, graphe de connaissances et chronologie.
+On y importe ses documents (PDF, Word, texte, Markdown, CSV, JSON, images) sans jamais toucher aux originaux, on y
+rédige des notes riches, reliées entre elles et aux documents, et on retrouve tout avec `Ctrl+K`. En arrière-plan,
+sur l'appareil et sans IA, ARCHIVE décrit chaque contenu, en dégage les termes caractéristiques et suggère des
+relations entre documents et notes, avec leur justification : rien n'est retenu sans l'accord de l'utilisateur. Le
+graphe dessine ces relations et les liens des notes, et la chronologie retrace l'activité, jour par jour. Les
+modules suivants (assistant IA, sauvegarde…) arrivent phase par phase ; en attendant, leurs écrans affichent un état
+vide honnête, sans contenu simulé.
 
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
@@ -34,6 +35,8 @@ L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PRO
 ![La recherche globale d'ARCHIVE](docs/screenshots/phase-6/palette.png)
 
 ![Relations suggérées et analyse d'un document](docs/screenshots/phase-7/native-suggestion.png)
+
+![Le graphe de connaissances, avec les détails d'une note](docs/screenshots/phase-8/graph-selection.png)
 
 D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 
@@ -55,7 +58,7 @@ D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par p
 ## Stack technique
 
 Tauri 2 (Rust) · React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · Zustand · SQLite (FTS5) · TipTap ·
-Cytoscape.js · Lucide. Le détail et les justifications sont dans [ARCHITECTURE.md](ARCHITECTURE.md).
+d3-force (graphe en SVG) · Lucide. Le détail et les justifications sont dans [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Prérequis
 
@@ -98,6 +101,7 @@ npm run tauri dev
 | `npm test` | Tests unitaires et d'intégration (Vitest) |
 | `npm run test:e2e` | Tests de bout en bout et d'accessibilité (Playwright et axe-core) |
 | `npm run test:visual` | Captures d'audit visuel à trois résolutions, dans `visual-audit/` |
+| `npm run test:perf` | Mesures indicatives du graphe dans Chromium (disposition, affichage, zoom) |
 | `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test` | Contrôles du cœur natif (dossier `src-tauri/`) |
 | `python3 scripts/validate-native-phaseN.py` | Validation de l'application de production réelle sous Xvfb (après `npm run tauri build -- --no-bundle`) |
 | `python3 scripts/make-library-fixtures.py` | Régénère les fichiers de test de la Bibliothèque (`tests/fixtures/library/`) |

@@ -109,9 +109,9 @@ pub fn detail(connection: &Connection, id: &str) -> AppResult<WorkspaceDetail> {
         recent_activity: timeline::list_query(
             connection,
             &TimelineQuery {
-                before: None,
                 limit: DETAIL_ACTIVITY,
                 workspace_id: Some(id.to_owned()),
+                ..TimelineQuery::default()
             },
         )?,
         favorites: resources::favorites(connection, Some(id), DETAIL_FAVORITES)?,
@@ -317,7 +317,7 @@ mod tests {
         let workspace = new_workspace(&database, "Éphémère");
         let available = |database: &Database| {
             database
-                .read(|c| timeline::list(c, None, 10))
+                .read(|c| timeline::list(c, 10))
                 .expect("timeline")
                 .iter()
                 .map(|event| event.available)

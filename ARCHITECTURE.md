@@ -1,8 +1,8 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phases 1 à 7 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
-> espaces de travail, Bibliothèque, Notes, recherche plein texte, moteur de mémoire). Les sections des phases
-> suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phases 1 à 8 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
+> espaces de travail, Bibliothèque, Notes, recherche plein texte, moteur de mémoire, graphe de connaissances et
+> chronologie). Les sections des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -53,7 +53,7 @@ explicitement, qui valide ses entrées (spec §18.3).
 | Base de données | SQLite via `rusqlite` (`bundled`) | 0.43 / SQLite 3.54 | FTS5 inclus (sonde validée), même moteur sous Linux et Windows |
 | Recherche | SQLite FTS5 | — | `unicode61 remove_diacritics 2` (accents) et `trigram` (sous-chaînes) |
 | Éditeur | TipTap 3 | 3.33.1 (exacte) | Notes (Phase 5) ; aperçu Markdown de la Bibliothèque |
-| Graphe | Cytoscape.js | 3.35 | Rendu Canvas 2D, sans WebGL (Phase 8) |
+| Graphe | `d3-force` (disposition) + SVG dessiné par React | 3.0.1 (exacte) | Rendu 2D sans WebGL ; chaque nœud est un élément du DOM, stylé par les jetons et atteignable au clavier ; disposition calculée dans un Web Worker (Phase 8, voir §10 ; Cytoscape.js écarté) |
 | PDF | `pdfjs-dist` | 6.5 | Aperçu, et candidat pour l'extraction (Phase 4) |
 | Polices | `@fontsource-variable` : Inter, Space Grotesk, JetBrains Mono | 5.3 | Fichiers embarqués, aucune requête réseau à l'exécution |
 | Tests | Vitest 5, React Testing Library 16, jsdom, Playwright, `cargo test` | — | Voir §13 |
@@ -115,7 +115,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phases 1 à 7)*
+## 4. Frontend — *Implémenté (Phases 1 à 8)*
 
 ### 4.1 Responsabilités
 
@@ -218,7 +218,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Implémenté (Phases 1 à 7)*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 à 8)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -288,7 +288,7 @@ justifiés :
 | `relations` | Relations, avec `origin` (`user`, `rule`, `ai`), `status` (`suggested`, `accepted`, `rejected`), `confidence` et `provenance_json` | 2/7 |
 | `concepts`, `concept_mentions` | Concepts extraits et leur source (élément, page, extrait, provenance), séparés du contenu original (spec §10.3) ; remplis seulement avec un fournisseur d'IA | 7 |
 | `content_profiles`, `entity_terms`, `memory_state`, `search_vocabulary` | Description normalisée du contenu, termes caractéristiques, version des règles du moteur, vocabulaire de l'index (§8) | 7 |
-| `timeline_events` | Événements réels, enregistrés **dès la Phase 3** | 2 |
+| `timeline_events` | Événements réels, enregistrés **dès la Phase 3** ; la description garde le titre du moment, l'interface montre le titre actuel tant que la ressource existe (Phase 8) | 2/8 |
 | `processing_jobs` | File persistante des étapes d'arrière-plan du pipeline (elle survit aux redémarrages) | 7 |
 | `search_index`, `search_titles`, `search_entries`, `search_index_state` | Index plein texte FTS5 par passage, trigrammes des titres, correspondance élément → lignes, version des règles d'indexation (§9) | 6 |
 | `search_history` | Historique de recherche, effaçable | 6 |
@@ -506,13 +506,52 @@ les trois autres étapes passent par une file persistante, vidée en arrière-pl
     une exclusion ou deux mots filtrés, 70 à 96 ms en médiane (136 ms au 95ᵉ centile) pour un mot présent dans
     presque tous les éléments.
 
-## 10. Graphe de connaissances et chronologie — *Prévu (Phase 8)*
+## 10. Graphe de connaissances et chronologie — *Implémenté (Phase 8)*
 
-- **Graphe** : Cytoscape.js en rendu Canvas. Le sous-graphe est calculé en Rust, après filtrage, avec un plafond
-  de nœuds (environ 300 par défaut) et une expansion progressive des voisins à la demande. La disposition
-  (*layout*) n'est recalculée que si les données filtrées changent, et les positions sont mises en cache.
-- **Chronologie** : elle lit `timeline_events`, alimentée dès les Phases 3 à 5, si bien que l'historique est réel
-  depuis le début. Elle propose des filtres et un effacement explicite (spec §13.2).
+- **Cœur du graphe** (`services/graph.rs`, commande `graph_load`) : une requête décrit ce qu'on veut voir (types
+  de nœud, types de relation dont `links_to` pour les liens des notes, suggestions ou non, espace de travail,
+  élément de départ, éléments dépliés, plafond). Le cœur charge les éléments vivants (jamais la corbeille) avec leur
+  titre seulement, les relations décidées (et les suggestions sur demande, jamais les rejetées), l'appartenance
+  aux espaces et les étiquettes, **filtre avant d'envoyer** (spec §11.3), puis limite :
+  - sans élément de départ, les nœuds les plus reliés d'abord (300 par défaut), sans nœud isolé ;
+  - avec un élément de départ, cet élément puis ses voisins, même s'il n'a aucune connexion ;
+  - les voisins des éléments dépliés s'ajoutent ensuite, jusqu'à 500 nœuds ; au-delà de 4 000 arêtes, les
+    appartenances aux espaces puis les étiquettes sont laissées de côté, et la réponse le dit ;
+  - chaque nœud porte son degré complet : l'interface sait combien de connexions ne sont pas affichées. L'ordre
+    est stable (degré, type, titre replié, identifiant), si bien qu'une même base donne toujours le même graphe.
+- **Rendu** (`modules/knowledge-graph`) : SVG dessiné par React, sans WebGL ni Canvas. Les formes diffèrent selon
+  le type (document carré, note ronde, espace carré arrondi, étiquette losange, élément archivé en pointillés) :
+  la couleur n'est jamais le seul indice. Les nœuds et les arêtes sont mémoïsés : un déplacement de la carte ne
+  redessine que le groupe transformé. Les étiquettes sont dans un calque à part, au-dessus des nœuds et hors de
+  leurs boutons (leur nom accessible contient le titre complet, WCAG 2.5.3). Zoom autour du pointeur, déplacement,
+  glisser-déposer des nœuds, sélection d'un nœud ou d'une arête (test de distance au clic, sans élément invisible
+  supplémentaire), atténuation de ce qui est hors du voisinage de la sélection ou des résultats de recherche.
+- **Disposition** (`layout.ts`, `layout.worker.ts`) : `d3-force` (lien, répulsion Barnes-Hut, collision, force de
+  séparation des étiquettes sur une grille, centrage), avec une source aléatoire initialisée par le contenu du
+  graphe : la même base est toujours dessinée de la même façon. Positions de départ lisibles (chaque groupe connexe
+  à sa place, anneaux autour du nœud le plus relié), puis 150 pas (90 pour une carte déjà placée). Une expansion
+  fige les nœuds placés et installe les nouveaux près de leur voisin ; d'autres filtres repartent des positions
+  connues ; un autre graphe (moins de la moitié de nœuds communs) est disposé à neuf. Le calcul a lieu dans un
+  **Web Worker** autorisé par la CSP (`worker-src 'self'`) ; sans worker, il se fait en place et le journal le
+  signale. La carte garde le graphe précédent jusqu'à la nouvelle disposition, une seule fois par graphe reçu
+  (spec §4.2).
+- **Accessibilité** : la carte est un groupe nommé avec une aide ; un seul arrêt de tabulation (tabindex mobile),
+  les flèches mènent au nœud le plus proche dans la direction choisie, Entrée sélectionne, Échap désélectionne,
+  `+`, `−` et `0` zooment. La vue en liste et le panneau de détails donnent la même information sans la carte.
+- **Mesures indicatives** (conteneur Linux, Xeon 2,1 GHz partagé ; `perf::graph_on_a_generated_corpus` et
+  `npm run test:perf`) : sur 1 000 documents, 1 000 notes, 20 espaces, 60 étiquettes, 1 972 liens, 1 500 relations
+  et 4 000 suggestions, `graph_load` répond en 19 ms (médiane ; 300 nœuds sur 1 844 reliés, 164 Ko), 24 ms avec
+  l'organisation et les suggestions (1 059 arêtes, 321 Ko), 11 ms pour le voisinage d'un élément, même avec
+  10 éléments dépliés. Disposition dans Chromium : 0,12 s pour 100 nœuds, 0,34 s pour 300, 0,54 s pour 500, hors du
+  fil de l'interface ; zoom d'une carte de 300 nœuds en deux images de 18 ms environ chacune.
+- **Chronologie** (`repo/timeline.rs`, commandes `timeline_list` et `timeline_clear`) : filtres par types
+  d'événement, types de ressource, espace de travail et période `[from, to[`, pagination par curseur
+  `(date, identifiant)` qui ne répète ni ne saute deux événements de la même milliseconde. Chaque événement dit où
+  il mène (`target`) : la ressource elle-même tant qu'elle existe hors corbeille, ou pour une relation acceptée
+  l'élément dont elle part. L'interface regroupe par jour (calendrier local), montre le titre actuel des
+  ressources encore présentes, et efface l'historique seulement après confirmation, sans toucher aux ressources.
+  Les huit événements de la spec §13.1 sont vérifiés de bout en bout par un test Rust qui passe par les vrais
+  services et le vrai pipeline d'import.
 
 ## 11. Couche IA — *Prévu (Phase 9)*
 
@@ -582,7 +621,7 @@ les trois autres étapes passent par une file persistante, vidée en arrière-pl
 | UI, accessibilité, visuel | Playwright (Chromium, même moteur que WebView2) sur Vite avec doublure du runtime natif. Échec sur toute erreur console. axe-core WCAG 2.2 A/AA sur chaque écran. Captures 1440×900, 1280×800 et 1100×700 (`npm run test:visual`, dossier `visual-audit/`) | Conteneur et CI | ✅ Phase 1 (33 tests) |
 | Fumée native | Binaire de production lancé sous Xvfb (Linux), et sur `windows-latest` avec capture d'écran WebView2 | Conteneur et CI Windows | ✅ Phase 1 |
 | E2E sur l'application réelle | `tauri-driver` : WebKitWebDriver sous Xvfb, msedgedriver sous Windows | Conteneur et CI Windows | à confirmer (Phase 2) |
-| Performance | Jeux synthétiques générés, jamais livrés par défaut : `cargo test --release --lib perf:: -- --ignored --nocapture` (recherche sur 2 000 documents de 8 pages et 3 000 notes ; moteur de mémoire sur 1 000 documents et 1 000 notes) | Conteneur | ✅ Phases 6 et 7 ; Phase 10 |
+| Performance | Jeux synthétiques générés, jamais livrés par défaut : `cargo test --release --lib perf:: -- --ignored --nocapture` (recherche sur 2 000 documents de 8 pages et 3 000 notes ; moteur de mémoire et graphe sur 1 000 documents et 1 000 notes) et `npm run test:perf` (disposition et affichage du graphe dans Chromium) | Conteneur | ✅ Phases 6 à 8 ; Phase 10 |
 
 Règle absolue : un test n'est déclaré réussi que s'il a été exécuté, et son résultat est consigné dans
 `DEVELOPMENT_PROGRESS.md` (spec §22).
@@ -630,6 +669,22 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 8
+
+| Décision | Justification |
+|---|---|
+| `d3-force` 3.0.1 et SVG dessiné par React, au lieu de Cytoscape.js (prévu) | Spec §4.1 : « Cytoscape.js ou une autre bibliothèque 2D légère ». En SVG, chaque nœud est un élément du DOM : stylé par les jetons du design system (thème compris), nommé et atteignable au clavier, vérifiable par axe et par les tests ; `d3-force` pèse 17 Ko dans le worker contre ~400 Ko. Le plafond de 500 nœuds garde le SVG fluide |
+| Nouvelle version de `d3-force` et de ses trois dépendances (novembre 2026) acceptée après examen | Publiées par l'intégration continue du projet d3 avec attestation de provenance SLSA, sans script d'installation ; le code ne diffère de la version de 2021 que par une optimisation de `quadtree.addAll` et un arrondi de `d3-timer`. `npm audit signatures` n'a pas pu joindre le dépôt de confiance Sigstore depuis le conteneur |
+| Filtrage, sélection et plafonds dans le cœur ; disposition dans l'interface, dans un worker | Spec §11.3 : rien n'est envoyé au-delà de ce qui sera dessiné ; la disposition dépend de ce que l'utilisateur voit et déplace, et le worker garde l'interface réactive (mesuré : 0,34 s pour 300 nœuds sur le conteneur) |
+| Les plus reliés d'abord, et « Partir d'un élément » plutôt qu'un graphe complet | Un graphe de 2 000 éléments n'est pas lisible ; l'utilisateur part de ce qui compte, puis déplie à la demande |
+| Espaces et étiquettes masqués par défaut ; suggestions sur demande | Le graphe montre d'abord les liens qui disent quelque chose (liens des notes, relations décidées) ; une suggestion n'est pas un fait (spec §10.4) ; l'organisation reste à un clic |
+| Pas de nœud isolé dans la vue d'ensemble ; un état vide qui explique comment naissent les relations | Spec §11.4 : jamais de graphe inventé ; les éléments sans connexion restent dans la Bibliothèque et les Notes |
+| Disposition déterministe, positions conservées, nœuds figés pour une expansion | Une même base est toujours dessinée de la même façon (captures d'audit stables) ; la carte que l'utilisateur lit ne se réorganise pas sous ses yeux (spec §11.3, *controlled layouts*) |
+| La carte se rétrécit par la droite quand le panneau de détails s'ouvre | Rien ne bouge sous le pointeur : un double clic dont le premier clic ouvre le panneau atteint toujours le même élément (défaut trouvé par les tests de bout en bout) |
+| Un résultat choisi dans la recherche du graphe donne le focus à ses détails | L'utilisateur au clavier ou d'un lecteur d'écran lit et utilise aussitôt ce qu'il a cherché |
+| Chronologie paginée par curseur `(date, identifiant)` et filtrée dans le cœur | Deux événements d'une même milliseconde ne sont ni répétés ni sautés ; les filtres réduisent ce qui est lu, pas seulement ce qui est affiché |
+| Titre actuel d'une ressource encore présente, instantané sinon | Une note est créée sans titre (Ctrl+N) puis nommée : la validation native montrait « Sans titre » partout ; l'instantané garde lisible l'historique de ce qui n'existe plus |
 
 ### Décisions prises en Phase 7
 

@@ -27,20 +27,19 @@ describe('application shell', () => {
     expect(document.title).toBe('Vue d’ensemble — ARCHIVE');
   });
 
-  it.each([
-    ['Graphe de connaissances', 'Aucune relation pour l’instant'],
-    ['Chronologie', 'La chronologie complète arrive bientôt'],
-    ['Assistant IA', 'Aucun fournisseur IA configuré'],
-  ])('navigates to "%s" and shows its honest empty state', async (label, emptyTitle) => {
-    mockNativeRuntime();
-    const { user } = renderApp('/');
-    await screen.findByRole('heading', { level: 1, name: 'Vue d’ensemble' });
-    const link = within(mainNavigation()).getByRole('link', { name: label });
-    await user.click(link);
-    expect(link).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('heading', { level: 2, name: emptyTitle })).toBeInTheDocument();
-    expect(screen.getAllByText('Bientôt disponible').length).toBeGreaterThan(0);
-  });
+  it.each([['Assistant IA', 'Aucun fournisseur IA configuré']])(
+    'navigates to "%s" and shows its honest empty state',
+    async (label, emptyTitle) => {
+      mockNativeRuntime();
+      const { user } = renderApp('/');
+      await screen.findByRole('heading', { level: 1, name: 'Vue d’ensemble' });
+      const link = within(mainNavigation()).getByRole('link', { name: label });
+      await user.click(link);
+      expect(link).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('heading', { level: 2, name: emptyTitle })).toBeInTheDocument();
+      expect(screen.getAllByText('Bientôt disponible').length).toBeGreaterThan(0);
+    },
+  );
 
   it('collapses the sidebar to icons with accessible names, and remembers it', async () => {
     const { user } = renderApp('/');

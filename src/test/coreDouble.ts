@@ -4,6 +4,12 @@ import type { DocumentItem } from '../types/bindings/DocumentItem';
 import type { DocumentQuery } from '../types/bindings/DocumentQuery';
 import type { FileKind } from '../types/bindings/FileKind';
 import type { Folder } from '../types/bindings/Folder';
+import type { GraphData } from '../types/bindings/GraphData';
+import type { GraphEdge } from '../types/bindings/GraphEdge';
+import type { GraphEdgeKind } from '../types/bindings/GraphEdgeKind';
+import type { GraphItem } from '../types/bindings/GraphItem';
+import type { GraphNode } from '../types/bindings/GraphNode';
+import type { GraphNodeKind } from '../types/bindings/GraphNodeKind';
 import type { ImportFailure } from '../types/bindings/ImportFailure';
 import type { ImportOutcome } from '../types/bindings/ImportOutcome';
 import type { ImportProgress } from '../types/bindings/ImportProgress';
@@ -34,6 +40,8 @@ import type { ResourceSummary } from '../types/bindings/ResourceSummary';
 import type { Tag } from '../types/bindings/Tag';
 import type { TimelineEvent } from '../types/bindings/TimelineEvent';
 import type { TimelineEventType } from '../types/bindings/TimelineEventType';
+import type { TimelinePage } from '../types/bindings/TimelinePage';
+import type { TimelineTarget } from '../types/bindings/TimelineTarget';
 import type { TokenColor } from '../types/bindings/TokenColor';
 import type { SearchHistoryEntry } from '../types/bindings/SearchHistoryEntry';
 import type { SearchHit } from '../types/bindings/SearchHit';
@@ -263,6 +271,7 @@ export function createCoreDouble(
       workspaceId: string | null;
       title: string;
     },
+    metadata: Record<string, unknown> = {},
   ) => {
     state.events.push({
       id: crypto.randomUUID(),
@@ -271,10 +280,12 @@ export function createCoreDouble(
       entityId: entity.id,
       workspaceId: entity.workspaceId,
       description: entity.title,
-      metadata: {},
+      metadata,
       // Strictly increasing, like the order of the real timeline.
       createdAt: nextTime(),
       available: true,
+      target: null,
+      currentTitle: null,
     });
   };
   const available = (event: TimelineEvent): boolean => {
@@ -291,16 +302,63 @@ export function createCoreDouble(
         (entry) => entry.note.id === event.entityId && entry.note.deletedAt === null,
       );
     }
+    if (event.entityType === 'relation') {
+      // While still accepted, and while the item it starts from is outside the trash.
+      const relation = state.relations.find((candidate) => candidate.id === event.entityId);
+      return (
+        relation?.status === 'accepted' &&
+        (relation.sourceType === 'document' || relation.sourceType === 'note') &&
+        linkedResource(relation.sourceType, relation.sourceId)?.available === true
+      );
+    }
     return false;
   };
-  const latestEvents = (limit: number, workspaceId?: string, before?: number) =>
+  /** Where the interface leads: the resource itself, or the item an accepted relation starts from. */
+  const targetOf = (event: TimelineEvent): TimelineTarget | null => {
+    if (!available(event)) {
+      return null;
+    }
+    if (event.entityType === 'relation') {
+      const relation = state.relations.find((candidate) => candidate.id === event.entityId);
+      return relation ? { kind: relation.sourceType, id: relation.sourceId } : null;
+    }
+    return { kind: event.entityType, id: event.entityId };
+  };
+  /** Title of the resource today, while it exists. */
+  const currentTitle = (event: TimelineEvent): string | null => {
+    switch (event.entityType) {
+      case 'document':
+        return (
+          state.documents.find((entry) => entry.document.id === event.entityId)?.document.title ??
+          null
+        );
+      case 'note':
+        return state.notes.find((entry) => entry.note.id === event.entityId)?.note.title ?? null;
+      case 'workspace':
+        return (
+          state.workspaces.find((entry) => entry.workspace.id === event.entityId)?.workspace.name ??
+          null
+        );
+      default:
+        return null;
+    }
+  };
+  const shown = (event: TimelineEvent): TimelineEvent => ({
+    ...event,
+    available: available(event),
+    target: targetOf(event),
+    currentTitle: currentTitle(event),
+  });
+  /** Most recent first, then by id, like the core. */
+  const byRecency = (a: TimelineEvent, b: TimelineEvent) =>
+    b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+  const latestEvents = (limit: number, workspaceId?: string) =>
     state.events
       .filter((event) => workspaceId === undefined || event.workspaceId === workspaceId)
-      .filter((event) => before === undefined || event.createdAt < before)
       .slice()
-      .reverse()
+      .sort(byRecency)
       .slice(0, limit)
-      .map((event) => ({ ...event, available: available(event) }));
+      .map(shown);
   const changed = <T>(value: T): T => {
     onChange?.(state);
     return value;
@@ -603,12 +661,11 @@ export function createCoreDouble(
       deletedAt: null,
     };
     state.documents.push({ document, content, tagIds: [], base64: toBase64(bytes) });
-    record('document_imported', {
-      type: 'document',
-      id,
-      workspaceId: document.workspaceId,
-      title: document.title,
-    });
+    record(
+      'document_imported',
+      { type: 'document', id, workspaceId: document.workspaceId, title: document.title },
+      { format: document.fileExtension },
+    );
     const issue =
       metadata.extractionIssue === 'invalid_json' || metadata.extractionIssue === 'invalid_docx'
         ? metadata.extractionIssue
@@ -1444,6 +1501,8 @@ export function createCoreDouble(
       metadata: { origin: relation.origin },
       createdAt: nextTime(),
       available: false,
+      target: null,
+      currentTitle: null,
     });
   };
 
@@ -1683,17 +1742,49 @@ export function createCoreDouble(
         ),
       };
     },
-    timeline_list: (args) => {
+    timeline_list: (args): TimelinePage => {
       const query = (args?.query ?? {}) as {
-        before?: number;
+        after?: { createdAt: number; id: string };
         limit?: number;
         workspaceId?: string;
+        eventTypes?: string[];
+        entityTypes?: string[];
+        from?: number;
+        to?: number;
       };
       const limit = query.limit ?? 0;
-      if (limit < 1 || limit > 200) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
         fail('invalid_input', 'limit must be between 1 and 200');
       }
-      return latestEvents(limit, query.workspaceId, query.before);
+      if (query.from !== undefined && query.to !== undefined && query.from >= query.to) {
+        fail('invalid_input', 'the period must end after it starts');
+      }
+      if ((query.eventTypes?.length ?? 0) > 16 || (query.entityTypes?.length ?? 0) > 16) {
+        fail('invalid_input', 'too many types');
+      }
+      const { after, workspaceId, eventTypes, entityTypes, from, to } = query;
+      const matching = state.events
+        .filter(
+          (event) =>
+            (after === undefined ||
+              event.createdAt < after.createdAt ||
+              (event.createdAt === after.createdAt && event.id < after.id)) &&
+            (workspaceId === undefined || event.workspaceId === workspaceId) &&
+            (eventTypes === undefined || eventTypes.includes(event.eventType)) &&
+            (entityTypes === undefined || entityTypes.includes(event.entityType)) &&
+            (from === undefined || event.createdAt >= from) &&
+            (to === undefined || event.createdAt < to),
+        )
+        .sort(byRecency);
+      return {
+        events: matching.slice(0, limit).map(shown),
+        hasMore: matching.length > limit,
+      };
+    },
+    timeline_clear: () => {
+      const cleared = state.events.length;
+      state.events = [];
+      return changed(cleared);
     },
 
     // --- Imports -------------------------------------------------------------------------------------
@@ -2412,6 +2503,325 @@ export function createCoreDouble(
       }
       return changed(null);
     },
+
+    // --- Knowledge graph (same selection rules as src-tauri/src/services/graph.rs) -----------------------
+    graph_load: (args): GraphData => {
+      const query = (args?.query ?? {}) as {
+        nodeKinds?: GraphNodeKind[];
+        relationTypes?: string[];
+        includeSuggestions?: boolean;
+        workspaceId?: string;
+        focus?: GraphItem;
+        expanded?: GraphItem[];
+        limit?: number;
+      };
+      const NODES_MAX = 500;
+      const EDGES_MAX = 4000;
+      const limit = query.limit ?? 0;
+      if (!Number.isInteger(limit) || limit < 1 || limit > NODES_MAX) {
+        fail('invalid_input', `limit must be between 1 and ${NODES_MAX}`);
+      }
+      const kinds = new Set(query.nodeKinds ?? []);
+      if (kinds.size === 0) {
+        fail('invalid_input', 'at least one kind of node is required');
+      }
+      const known = [
+        'links_to',
+        'related_to',
+        'references',
+        'explains',
+        'example_of',
+        'part_of',
+        'depends_on',
+        'contradicts',
+      ];
+      const types = new Set<string>();
+      for (const type of query.relationTypes ?? []) {
+        if (!known.includes(type)) {
+          fail('invalid_input', `unknown relation type ${type}`);
+        }
+        types.add(type);
+      }
+      const expanded = query.expanded ?? [];
+      if (expanded.length > 50) {
+        fail('invalid_input', 'at most 50 items can be expanded');
+      }
+      const focus = query.focus;
+      if (focus) {
+        kinds.add(focus.kind);
+      }
+      const scope = query.workspaceId;
+      const keyOf = (kind: string, id: string) => `${kind}:${id}`;
+      const nodes = new Map<string, GraphNode>();
+      const edges: GraphEdge[] = [];
+      const memberships: [string, string][] = [];
+      const add = (
+        kind: GraphNodeKind,
+        id: string,
+        label: string,
+        archived: boolean,
+        extra: Partial<Pick<GraphNode, 'format' | 'color' | 'icon'>> = {},
+      ) => {
+        const key = keyOf(kind, id);
+        nodes.set(key, {
+          key,
+          kind,
+          id,
+          label,
+          degree: 0,
+          archived,
+          format: extra.format ?? null,
+          color: extra.color ?? null,
+          icon: extra.icon ?? null,
+        });
+        return key;
+      };
+      const edge = (
+        id: string,
+        kind: GraphEdgeKind,
+        source: string,
+        target: string,
+        relation?: Pick<Relation, 'relationType' | 'origin' | 'confidence'>,
+      ) => {
+        if (nodes.has(source) && nodes.has(target)) {
+          edges.push({
+            id,
+            kind,
+            source,
+            target,
+            relationType: relation?.relationType ?? null,
+            origin: relation?.origin ?? null,
+            confidence: relation?.confidence ?? null,
+          });
+        }
+      };
+      const inScope = (workspaceId: string | null) => scope === undefined || workspaceId === scope;
+      if (kinds.has('document')) {
+        for (const { document } of state.documents) {
+          if (document.deletedAt === null && inScope(document.workspaceId)) {
+            const key = add('document', document.id, document.title, document.isArchived, {
+              format: document.fileExtension,
+            });
+            if (document.workspaceId) {
+              memberships.push([key, document.workspaceId]);
+            }
+          }
+        }
+      }
+      if (kinds.has('note')) {
+        for (const { note } of state.notes) {
+          if (note.deletedAt === null && inScope(note.workspaceId)) {
+            const key = add('note', note.id, note.title, note.isArchived);
+            if (note.workspaceId) {
+              memberships.push([key, note.workspaceId]);
+            }
+          }
+        }
+      }
+      if (kinds.has('workspace')) {
+        for (const { workspace } of state.workspaces) {
+          if (scope === undefined || workspace.id === scope) {
+            add('workspace', workspace.id, workspace.name, workspace.isArchived, {
+              color: workspace.color,
+              icon: workspace.icon,
+            });
+          }
+        }
+      }
+      if (kinds.has('tag')) {
+        for (const tag of state.tags) {
+          add('tag', tag.id, tag.name, false, { color: tag.color });
+        }
+        const tagged = [
+          ...state.documents.map((entry) => ({
+            key: keyOf('document', entry.document.id),
+            tagIds: entry.tagIds,
+          })),
+          ...state.notes.map((entry) => ({
+            key: keyOf('note', entry.note.id),
+            tagIds: entry.tagIds,
+          })),
+        ];
+        for (const item of tagged) {
+          for (const tagId of item.tagIds) {
+            edge(`tag:${tagId}:${item.key}`, 'tag', item.key, keyOf('tag', tagId));
+          }
+        }
+      }
+      if (focus && !nodes.has(keyOf(focus.kind, focus.id))) {
+        const found =
+          focus.kind === 'document'
+            ? state.documents.find(
+                (entry) => entry.document.id === focus.id && entry.document.deletedAt === null,
+              )?.document
+            : undefined;
+        const note =
+          focus.kind === 'note'
+            ? state.notes.find(
+                (entry) => entry.note.id === focus.id && entry.note.deletedAt === null,
+              )?.note
+            : undefined;
+        const workspace =
+          focus.kind === 'workspace'
+            ? state.workspaces.find((entry) => entry.workspace.id === focus.id)?.workspace
+            : undefined;
+        const tag =
+          focus.kind === 'tag' ? state.tags.find((entry) => entry.id === focus.id) : undefined;
+        if (found) {
+          add('document', found.id, found.title, found.isArchived, {
+            format: found.fileExtension,
+          });
+        } else if (note) {
+          add('note', note.id, note.title, note.isArchived);
+        } else if (workspace) {
+          add('workspace', workspace.id, workspace.name, workspace.isArchived, {
+            color: workspace.color,
+            icon: workspace.icon,
+          });
+        } else if (tag) {
+          add('tag', tag.id, tag.name, false, { color: tag.color });
+        } else {
+          fail('not_found', 'item not found');
+        }
+      }
+      for (const [item, workspaceId] of memberships) {
+        edge(`workspace:${item}`, 'workspace', item, keyOf('workspace', workspaceId));
+      }
+      if (types.has('links_to')) {
+        for (const entry of state.notes) {
+          const source = keyOf('note', entry.note.id);
+          for (const link of entry.links) {
+            const target = keyOf(link.kind, link.id);
+            edge(`link:${source}:${target}`, 'link', source, target, {
+              relationType: 'links_to',
+              origin: 'user',
+              confidence: null,
+            });
+          }
+        }
+      }
+      for (const relation of state.relations) {
+        const suggested = relation.status === 'suggested';
+        if (
+          relation.relationType === 'links_to' ||
+          !types.has(relation.relationType) ||
+          !(relation.status === 'accepted' || (suggested && query.includeSuggestions === true))
+        ) {
+          continue;
+        }
+        edge(
+          relation.id,
+          suggested ? 'suggestion' : 'relation',
+          keyOf(relation.sourceType, relation.sourceId),
+          keyOf(relation.targetType, relation.targetId),
+          relation,
+        );
+      }
+      const adjacency = new Map<string, GraphEdge[]>();
+      for (const entry of edges) {
+        for (const end of [entry.source, entry.target]) {
+          const node = nodes.get(end);
+          if (node) {
+            node.degree += 1;
+          }
+          adjacency.set(end, [...(adjacency.get(end) ?? []), entry]);
+        }
+      }
+      const KIND_ORDER: Record<GraphNodeKind, number> = {
+        document: 0,
+        note: 1,
+        workspace: 2,
+        tag: 3,
+      };
+      const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+      const byRank = (a: GraphNode, b: GraphNode) =>
+        b.degree - a.degree ||
+        KIND_ORDER[a.kind] - KIND_ORDER[b.kind] ||
+        compareText(fold(a.label), fold(b.label)) ||
+        compareText(a.id, b.id);
+      const chosen = new Set<string>();
+      const order: string[] = [];
+      const choose = (key: string) => {
+        if (!chosen.has(key)) {
+          chosen.add(key);
+          order.push(key);
+        }
+      };
+      const neighbours = (key: string): GraphNode[] => {
+        const found = new Map<string, GraphNode>();
+        for (const entry of adjacency.get(key) ?? []) {
+          const other = entry.source === key ? entry.target : entry.source;
+          const node = nodes.get(other);
+          if (node && !chosen.has(other)) {
+            found.set(other, node);
+          }
+        }
+        return [...found.values()].sort(byRank);
+      };
+      let total: number;
+      if (focus) {
+        const key = keyOf(focus.kind, focus.id);
+        choose(key);
+        const around = neighbours(key);
+        total = around.length + 1;
+        for (const node of around.slice(0, limit - 1)) {
+          choose(node.key);
+        }
+      } else {
+        const connected = [...nodes.values()].filter((node) => node.degree > 0).sort(byRank);
+        total = connected.length;
+        for (const node of connected.slice(0, limit)) {
+          choose(node.key);
+        }
+      }
+      const truncated = total > chosen.size;
+      for (const item of expanded) {
+        const key = keyOf(item.kind, item.id);
+        if (!chosen.has(key)) {
+          continue;
+        }
+        for (const node of neighbours(key)) {
+          if (chosen.size >= NODES_MAX) {
+            break;
+          }
+          choose(node.key);
+        }
+      }
+      const EDGE_ORDER: Record<GraphEdgeKind, number> = {
+        link: 0,
+        relation: 1,
+        suggestion: 2,
+        tag: 3,
+        workspace: 4,
+      };
+      const kept = edges
+        .filter((entry) => chosen.has(entry.source) && chosen.has(entry.target))
+        .sort(
+          (a, b) =>
+            EDGE_ORDER[a.kind] - EDGE_ORDER[b.kind] ||
+            compareText(a.source, b.source) ||
+            compareText(a.target, b.target) ||
+            compareText(a.id, b.id),
+        );
+      const items =
+        state.documents.filter(
+          (entry) => entry.document.deletedAt === null && inScope(entry.document.workspaceId),
+        ).length +
+        state.notes.filter(
+          (entry) => entry.note.deletedAt === null && inScope(entry.note.workspaceId),
+        ).length;
+      return {
+        nodes: order.flatMap((key) => {
+          const node = nodes.get(key);
+          return node ? [node] : [];
+        }),
+        edges: kept.slice(0, EDGES_MAX),
+        total,
+        truncated,
+        edgesTruncated: kept.length > EDGES_MAX,
+        items,
+      };
+    },
   };
   return { handlers, state };
 }
@@ -2491,6 +2901,8 @@ export function creationEvent(entry: CoreDoubleWorkspace): TimelineEvent {
     metadata: {},
     createdAt: entry.workspace.createdAt,
     available: true,
+    target: null,
+    currentTitle: null,
   };
 }
 
@@ -2640,6 +3052,8 @@ export function noteCreationEvent(entry: CoreDoubleNote): TimelineEvent {
     metadata: {},
     createdAt: entry.note.createdAt,
     available: true,
+    target: null,
+    currentTitle: null,
   };
 }
 
@@ -2652,8 +3066,10 @@ export function importEvent(entry: CoreDoubleDocument): TimelineEvent {
     entityId: entry.document.id,
     workspaceId: entry.document.workspaceId,
     description: entry.document.title,
-    metadata: {},
+    metadata: { format: entry.document.fileExtension },
     createdAt: entry.document.importedAt,
     available: true,
+    target: null,
+    currentTitle: null,
   };
 }

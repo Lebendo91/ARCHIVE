@@ -36,6 +36,24 @@ export function formatLongDate(date: Date, locale: Locale): string {
   }).format(date);
 }
 
+/**
+ * Heading of a day, for example « samedi 21 novembre », with the year when it is not the current one
+ * (« jeudi 21 novembre 2024 »).
+ */
+export function formatDayHeading(date: Date, now: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(LOCALE_TAGS[locale], {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  }).format(date);
+}
+
+/** Formats a time of day, for example « 14:05 ». */
+export function formatTime(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(LOCALE_TAGS[locale], { timeStyle: 'short' }).format(date);
+}
+
 /** Formats a date, for example « 21 novembre 2026 ». */
 export function formatDate(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(LOCALE_TAGS[locale], { dateStyle: 'long' }).format(date);

@@ -3,6 +3,10 @@
 
 pub mod dashboard;
 pub mod documents;
+pub mod graph;
 pub mod notes;
 pub mod relations;
 pub mod workspaces;
+
+#[cfg(test)]
+mod timeline_tests;

@@ -36,6 +36,8 @@ export const queryKeys = {
   workspaceList: ['workspaces', 'list'] as const,
   workspace: (id: string) => ['workspaces', 'detail', id] as const,
   dashboard: ['dashboard'] as const,
+  /** Under the overview's prefix: the timeline changes with the activity, like the overview. */
+  timeline: (query: unknown) => ['dashboard', 'timeline', query] as const,
   /** Prefix of every document query (lists and details). */
   documents: ['documents'] as const,
   documentList: (query: DocumentQuery) => ['documents', 'list', query] as const,
@@ -55,6 +57,11 @@ export const queryKeys = {
   memoryItem: (kind: LinkKind, id: string) => ['memory', 'item', kind, id] as const,
   relations: (kind: LinkKind, id: string) => ['memory', 'relations', kind, id] as const,
   memoryOverview: ['memory', 'overview'] as const,
+  /**
+   * Under the memory engine's prefix: the graph changes with the relations, the links of notes, the tags and the
+   * workspaces, whose changes all refresh that prefix.
+   */
+  graph: (query: unknown) => ['memory', 'graph', query] as const,
 };
 
 /**

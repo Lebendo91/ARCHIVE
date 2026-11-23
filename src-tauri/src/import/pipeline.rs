@@ -537,7 +537,7 @@ mod tests {
         );
         let events = fixture
             .database
-            .read(|c| timeline::list(c, None, 10))
+            .read(|c| timeline::list(c, 10))
             .expect("timeline");
         assert_eq!(events.len(), 3);
         assert!(

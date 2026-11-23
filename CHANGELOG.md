@@ -6,6 +6,33 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 8 : Graphe de connaissances et chronologie (2026-11-23)
+
+- Graphe de connaissances en deux dimensions, sans WebGL :
+  - les documents et les notes reliés par les liens écrits dans les notes et par les relations validées ; sur
+    demande, les suggestions d'ARCHIVE (en pointillés), les espaces de travail et les étiquettes ;
+  - zoom (molette, boutons, clavier), déplacement de la carte, éléments déplaçables à la souris, légende ;
+  - sélection d'un élément ou d'un lien ; détails chargés à la demande (format, dates, espace, étiquettes,
+    connexions) ; ouverture de l'élément ; un lien explique ce qu'il signifie, et une suggestion s'accepte ou se
+    rejette depuis le graphe ;
+  - recherche parmi les éléments affichés, filtres par type d'élément, type de relation et espace de travail ;
+  - au-delà de 300 éléments, les plus reliés d'abord, avec un message ; « Partir d'un élément » montre son
+    voisinage, et « Afficher les voisins » ajoute ceux d'un élément (jusqu'à 500) ;
+  - au clavier : un seul arrêt de tabulation pour toute la carte, les flèches passent d'un élément au plus proche
+    dans la direction choisie ; une vue en liste offre la même information ;
+  - sans relation, une page explique comment elles naissent, au lieu de montrer un graphe inventé.
+- « Voir dans le graphe » depuis la carte Relations d'un document ou d'une note.
+- Chronologie complète : événements regroupés par jour, avec leur type, le format importé, l'origine d'une
+  relation acceptée et l'espace de travail ; filtres par type d'événement, ressource, espace de travail et période
+  (dont des dates choisies) ; événements plus anciens à la demande ; une relation acceptée mène à son document ou
+  à sa note.
+- Effacement de l'historique, après confirmation : les documents, les notes et les espaces ne sont pas touchés.
+
+### Modifié — Phase 8
+
+- La chronologie et l'activité récente montrent le titre actuel d'un élément qui existe encore : une note créée
+  sans titre puis nommée n'apparaît plus « Sans titre ».
+
 ### Ajouté — Phase 7 : Moteur de mémoire (2026-11-23)
 
 - Chaque document et chaque note est traité en arrière-plan, sur cet appareil et sans IA, sans gêner

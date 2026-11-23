@@ -5,12 +5,11 @@
 
 ## Phase courante
 
-**Phase 7 — Moteur de mémoire : terminée et validée localement** (branche `phase/7-memoire`) ; reste la CI sur la
-pull request, puis la fusion dans `main`. Ensuite : **Phase 8 — Graphe de connaissances et chronologie**, tâche
-**8.1**. La Phase 6 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#3 le 2026-11-22 (commit
-`447205d`, CI de `main` au vert : runs 45059954952 et 45059954866). Le porteur du projet a demandé l'enchaînement
-autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
-d'utilisation.
+**Phase 8 — Graphe de connaissances et chronologie : terminée et validée localement** (branche `phase/8-graphe`) ;
+reste la CI sur la pull request, puis la fusion dans `main`. Ensuite : **Phase 9 — Assistant IA**, tâche **9.1**. La
+Phase 7 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#4 le 2026-11-23 (commit `48dd2ed`, CI de
+`main` au vert : runs 45125704392 et 45125704226). Le porteur du projet a demandé l'enchaînement autonome des
+phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -21,9 +20,9 @@ d'utilisation.
 | 4 | Bibliothèque | ✅ Terminée |
 | 5 | Notes | ✅ Terminée |
 | 6 | Recherche intelligente | ✅ Terminée |
-| 7 | Moteur de mémoire | ✅ Terminée (fusion en attente de la CI) |
-| 8 | Graphe de connaissances et chronologie | ▶ Prochaine |
-| 9 | Assistant IA | À faire |
+| 7 | Moteur de mémoire | ✅ Terminée |
+| 8 | Graphe de connaissances et chronologie | ✅ Terminée (fusion en attente de la CI) |
+| 9 | Assistant IA | ▶ Prochaine |
 | 10 | Sauvegarde, sécurité, optimisation et packaging | À faire |
 
 ---
@@ -35,6 +34,103 @@ d'utilisation.
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 8 — Graphe de connaissances et chronologie (terminée le 2026-11-23)
+
+### Tâches réalisées
+
+- [x] **8.1** Décisions et dépendances (ARCHITECTURE §2, §10 et §16) : SVG dessiné par React et disposition par
+      `d3-force` 3.0.1 (version exacte, examinée avant adoption) au lieu de Cytoscape.js ; plafonds de nœuds et
+      chargement progressif ; vue en liste comme alternative accessible.
+- [x] **8.2** Cœur du graphe (`graph_load`) : documents, notes, espaces et étiquettes ; liens des notes, relations
+      décidées, suggestions sur demande (jamais les rejetées), appartenances et étiquettes ; filtres appliqués avant
+      envoi ; les plus reliés d'abord ou le voisinage d'un élément ; éléments dépliés jusqu'à 500 nœuds ; tests Rust.
+- [x] **8.3** Interface du graphe : carte SVG (zoom, déplacement, nœuds déplaçables, sélection d'un nœud ou d'un
+      lien, légende), détails chargés à la demande, ouverture de l'élément, décision sur une suggestion, recherche
+      parmi les éléments affichés, filtres, « Partir d'un élément », « Afficher les voisins », navigation au clavier,
+      vue en liste, états vides qui expliquent comment naissent les relations ; « Voir dans le graphe » depuis la
+      carte Relations ; disposition dans un Web Worker.
+- [x] **8.4** Chronologie : `timeline_list` filtré par types d'événement, types de ressource, espace et période,
+      paginé par curseur `(date, identifiant)`, avec la ressource où mène chaque événement et son titre actuel ;
+      `timeline_clear` ; un test Rust vérifie, par les vrais services et le vrai pipeline d'import, que les huit
+      événements de la spec §13.1 sont enregistrés.
+- [x] **8.5** Interface de la chronologie : regroupement par jour, type, format importé, origine d'une relation,
+      espace, heure ; filtres (dont des dates choisies, vérifiées) ; événements plus anciens à la demande ;
+      effacement après confirmation.
+- [x] **8.6** Validation (ci-dessous), mesures, documentation, captures `docs/screenshots/phase-8/`.
+
+### Validation (critères de la spec §21, Phase 8)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Graphe en deux dimensions | ✅ | SVG sans WebGL ; tests de bout en bout dans Chromium (moteur de WebView2) ; **natif** (WebKitGTK sous Xvfb) : la carte dessine les suggestions puis la relation acceptée, disposée par son worker sous la CSP de production |
+| Nœuds | ✅ | Tests Rust (types, degré, archivés, couleur et icône des espaces, élément de départ montré même seul, corbeille exclue) ; formes distinctes par type ; nom accessible complet |
+| Arêtes | ✅ | Tests Rust : liens des notes, relations décidées, suggestions sur demande, jamais les rejetées, appartenances, étiquettes, plafond de 4 000 arêtes ; flèches pour les relations orientées, arcs pour les liens parallèles |
+| Filtres | ✅ | Tests Rust (types, espace, suggestions) ; unitaires et de bout en bout : types d'élément et de relation, suggestions, espace, réinitialisation ; le dernier type d'élément ne peut être décoché |
+| Sélection | ✅ | De bout en bout : clic sur un nœud ou un lien (test de distance), clavier (flèches, Entrée, Échap), glisser sans perdre la sélection, voisinage mis en évidence |
+| Navigation | ✅ | Ouverture depuis les détails et par double clic ; « Partir d'un élément » et « Afficher les voisins » (tests Rust des plafonds, de bout en bout) ; « Voir dans le graphe » depuis la carte Relations |
+| Détails des relations | ✅ | Panneau d'un lien : phrase, origine, justification et confiance d'une suggestion, décision. **Natif** : suggestion acceptée depuis le graphe, au clavier seulement, enregistrée et inscrite dans la chronologie |
+| Suivi des événements | ✅ | Test Rust de bout en bout sur les huit événements ; **natif** : les 8 imports et la note créée sont inscrits par le cœur réel |
+| Filtres de la chronologie | ✅ | Tests Rust (espace, types, ressource, période, pagination sans doublon ni saut) ; unitaires et de bout en bout (dont période impossible signalée) ; **natif** : effacement seulement après confirmation, ressources intactes |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 262/262 (+ 3 mesures de performance ignorées par défaut) |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 174/174 (24 fichiers, dont 11 tests du graphe et de la chronologie, 7 de la disposition, du zoom et de l'adresse, 3 des périodes) |
+| `npm run test:e2e` (dont axe-core sur la carte avec sélection et recherche, les filtres, la légende, la liste, le dialogue de départ, le graphe sans relation, la chronologie filtrée et le dialogue d'effacement) | ✅ 80/80 |
+| `npm run test:visual` (42 scénarios, 3 résolutions) | ✅ captures revues |
+| `scripts/validate-native-phase8.py` : binaire de production, vraie base SQLite, imports réels, note tapée, deux lancements sous Xvfb | ✅ 16/16 vérifications |
+| `cargo test --release --lib perf::graph_on_a_generated_corpus -- --ignored --nocapture` et `npm run test:perf` (mesures indicatives) | ✅ chiffres dans ARCHITECTURE §10 |
+| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+
+### Défauts corrigés en cours de phase
+
+- **Accessibilité** (axe) : l'étiquette raccourcie d'un nœud (« … ») était dans son bouton, dont le nom accessible
+  porte le titre complet (WCAG 2.5.3) ; les étiquettes sont désormais dans un calque à part.
+- **Ergonomie** (tests de bout en bout) : l'ouverture du panneau de détails au premier clic d'un double clic
+  décalait la carte, et le second clic manquait l'élément ; la carte se rétrécit désormais par la droite.
+- **Performance** (mesure dans Chromium) : la disposition de 300 nœuds prenait 0,9 s sur le fil de l'interface ;
+  elle part désormais de positions lisibles, s'arrête plus tôt et tourne dans un Web Worker (0,34 s, hors
+  interface).
+- **Lisibilité** (audit visuel) : groupes déconnectés entremêlés, étiquettes voisines superposées, nouveau voisin
+  éloigné de son élément après une expansion, filtres de la chronologie désalignés à 1100 px quand une période est
+  impossible.
+- **Chronologie** (validation native) : une note créée par Ctrl+N puis nommée apparaissait « Sans titre » ;
+  l'interface montre désormais le titre actuel d'une ressource qui existe encore.
+
+### Dépendances ajoutées
+
+| Paquet | Version | Rôle |
+|---|---|---|
+| `d3-force` (avec `d3-dispatch`, `d3-quadtree`, `d3-timer` 3.0.2) | 3.0.1 (exacte) | Disposition par forces du graphe |
+| `@types/d3-force` (développement) | 3.0.10 (exacte) | Types |
+
+Les versions de novembre 2026 ont été examinées avant adoption : publiées par l'intégration continue du projet d3
+avec attestation de provenance, sans script d'installation, et identiques à celles de 2021 au code près (une
+optimisation de `quadtree.addAll`, un arrondi de `d3-timer`). `npm audit signatures` n'a pas pu joindre le dépôt de
+confiance Sigstore depuis le conteneur.
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Nœuds de concepts et « concepts partagés »** (spec §11.1) : les tables existent depuis la Phase 7, mais aucun
+  concept n'est extrait sans fournisseur d'IA → Phase 9.
+- **Filtre « favoris » et statut de traitement dans le graphe** : non demandés par la spec ; à évaluer selon l'usage.
+
+### Limites restantes
+
+- Le graphe montre au plus 500 nœuds à la fois ; au-delà, l'utilisateur filtre ou part d'un élément.
+- Les titres de plus de 26 caractères sont raccourcis sur la carte (complets dans les détails, la liste et le nom
+  accessible) ; la largeur des étiquettes est estimée pour les écarter.
+- Au clavier, les flèches mènent au nœud le plus proche dans une direction : dans une zone dense, la cible peut
+  surprendre ; la vue en liste reste l'alternative.
+- Les événements « relation acceptée » ne sont rattachés à aucun espace : le filtre par espace ne les montre pas.
+- Les champs de date suivent le format du système (celui de WebView2 sous Windows).
 
 ---
 
@@ -85,7 +181,7 @@ d'utilisation.
 | `npm run test:visual` (36 scénarios, 3 résolutions) | ✅ captures revues |
 | `scripts/validate-native-phase7.py` : binaire de production, vraie base SQLite, imports réels, note tapée, trois lancements sous Xvfb | ✅ 17/17 vérifications |
 | `cargo test --release --lib perf:: -- --ignored --nocapture` (mesures indicatives) | ✅ chiffres dans ARCHITECTURE §8 et §9 |
-| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout et accessibilité, cœur natif (run 45125392326 et, sur la pull request, 45125397626, commit `122dea8`) ; build Windows MSI et NSIS avec test de démarrage (run 45124157664, commit `31a0d39`, dernière modification native) ; `main` après fusion (`48dd2ed`, pull request Lebendo91/ARCHIVE#4) : runs 45125704392 et 45125704226 |
 
 ### Défauts corrigés en cours de phase
 
@@ -724,17 +820,22 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Terminer la Phase 7** : pull request `phase/7-memoire` → `main`, CI verte (Linux et Windows), fusion par
+1. **Terminer la Phase 8** : pull request `phase/8-graphe` → `main`, CI verte (Linux et Windows), fusion par
    merge commit, puis consigner les numéros des runs ici.
-2. **Phase 8 — Graphe de connaissances et chronologie** (spec §11, §13 et §21), branche `phase/8-graphe` à créer
-   depuis `main`. Prochaine tâche : **8.1**. Les données existent déjà : relations avec origine, statut et
-   provenance (Phase 7), liens des notes (Phase 5), événements de chronologie enregistrés depuis la Phase 3.
+2. **Phase 9 — Assistant IA** (spec §14 et §21), branche `phase/9-assistant` à créer depuis `main`. Prochaine
+   tâche : **9.1**. L'assistant reste facultatif : l'application fonctionne entièrement sans fournisseur, aucune clé
+   n'est demandée au démarrage, rien n'est envoyé sans une action explicite de l'utilisateur, qui choisit ce qui est
+   partagé. La table `ai_providers` (référence vers le secret, jamais le secret) existe depuis la Phase 2 ; l'index
+   plein texte par page (Phase 6) sert à retrouver les passages ; l'interface `ConceptExtractor` attend un
+   fournisseur (Phase 7).
 
 | # | Tâche |
 |---|---|
-| **8.1** | Décisions et dépendances : rendu 2D léger sans WebGL (spec §11), mise en page par forces (par exemple `d3-force`, versions exactes) dessinée en SVG ou Canvas 2D, zoom et déplacement ; limites de nœuds et chargement progressif (spec §11.3) ; alternative accessible (liste des nœuds et des liens) |
-| 8.2 | Cœur du graphe : commande qui renvoie, filtrés avant envoi, les nœuds (documents, notes, espaces, étiquettes ; concepts quand ils existeront) et les arêtes (liens des notes, relations acceptées, suggestions en option, appartenance à un espace, étiquettes), avec voisinage d'un élément et limites ; tests Rust |
-| 8.3 | Interface du graphe : zoom, déplacement, sélection, détails chargés à la demande, recherche dans le graphe, filtres par type de nœud et de relation, navigation vers la ressource ; état vide qui explique comment naissent les relations (aucun graphe inventé) |
-| 8.4 | Chronologie : commande filtrée (type d'événement, espace, période, type de ressource) et paginée ; vérification que les huit événements de la spec §13.1 sont tous enregistrés |
-| 8.5 | Interface de la chronologie : regroupement par date, type d'événement, titre, métadonnées utiles, navigation vers la ressource, filtres |
-| 8.6 | Validation (spec §21) : tests Rust, unitaires, de bout en bout avec axe, audit visuel, validation native, mesure sur un graphe généré, documentation, CI, fusion |
+| **9.1** | Décisions et dépendances : trait Rust `AiProvider` (capacités, test de connexion, réponse en flux, erreurs, usage) ; client HTTPS (`reqwest` avec rustls) ; magasin d'identifiants du système (`keyring` : Gestionnaire d'identifiants Windows, Secret Service sous Linux) et comportement s'il est indisponible ; flux vers l'interface par `Channel` ; politique de journalisation (jamais de clé, jamais de contenu) ; CSP et capacités inchangées (le réseau passe par le cœur) ; moyen de tester sans clé réelle (serveur local simulé, adresse de base modifiable seulement dans les builds de test) |
+| 9.2 | Configuration et secrets : ajouter, modifier, retirer un fournisseur (Anthropic, OpenAI, Gemini), modèle, préférences ; la clé va dans le magasin du système, jamais dans SQLite, les journaux ou l'interface (qui ne la relit jamais) ; test de connexion sur action explicite ; écran Paramètres › IA ; tests Rust |
+| 9.3 | Fournisseurs : requêtes, flux et erreurs (authentification, quota, réseau, modèle inconnu, annulation) des trois API, derrière l'interface commune ; usage (jetons) quand il est fourni ; tests contre un serveur simulé |
+| 9.4 | Contexte et récupération : sélection par l'utilisateur de documents, de notes ou d'un espace ; passages pertinents tirés de l'index (par page), dans un budget ; aperçu de ce qui sera envoyé ; rien n'est envoyé automatiquement |
+| 9.5 | Conversations : stockage (conversations, messages, sources), historique, nouvelle conversation, effacement, régénération, copie, réponse en flux et interruption |
+| 9.6 | Citations : chaque source citée renvoie à un passage réellement fourni (document, page, extrait, cliquables) ; une citation inconnue est écartée et signalée ; sans appui trouvé, l'assistant le dit ; distinction entre ARCHIVE, connaissance générale du modèle et interprétation |
+| 9.7 | Concepts : extraction sur action explicite avec le fournisseur configuré (interface de la Phase 7), puis nœuds de concepts dans le graphe (report de la Phase 8) |
+| 9.8 | Validation (spec §21) : tests Rust, unitaires, de bout en bout avec axe, audit visuel, validation native (sans clé réelle), documentation, CI, fusion |

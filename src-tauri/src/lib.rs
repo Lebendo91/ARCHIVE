@@ -73,6 +73,7 @@ pub fn run() {
             commands::workspaces::workspaces_delete,
             commands::dashboard::dashboard_overview,
             commands::dashboard::timeline_list,
+            commands::dashboard::timeline_clear,
             commands::import::documents_import_pick,
             commands::import::documents_import_dropped,
             commands::import::documents_import_retry,
@@ -132,6 +133,7 @@ pub fn run() {
             commands::memory::relations_set_type,
             commands::memory::relations_decide,
             commands::memory::relations_remove,
+            commands::graph::graph_load,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

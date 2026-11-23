@@ -10,6 +10,8 @@ import type { DocumentPage } from '@/types/bindings/DocumentPage';
 import type { DocumentQuery } from '@/types/bindings/DocumentQuery';
 import type { ErrorCode } from '@/types/bindings/ErrorCode';
 import type { Folder } from '@/types/bindings/Folder';
+import type { GraphData } from '@/types/bindings/GraphData';
+import type { GraphQuery } from '@/types/bindings/GraphQuery';
 import type { ImportProgress } from '@/types/bindings/ImportProgress';
 import type { ImportSummary } from '@/types/bindings/ImportSummary';
 import type { ImportTarget } from '@/types/bindings/ImportTarget';
@@ -40,7 +42,7 @@ import type { RelationDecision } from '@/types/bindings/RelationDecision';
 import type { RelationView } from '@/types/bindings/RelationView';
 import type { Tag } from '@/types/bindings/Tag';
 import type { TagUsage } from '@/types/bindings/TagUsage';
-import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
+import type { TimelinePage } from '@/types/bindings/TimelinePage';
 import type { TimelineQuery } from '@/types/bindings/TimelineQuery';
 import type { TokenColor } from '@/types/bindings/TokenColor';
 import type { Workspace } from '@/types/bindings/Workspace';
@@ -76,7 +78,9 @@ export interface CommandSignatures {
     result: WorkspaceDeletionReport;
   };
   dashboard_overview: { args: undefined; result: DashboardOverview };
-  timeline_list: { args: { query: TimelineQuery }; result: TimelineEvent[] };
+  timeline_list: { args: { query: TimelineQuery }; result: TimelinePage };
+  /** Clears the whole history (documents, notes and workspaces are not touched); returns the events removed. */
+  timeline_clear: { args: undefined; result: number };
   documents_import_pick: {
     args: { target: ImportTarget; onProgress: Channel<ImportProgress> };
     result: ImportSummary | null;
@@ -160,6 +164,8 @@ export interface CommandSignatures {
   relations_decide: { args: { id: string; decision: RelationDecision }; result: Relation };
   /** A relation found by the engine is rejected (never suggested again), one created by the user deleted. */
   relations_remove: { args: { id: string }; result: null };
+  /** The knowledge graph, filtered and limited by the core before it is sent. */
+  graph_load: { args: { query: GraphQuery }; result: GraphData };
   /** `null` when the user closes the file picker without choosing. */
   notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
   /** `false` when the user closes the save dialog. */
