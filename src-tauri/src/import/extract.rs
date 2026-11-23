@@ -386,6 +386,7 @@ fn read_core_properties(reader: impl Read) -> (Map<String, Value>, bool) {
                     "lastModifiedBy" => Some("lastModifiedBy"),
                     "created" => Some("authoredAt"),
                     "modified" => Some("revisedAt"),
+                    "language" => Some("declaredLanguage"),
                     _ => None,
                 };
             }
@@ -594,7 +595,7 @@ pub(crate) mod tests {
 </w:body></w:document>"#;
         let core = r#"<?xml version="1.0"?><cp:coreProperties xmlns:cp="c" xmlns:dc="d" xmlns:dcterms="t">
 <dc:title>Électricité</dc:title><dc:creator>Alice</dc:creator><dcterms:created>2026-09-01T08:00:00Z</dcterms:created>
-</cp:coreProperties>"#;
+<dc:language>fr-FR</dc:language></cp:coreProperties>"#;
         let path = write_temp(&dir, "cours.docx", &docx_bytes(document, Some(core)));
         let extraction = extract(FileKind::Docx, &path);
         assert_eq!(extraction.status, ProcessingStatus::Completed);
@@ -608,6 +609,7 @@ pub(crate) mod tests {
         assert_eq!(extraction.metadata["documentTitle"], "Électricité");
         assert_eq!(extraction.metadata["author"], "Alice");
         assert_eq!(extraction.metadata["authoredAt"], "2026-09-01T08:00:00Z");
+        assert_eq!(extraction.metadata["declaredLanguage"], "fr-FR");
     }
 
     #[test]

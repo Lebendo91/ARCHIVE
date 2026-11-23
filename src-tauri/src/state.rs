@@ -85,6 +85,12 @@ fn open_database(paths: &AppPaths) -> DatabaseState {
                 Ok(None) => {}
                 Err(error) => log::error!("search index could not be built: {error}"),
             }
+            // The memory engine processes every item again when its rules changed (or never ran here).
+            match database.write(crate::memory::ensure_current) {
+                Ok(Some(count)) => log::info!("memory engine: {count} items queued for processing"),
+                Ok(None) => {}
+                Err(error) => log::error!("memory engine could not be prepared: {error}"),
+            }
             DatabaseState::Ready {
                 database: Arc::new(database),
                 report,

@@ -16,12 +16,21 @@ import zlib
 OUT = pathlib.Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "library"
 
 
-def pdf(pages: list[list[tuple[int, str]]]) -> bytes:
-    """A PDF with Helvetica text (WinAnsi encoding, so « é » is written \\351)."""
+def pdf(
+    pages: list[list[tuple[int, str]]],
+    info: dict[str, str] | None = None,
+    lang: str | None = None,
+) -> bytes:
+    """A PDF with Helvetica text (WinAnsi encoding, so « é » is written \\351).
+
+    `info` fills the information dictionary (Title, Author, CreationDate…, ASCII text) and `lang` the language
+    of the catalog: what the file declares about itself. Without them, the output is the same as before.
+    """
     objects: list[bytes] = []
     page_ids = [3 + 2 * index for index in range(len(pages))]
     font_id = 3 + 2 * len(pages)
-    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    language = f" /Lang ({lang})" if lang else ""
+    objects.append(f"<< /Type /Catalog /Pages 2 0 R{language} >>".encode())
     kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
     objects.append(f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode())
     for index, lines in enumerate(pages):
@@ -45,6 +54,11 @@ def pdf(pages: list[list[tuple[int, str]]]) -> bytes:
         stream = "\n".join(commands).encode("latin-1")
         objects.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
     objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
+    info_reference = ""
+    if info:
+        entries = " ".join(f"/{key} ({value})" for key, value in info.items())
+        objects.append(f"<< {entries} >>".encode("latin-1"))
+        info_reference = f" /Info {len(objects)} 0 R"
 
     output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
     offsets = []
@@ -55,7 +69,9 @@ def pdf(pages: list[list[tuple[int, str]]]) -> bytes:
     output += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
     for offset in offsets:
         output += f"{offset:010d} 00000 n \n".encode()
-    output += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    output += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R{info_reference} >>\nstartxref\n{xref}\n%%EOF\n"
+    ).encode()
     return bytes(output)
 
 

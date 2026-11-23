@@ -31,6 +31,13 @@ import type { StorageOverview } from '@/types/bindings/StorageOverview';
 import type { SearchHistoryEntry } from '@/types/bindings/SearchHistoryEntry';
 import type { SearchRequest } from '@/types/bindings/SearchRequest';
 import type { SearchResults } from '@/types/bindings/SearchResults';
+import type { LinkKind } from '@/types/bindings/LinkKind';
+import type { MemoryItem } from '@/types/bindings/MemoryItem';
+import type { MemoryOverview } from '@/types/bindings/MemoryOverview';
+import type { NewRelationInput } from '@/types/bindings/NewRelationInput';
+import type { Relation } from '@/types/bindings/Relation';
+import type { RelationDecision } from '@/types/bindings/RelationDecision';
+import type { RelationView } from '@/types/bindings/RelationView';
 import type { Tag } from '@/types/bindings/Tag';
 import type { TagUsage } from '@/types/bindings/TagUsage';
 import type { TimelineEvent } from '@/types/bindings/TimelineEvent';
@@ -141,6 +148,18 @@ export interface CommandSignatures {
   search_history_record: { args: { query: string }; result: SearchHistoryEntry };
   search_history_delete: { args: { id: string }; result: null };
   search_history_clear: { args: undefined; result: null };
+  memory_item: { args: { kind: LinkKind; id: string }; result: MemoryItem };
+  /** Tries again the failed stages of an item. */
+  memory_retry: { args: { kind: LinkKind; id: string }; result: MemoryItem };
+  memory_overview: { args: undefined; result: MemoryOverview };
+  /** Tries again every stage that failed or waits for the user; returns the number of jobs queued. */
+  memory_retry_all: { args: undefined; result: number };
+  relations_list: { args: { kind: LinkKind; id: string }; result: RelationView[] };
+  relations_create: { args: { input: NewRelationInput }; result: Relation };
+  relations_set_type: { args: { id: string; relationType: string }; result: Relation };
+  relations_decide: { args: { id: string; decision: RelationDecision }; result: Relation };
+  /** A relation found by the engine is rejected (never suggested again), one created by the user deleted. */
+  relations_remove: { args: { id: string }; result: null };
   /** `null` when the user closes the file picker without choosing. */
   notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
   /** `false` when the user closes the save dialog. */

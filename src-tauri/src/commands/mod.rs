@@ -9,6 +9,7 @@ pub mod diagnostics;
 pub mod documents;
 pub mod import;
 pub mod library;
+pub mod memory;
 pub mod notes;
 pub mod search;
 pub mod settings;

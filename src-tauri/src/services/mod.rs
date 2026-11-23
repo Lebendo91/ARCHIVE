@@ -4,4 +4,5 @@
 pub mod dashboard;
 pub mod documents;
 pub mod notes;
+pub mod relations;
 pub mod workspaces;

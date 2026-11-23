@@ -5,11 +5,12 @@
 
 ## Phase courante
 
-**Phase 6 — Recherche intelligente : terminée et validée localement** (branche `phase/6-recherche`) ; reste la
-CI sur la pull request, puis la fusion dans `main`. Ensuite : **Phase 7 — Moteur de mémoire**, tâche **7.1**.
-La Phase 5 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#2 le 2026-11-22. Le porteur du
-projet a demandé l'enchaînement autonome des phases ; une reprise automatique est programmée après chaque
-réinitialisation de sa limite d'utilisation.
+**Phase 7 — Moteur de mémoire : terminée et validée localement** (branche `phase/7-memoire`) ; reste la CI sur la
+pull request, puis la fusion dans `main`. Ensuite : **Phase 8 — Graphe de connaissances et chronologie**, tâche
+**8.1**. La Phase 6 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#3 le 2026-11-22 (commit
+`447205d`, CI de `main` au vert : runs 45059954952 et 45059954866). Le porteur du projet a demandé l'enchaînement
+autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
+d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -19,9 +20,9 @@ réinitialisation de sa limite d'utilisation.
 | 3 | Vue d'ensemble et espaces de travail | ✅ Terminée |
 | 4 | Bibliothèque | ✅ Terminée |
 | 5 | Notes | ✅ Terminée |
-| 6 | Recherche intelligente | ✅ Terminée (fusion en attente de la CI) |
-| 7 | Moteur de mémoire | ▶ Prochaine |
-| 8 | Graphe de connaissances et chronologie | À faire |
+| 6 | Recherche intelligente | ✅ Terminée |
+| 7 | Moteur de mémoire | ✅ Terminée (fusion en attente de la CI) |
+| 8 | Graphe de connaissances et chronologie | ▶ Prochaine |
 | 9 | Assistant IA | À faire |
 | 10 | Sauvegarde, sécurité, optimisation et packaging | À faire |
 
@@ -34,6 +35,96 @@ réinitialisation de sa limite d'utilisation.
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 7 — Moteur de mémoire (terminée le 2026-11-23)
+
+### Tâches réalisées
+
+- [x] **7.1** Schéma et décisions (ARCHITECTURE §8 et §16) : migration 3 avec la file `processing_jobs`, les
+      profils de contenu, les termes caractéristiques, le vocabulaire de l'index, les concepts et leurs mentions,
+      la version du moteur.
+- [x] **7.2** File persistante et worker d'arrière-plan : mise en file dans la transaction qui modifie
+      l'élément (notes après une pause de la frappe), génération de chaque travail, nouveaux essais espacés puis
+      « À vérifier », reprise après un arrêt, nouveau traitement complet quand les règles changent, événements
+      `memory:changed` ; statut de chaque étape (import, extraction, normalisation, indexation, analyse,
+      relations) et relance.
+- [x] **7.3** Normalisation et analyse sans IA : titre, auteur, dates et langue déclarés (propriétés Word,
+      informations PDF lues par pdf.js), pages, mots et caractères, langue reconnue seulement quand le texte le
+      dit clairement ; termes caractéristiques pondérés par leur rareté dans l'index.
+- [x] **7.4** Relations suggérées par des règles : termes partagés, étiquettes communes, même espace ; provenance
+      et confiance ; jamais acceptées d'office, jamais reproposées après un rejet.
+- [x] **7.5** Contrôle par l'utilisateur : cartes « Relations » et « Analyse » sur chaque document et chaque note
+      (accepter, rejeter, rétablir, ajouter, changer le type, retirer ; relance d'une étape en échec) ; vue
+      d'ensemble des traitements dans Paramètres › Stockage.
+- [x] **7.6** Extraction de concepts derrière une interface indépendante du fournisseur, indisponible et expliquée
+      tant qu'aucun fournisseur d'IA n'est configuré ; stockage séparé avec la source de chaque mention.
+- [x] **7.7** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-7/`.
+
+### Validation (critères de la spec §21, Phase 7)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| File de traitement | ✅ | Tests Rust : étapes enchaînées, note traitée après la pause de la frappe, nouvelle demande pendant un traitement, échecs retentés puis « À vérifier », relance, reprise après un arrêt, nouveau traitement quand la version change, purge. **Natif** : sans aucune action, le worker de l'application termine les 27 travaux des 9 éléments importés ou écrits ; un travail interrompu reprend au lancement suivant ; après un changement de règles, les 9 éléments sont traités à nouveau |
+| Analyse des documents | ✅ | Tests Rust : termes fréquents dans l'élément et rares ailleurs, mots courants écartés. **Natif** : termes de la note issus de son texte ; carte « Analyse » du PDF avec ses six étapes terminées |
+| Normalisation des métadonnées | ✅ | Tests Rust : dates ISO 8601, langue déclarée prioritaire, rien d'inventé. **Natif** : titre et auteur du document Word ; titre, auteur, dates et langue d'un PDF lus par pdf.js ; rien pour un PDF qui ne déclare rien |
+| Interface d'extraction de concepts | ✅ | Tests Rust avec un extracteur de test : stockage séparé, source et provenance gardées, contenu intact, concepts orphelins retirés ; sans fournisseur : indisponible, et l'interface l'explique |
+| Stockage des relations, suggestions, validation | ✅ | Tests Rust (moteur et service) ; unitaires et de bout en bout : accepter, rejeter, rétablir, ajouter, changer le type, retirer, relation vue de l'autre côté. **Natif** : suggestion entre la note et le PDF sur le NE555, jamais acceptée d'office ; rejet maintenu après un nouveau traitement complet |
+| Traçabilité de la provenance | ✅ | Termes partagés, étiquettes, espace commun et confiance enregistrés et affichés ; origine de chaque relation (vous, règle, IA) ; acceptation inscrite dans la chronologie |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| `cargo test` | ✅ 247/247 (+ 2 mesures de performance ignorées par défaut) |
+| `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` | ✅ |
+| `npm run typecheck`, `npm run lint`, `npm run format:check` | ✅ |
+| `npm test` | ✅ 155/155 (21 fichiers, dont 8 tests des relations, de l'analyse et de la vue d'ensemble) |
+| `npm run test:e2e` (dont axe-core sur les cartes « Relations » et « Analyse » d'une note et d'un document, les deux dialogues et la vue d'ensemble) | ✅ 72/72 ; les 5 tests de la phase répétés deux fois sans échec |
+| `npm run test:visual` (36 scénarios, 3 résolutions) | ✅ captures revues |
+| `scripts/validate-native-phase7.py` : binaire de production, vraie base SQLite, imports réels, note tapée, trois lancements sous Xvfb | ✅ 17/17 vérifications |
+| `cargo test --release --lib perf:: -- --ignored --nocapture` (mesures indicatives) | ✅ chiffres dans ARCHITECTURE §8 et §9 |
+| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+
+### Défauts corrigés en cours de phase
+
+- **Performance** : l'étape « relations » lisait le texte complet de chaque élément candidat, et un mot présent
+  partout faisait de chaque élément un candidat ; la comparaison détaillée est désormais limitée aux 200 éléments
+  les plus proches, vérifiés sans lire leur texte (mesure : 22 ms par élément).
+- **Accessibilité** (trouvés par les tests de bout en bout, invisibles sous jsdom) : après une décision, le focus
+  était posé avant que la liste ne soit redessinée ; le dialogue de type était démonté au lieu d'être fermé, et
+  le focus ne revenait pas au menu.
+- **Textes** : la page d'un document promettait encore « les relations proposées automatiquement arriveront avec le
+  moteur de mémoire » ; le problème d'extraction d'un document était répété dans deux cartes.
+- **Méthode de validation** : ma chaîne de vérification filtrait la sortie de `npm run lint` par `tail -1`, qui
+  masquait le code de sortie d'ESLint (sa dernière ligne est vide) ; deux erreurs de lint d'un test ont donc
+  atteint la CI, rouge sur les commits `aef46ce` et `31a0d39` alors que je les croyais validés. Elles sont
+  corrigées, et chaque commande de validation est désormais vérifiée par son code de sortie (`set -o pipefail`) ;
+  la consigne est ajoutée à CLAUDE.md.
+
+### Dépendances ajoutées
+
+Aucune : la table `fts5vocab` est fournie par le SQLite embarqué ; pdf.js lisait déjà les informations des PDF.
+
+### Éléments reportés (volontairement, sans simulation)
+
+- **Extraction de concepts par IA** : l'interface et le stockage sont prêts ; il faut un fournisseur configuré
+  avec sa clé, ce qui relève de la Phase 9.
+- **Relations entre étiquettes, espaces et concepts** dans le graphe → Phase 8 (affichage), Phase 9 (concepts).
+- **Statut de chaque étape dans la liste de la Bibliothèque** : il est visible sur chaque élément et dans la vue
+  d'ensemble ; un filtre par statut pourra venir en Phase 10.
+
+### Limites restantes
+
+- Les suggestions reposent sur des mots partagés, sans racinisation ni synonymes : « interruption » et
+  « interruptions » sont deux termes, « relais » et « contacteur » ne se rapprochent pas.
+- La langue n'est reconnue qu'en français et en anglais, et seulement pour un texte assez long ; les autres restent
+  « Non déterminée » sauf si le fichier les déclare.
+- Les seuils des règles (deux termes, similarité de 0,12, 200 candidats) sont fixés ; ils pourront devenir
+  réglables si l'usage le demande.
+- Le traitement initial d'une grande bibliothèque prend du temps en arrière-plan (environ 45 éléments par seconde
+  dans le conteneur cloud) ; l'application reste utilisable pendant ce temps.
 
 ---
 
@@ -84,8 +175,8 @@ réinitialisation de sa limite d'utilisation.
 | `npm run test:e2e` (dont axe-core sur la palette et la page de recherche : historique, résultats, filtres, aucun résultat ; `/search` rejoint les écrans contrôlés un par un) | ✅ 67/67 ; les 9 tests de la phase répétés 3 fois sans échec |
 | `npm run test:visual` (33 scénarios, 3 résolutions) | ✅ captures revues |
 | `scripts/validate-native-phase6.py` : binaire de production, vraie base SQLite, sélecteur GTK, trois lancements sous Xvfb | ✅ 22/22 vérifications |
-| `cargo test --release --lib search::perf -- --ignored --nocapture` (mesure indicative) | ✅ chiffres dans ARCHITECTURE §9 |
-| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+| `cargo test --release --lib perf::search -- --ignored --nocapture` (mesure indicative) | ✅ chiffres dans ARCHITECTURE §9 |
+| CI GitHub (Linux et Windows) | ✅ frontend, bout en bout et accessibilité, cœur natif (runs 45059433938 et, sur la pull request, 45059438139, commit `084e84f`) ; build Windows MSI et NSIS avec test de démarrage (run 45059035040, commit `1f2a446`, dernière modification native) ; `main` après fusion : runs 45059954952 et 45059954866 |
 
 ### Défauts corrigés en cours de phase
 
@@ -633,18 +724,17 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Terminer la Phase 6** : pull request `phase/6-recherche` → `main`, CI verte (Linux et Windows), fusion par
+1. **Terminer la Phase 7** : pull request `phase/7-memoire` → `main`, CI verte (Linux et Windows), fusion par
    merge commit, puis consigner les numéros des runs ici.
-2. **Phase 7 — Moteur de mémoire** (spec §10 et §21), branche `phase/7-memoire` à créer depuis `main`.
-   Prochaine tâche : **7.1**. L'architecture prévue est décrite dans ARCHITECTURE §8 (pipeline à statuts par
-   étape, relations à origine, statut, confiance et provenance, concepts séparés du contenu).
+2. **Phase 8 — Graphe de connaissances et chronologie** (spec §11, §13 et §21), branche `phase/8-graphe` à créer
+   depuis `main`. Prochaine tâche : **8.1**. Les données existent déjà : relations avec origine, statut et
+   provenance (Phase 7), liens des notes (Phase 5), événements de chronologie enregistrés depuis la Phase 3.
 
 | # | Tâche |
 |---|---|
-| **7.1** | Schéma et décisions : migration 3 avec la file persistante `processing_jobs` (étape, élément, statut `pending`, `processing`, `completed`, `failed` ou `needs_attention`, tentatives, erreur), `concepts` et `concept_mentions` (source et passage), et l'usage de `relations` (origine `user`, `rule` ou `ai`, statut `suggested`, `accepted` ou `rejected`, confiance, provenance) |
-| 7.2 | Worker d'arrière-plan : file reprise au démarrage, nouvelles tentatives espacées, annulation ; statut visible pour chaque étape (import, extraction, normalisation, indexation, analyse, relations) ; commandes de lecture et de relance |
-| 7.3 | Analyse sans IA : métadonnées normalisées (spec §10.2, jamais inventées : langue seulement si elle est déclarée ou détectée de façon vérifiable, longueur du contenu, pages), termes distinctifs de chaque élément (vocabulaire FTS5) |
-| 7.4 | Relations détectées par des règles, avec provenance et confiance : liens explicites, étiquettes partagées, même espace de travail, termes distinctifs communs ; suggestions jamais présentées comme des faits |
-| 7.5 | Contrôle par l'utilisateur (spec §10.5) : relations de chaque document et de chaque note, accepter, rejeter, modifier, retirer une suggestion, créer une relation manuelle ; vue des traitements (statuts, erreurs, relance) |
-| 7.6 | Interface d'extraction de concepts indépendante du fournisseur (trait `ConceptExtractor`) : désactivée et expliquée tant qu'aucun fournisseur n'est configuré ; résultats stockés à part, avec la référence de leur source |
-| 7.7 | Validation (spec §21) : tests Rust (file, reprise, règles, provenance), unitaires, de bout en bout avec axe, audit visuel, validation native, documentation, CI, fusion |
+| **8.1** | Décisions et dépendances : rendu 2D léger sans WebGL (spec §11), mise en page par forces (par exemple `d3-force`, versions exactes) dessinée en SVG ou Canvas 2D, zoom et déplacement ; limites de nœuds et chargement progressif (spec §11.3) ; alternative accessible (liste des nœuds et des liens) |
+| 8.2 | Cœur du graphe : commande qui renvoie, filtrés avant envoi, les nœuds (documents, notes, espaces, étiquettes ; concepts quand ils existeront) et les arêtes (liens des notes, relations acceptées, suggestions en option, appartenance à un espace, étiquettes), avec voisinage d'un élément et limites ; tests Rust |
+| 8.3 | Interface du graphe : zoom, déplacement, sélection, détails chargés à la demande, recherche dans le graphe, filtres par type de nœud et de relation, navigation vers la ressource ; état vide qui explique comment naissent les relations (aucun graphe inventé) |
+| 8.4 | Chronologie : commande filtrée (type d'événement, espace, période, type de ressource) et paginée ; vérification que les huit événements de la spec §13.1 sont tous enregistrés |
+| 8.5 | Interface de la chronologie : regroupement par date, type d'événement, titre, métadonnées utiles, navigation vers la ressource, filtres |
+| 8.6 | Validation (spec §21) : tests Rust, unitaires, de bout en bout avec axe, audit visuel, validation native, mesure sur un graphe généré, documentation, CI, fusion |

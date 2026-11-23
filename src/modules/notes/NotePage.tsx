@@ -49,6 +49,8 @@ import { isCommandError } from '@/services/tauri';
 import { noteResource, useResourceDialogs } from '@/stores/resourceDialogs';
 import { toast } from '@/stores/toasts';
 import { cn } from '@/utils/cn';
+import { AnalysisCard } from '@/modules/memory/AnalysisCard';
+import { RelationsCard } from '@/modules/memory/RelationsCard';
 import { clearDraft, readDraft, type NoteDraft } from './drafts';
 import { EditorToolbar } from './EditorToolbar';
 import { LinkDialog, LinkPicker } from './LinkDialogs';
@@ -149,6 +151,7 @@ function ResourceList({ items, empty }: { items: readonly LinkedResource[]; empt
 
 function NoteDetails({ detail }: { detail: NoteDetail }) {
   const { t, locale } = useI18n();
+  const displayTitle = useNoteTitle();
   const { note } = detail;
   const workspaces = useWorkspaces();
   const folders = useFolders(note.workspaceId ?? undefined);
@@ -229,6 +232,11 @@ function NoteDetails({ detail }: { detail: NoteDetail }) {
       <SectionCard title={t('notes.details.backlinks')}>
         <ResourceList items={detail.backlinks} empty={t('notes.details.noBacklinks')} />
       </SectionCard>
+      <RelationsCard
+        item={{ kind: 'note', id: note.id, title: displayTitle(note) }}
+        editable={editable}
+      />
+      <AnalysisCard kind="note" id={note.id} editable={editable} />
     </div>
   );
 }
@@ -286,6 +294,7 @@ function NoteEditorView({ detail }: { detail: NoteDetail }) {
       // The links and backlinks of the side panel, and the lists, follow the saved note.
       void client.invalidateQueries({ queryKey: queryKeys.notes });
       void client.invalidateQueries({ queryKey: queryKeys.search });
+      void client.invalidateQueries({ queryKey: queryKeys.memory });
       void client.invalidateQueries({ queryKey: queryKeys.dashboard });
       void client.invalidateQueries({ queryKey: queryKeys.documents });
     },

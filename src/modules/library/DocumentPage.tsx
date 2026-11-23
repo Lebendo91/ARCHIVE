@@ -50,6 +50,8 @@ import { INDEXING_TONES, kindLabelKey, textStateMessage } from './documentFormat
 import { DocumentKindIcon } from './DocumentKindIcon';
 import { CsvPreview, ImagePreview, JsonPreview, PdfViewer, TextPreview } from './DocumentPreview';
 import { MarkdownPreview } from './MarkdownPreview';
+import { AnalysisCard } from '@/modules/memory/AnalysisCard';
+import { RelationsCard } from '@/modules/memory/RelationsCard';
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -389,6 +391,11 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
               </div>
             )}
           </SectionCard>
+          <RelationsCard
+            item={{ kind: 'document', id: document.id, title: document.title }}
+            editable={!inTrash}
+          />
+          <AnalysisCard kind="document" id={document.id} editable={!inTrash} />
         </div>
       </div>
     </div>

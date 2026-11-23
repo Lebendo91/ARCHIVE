@@ -10,7 +10,7 @@ import { getAppInfo, getAppStatus, retryDatabase } from './app';
 import { getDashboardOverview } from './dashboard';
 import { getDocument, listDocuments, type DocumentQuery } from './documents';
 import { listFolders, listTags } from './library';
-import { getNote, listNotes, type NoteQuery } from './notes';
+import { getNote, listNotes, type LinkKind, type NoteQuery } from './notes';
 import { getSettings, updateSettings } from './settings';
 import { checkDatabaseIntegrity, getStorageOverview, openStorageFolder } from './storage';
 import { isNativeRuntime } from './tauri';
@@ -50,6 +50,11 @@ export const queryKeys = {
   note: (id: string) => ['notes', 'detail', id] as const,
   /** Prefix of every search query (results and history): any change of the data may change them. */
   search: ['search'] as const,
+  /** Prefix of what the memory engine knows (processing, analysis, relations): any change may change it. */
+  memory: ['memory'] as const,
+  memoryItem: (kind: LinkKind, id: string) => ['memory', 'item', kind, id] as const,
+  relations: (kind: LinkKind, id: string) => ['memory', 'relations', kind, id] as const,
+  memoryOverview: ['memory', 'overview'] as const,
 };
 
 /**
@@ -151,6 +156,7 @@ async function refreshWorkspaceViews(
     client.invalidateQueries({ queryKey: queryKeys.documents }),
     client.invalidateQueries({ queryKey: queryKeys.folders }),
     client.invalidateQueries({ queryKey: queryKeys.search }),
+    client.invalidateQueries({ queryKey: queryKeys.memory }),
   ]);
 }
 
@@ -250,6 +256,7 @@ export async function refreshLibraryViews(client: QueryClient): Promise<void> {
     client.invalidateQueries({ queryKey: queryKeys.dashboard }),
     client.invalidateQueries({ queryKey: queryKeys.storageOverview }),
     client.invalidateQueries({ queryKey: queryKeys.search }),
+    client.invalidateQueries({ queryKey: queryKeys.memory }),
   ]);
 }
 

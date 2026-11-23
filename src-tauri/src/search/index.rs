@@ -38,16 +38,19 @@ pub fn discard_pending() {
     PENDING.with(|pending| pending.borrow_mut().clear());
 }
 
-/// Rebuilds the rows of every entity marked by the current transaction, each once.
-pub fn flush_pending(transaction: &Transaction<'_>) -> AppResult<()> {
+/// Rebuilds the rows of every entity marked by the current transaction, each once. Returns the entities
+/// changed, for the memory engine to process them in turn.
+pub fn flush_pending(transaction: &Transaction<'_>) -> AppResult<Vec<(EntityKind, String)>> {
     let marked = PENDING.with(|pending| std::mem::take(&mut *pending.borrow_mut()));
     let mut done = HashSet::with_capacity(marked.len());
+    let mut changed = Vec::with_capacity(marked.len());
     for (kind, id) in marked {
         if done.insert((kind, id.clone())) {
             sync(transaction, kind, &id)?;
+            changed.push((kind, id));
         }
     }
-    Ok(())
+    Ok(changed)
 }
 
 /// Text of an entity, as indexed.

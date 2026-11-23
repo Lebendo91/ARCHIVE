@@ -19,6 +19,16 @@ import type { NoteItem } from '../types/bindings/NoteItem';
 import type { NoteQuery } from '../types/bindings/NoteQuery';
 import type { NoteSummary } from '../types/bindings/NoteSummary';
 import type { PdfExtraction } from '../types/bindings/PdfExtraction';
+import type { MemoryItem } from '../types/bindings/MemoryItem';
+import type { MemoryOverview } from '../types/bindings/MemoryOverview';
+import type { NewRelationInput } from '../types/bindings/NewRelationInput';
+import type { PipelineStage } from '../types/bindings/PipelineStage';
+import type { ProcessingStatus } from '../types/bindings/ProcessingStatus';
+import type { Relation } from '../types/bindings/Relation';
+import type { RelationDecision } from '../types/bindings/RelationDecision';
+import type { RelationView } from '../types/bindings/RelationView';
+import type { StageState } from '../types/bindings/StageState';
+import type { Term } from '../types/bindings/Term';
 import type { ResourceCounts } from '../types/bindings/ResourceCounts';
 import type { ResourceSummary } from '../types/bindings/ResourceSummary';
 import type { Tag } from '../types/bindings/Tag';
@@ -100,6 +110,29 @@ export interface CoreDoubleState {
   openedUrls: string[];
   /** Searches the user ran, most recent first. */
   searchHistory: SearchHistoryEntry[];
+  /** Relations other than the links written in notes (those are the notes' `links`). */
+  relations: Relation[];
+  /** What the memory engine knows of an item, by `kind:id`; every stage is done when not given. */
+  memory: Record<string, CoreDoubleMemory>;
+}
+
+/** What the memory engine knows of an item, as seeded for a test. */
+export interface CoreDoubleMemory {
+  stages?: Partial<
+    Record<
+      'normalization' | 'analysis' | 'relations',
+      {
+        status: ProcessingStatus;
+        attempts?: number;
+        issue?: string | null;
+        retryAt?: number | null;
+      }
+    >
+  >;
+  terms?: Term[];
+  language?: { code: string; source: 'declared' | 'detected' } | null;
+  authoredAt?: number | null;
+  revisedAt?: number | null;
 }
 
 export type CoreDoubleHandler = (args: Record<string, unknown> | undefined) => unknown;
@@ -164,6 +197,8 @@ export function createCoreDouble(
     exports: initial?.exports ?? [],
     openedUrls: initial?.openedUrls ?? [],
     searchHistory: initial?.searchHistory ?? [],
+    relations: initial?.relations ?? [],
+    memory: initial?.memory ?? {},
   };
 
   const fail = (code: string, message: string): never => {
@@ -1275,6 +1310,143 @@ export function createCoreDouble(
   };
   const historyKey = (query: string) => fold(query).split(/\s+/).filter(Boolean).join(' ');
 
+  // --- Memory engine ------------------------------------------------------------------------------------
+  // Double of src-tauri/src/memory: the status of each stage, the description of the content and the terms
+  // as seeded (every stage done otherwise), and the relations under the user's control.
+  const MEMORY_STAGES = ['normalization', 'analysis', 'relations'] as const;
+  const RELATION_TYPES = [
+    'related_to',
+    'references',
+    'explains',
+    'example_of',
+    'part_of',
+    'depends_on',
+    'contradicts',
+  ];
+  const textOf = (kind: LinkKind, id: string): string | null => {
+    if (kind === 'note') {
+      return state.notes.find((entry) => entry.note.id === id)?.contentText ?? null;
+    }
+    const entry = state.documents.find((candidate) => candidate.document.id === id);
+    return entry ? (entry.content ?? '') : null;
+  };
+  const memoryItemOf = (kind: LinkKind, id: string): MemoryItem => {
+    const text = textOf(kind, id) ?? fail('not_found', 'item not found');
+    const memory = state.memory[`${kind}:${id}`] ?? {};
+    const background = (stage: (typeof MEMORY_STAGES)[number]): StageState => {
+      const seeded = memory.stages?.[stage];
+      return {
+        stage,
+        status: seeded?.status ?? 'completed',
+        attempts: seeded?.attempts ?? 0,
+        issue: seeded?.issue ?? null,
+        retryAt: seeded?.retryAt ?? null,
+      };
+    };
+    const done = (stage: PipelineStage): StageState => ({
+      stage,
+      status: 'completed',
+      attempts: 0,
+      issue: null,
+      retryAt: null,
+    });
+    const stages: StageState[] = [];
+    if (kind === 'document') {
+      const { document } = findDocument(id);
+      const issue = document.metadata.extractionIssue;
+      stages.push(done('import'), {
+        stage: 'extraction',
+        status: document.indexingStatus,
+        attempts: 0,
+        issue: typeof issue === 'string' ? issue : null,
+        retryAt: null,
+      });
+    }
+    stages.push(
+      background('normalization'),
+      done('indexing'),
+      background('analysis'),
+      background('relations'),
+    );
+    const plain = text.replace(/\f/g, '\n');
+    const normalized = memory.stages?.normalization?.status ?? 'completed';
+    return {
+      stages,
+      profile:
+        normalized === 'completed'
+          ? {
+              titleInFile: null,
+              author: null,
+              authoredAt: memory.authoredAt ?? null,
+              revisedAt: memory.revisedAt ?? null,
+              pageCount: null,
+              language: memory.language?.code ?? null,
+              languageSource: memory.language?.source ?? null,
+              characters: Array.from(plain).length,
+              words: plain.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length,
+              updatedAt: Date.now(),
+            }
+          : null,
+      terms: memory.terms ?? [],
+      concepts: [],
+      conceptExtraction: 'no_provider',
+    };
+  };
+  const checkRelationType = (value: unknown) => {
+    if (typeof value !== 'string' || !RELATION_TYPES.includes(value)) {
+      fail('invalid_input', 'unknown relation type');
+    }
+  };
+  const joins = (relation: Relation, a: LinkTarget, b: LinkTarget) =>
+    (relation.sourceType === a.kind &&
+      relation.sourceId === a.id &&
+      relation.targetType === b.kind &&
+      relation.targetId === b.id) ||
+    (relation.sourceType === b.kind &&
+      relation.sourceId === b.id &&
+      relation.targetType === a.kind &&
+      relation.targetId === a.id);
+  const duplicateRelation = (
+    source: LinkTarget,
+    target: LinkTarget,
+    relationType: string,
+    except?: string,
+  ) =>
+    state.relations.some(
+      (relation) =>
+        relation.id !== except &&
+        relation.relationType === relationType &&
+        (['related_to', 'contradicts'].includes(relationType)
+          ? joins(relation, source, target)
+          : relation.sourceType === source.kind &&
+            relation.sourceId === source.id &&
+            relation.targetType === target.kind &&
+            relation.targetId === target.id),
+    );
+  const editableRelation = (id: unknown): Relation => {
+    const relation =
+      state.relations.find((candidate) => candidate.id === id) ??
+      fail('not_found', 'relation not found');
+    if (relation.relationType === 'links_to') {
+      fail('invalid_input', 'a link of a note is changed by editing the note');
+    }
+    return relation;
+  };
+  const recordAccepted = (relation: Relation) => {
+    const titleOf = (kind: string, id: string) => linkedResource(kind as LinkKind, id)?.title ?? '';
+    state.events.push({
+      id: crypto.randomUUID(),
+      eventType: 'relation_accepted',
+      entityType: 'relation',
+      entityId: relation.id,
+      workspaceId: null,
+      description: `${titleOf(relation.sourceType, relation.sourceId)} — ${titleOf(relation.targetType, relation.targetId)}`,
+      metadata: { origin: relation.origin },
+      createdAt: nextTime(),
+      available: false,
+    });
+  };
+
   const handlers: Record<string, CoreDoubleHandler> = {
     workspaces_list: (args) =>
       state.workspaces
@@ -1690,6 +1862,34 @@ export function createCoreDouble(
       delete metadata.extractionIssue;
       if (extraction.kind === 'text') {
         metadata.pageCount = extraction.pageCount;
+        // What the file declares, cleaned; unreadable dates and language tags are left out.
+        const info = extraction.info ?? {};
+        const clean = (value: string | undefined) => {
+          const text = (value ?? '')
+            .replace(/\p{Cc}/gu, '')
+            .trim()
+            .slice(0, 500);
+          return text === '' ? undefined : text;
+        };
+        const date = (value: string | undefined) => {
+          const text = clean(value);
+          return text && !Number.isNaN(Date.parse(text)) ? text : undefined;
+        };
+        const language = clean(info.language);
+        const declared: Record<string, string | undefined> = {
+          documentTitle: clean(info.title),
+          author: clean(info.author),
+          authoredAt: date(info.created),
+          revisedAt: date(info.modified),
+          declaredLanguage:
+            language && /^[a-z]{2,3}([-_].*)?$/i.test(language) ? language : undefined,
+        };
+        for (const [key, value] of Object.entries(declared)) {
+          Reflect.deleteProperty(metadata, key);
+          if (value !== undefined) {
+            metadata[key] = value;
+          }
+        }
         if (extraction.text.trim() === '') {
           metadata.extractionIssue = 'no_text_layer';
         } else {
@@ -2044,11 +2244,206 @@ export function createCoreDouble(
       state.openedUrls.push(url);
       return changed(null);
     },
+    memory_item: (args) => memoryItemOf(args?.kind as LinkKind, String(args?.id)),
+    memory_retry: (args) => {
+      const kind = args?.kind as LinkKind;
+      const id = String(args?.id);
+      const memory = state.memory[`${kind}:${id}`];
+      for (const stage of Object.values(memory?.stages ?? {})) {
+        if (stage.status === 'failed' || stage.status === 'needs_attention') {
+          Object.assign(stage, { status: 'pending', attempts: 0, issue: null, retryAt: null });
+        }
+      }
+      return changed(memoryItemOf(kind, id));
+    },
+    memory_overview: (): MemoryOverview => {
+      const jobs = { pending: 0, processing: 0, completed: 0, failed: 0, needsAttention: 0 };
+      const live = [
+        ...state.documents
+          .filter((entry) => entry.document.deletedAt === null)
+          .map((entry) => `document:${entry.document.id}`),
+        ...state.notes
+          .filter((entry) => entry.note.deletedAt === null)
+          .map((entry) => `note:${entry.note.id}`),
+      ];
+      for (const key of live) {
+        for (const stage of MEMORY_STAGES) {
+          const status = state.memory[key]?.stages?.[stage]?.status ?? 'completed';
+          if (status === 'needs_attention') {
+            jobs.needsAttention += 1;
+          } else {
+            jobs[status] += 1;
+          }
+        }
+      }
+      return {
+        jobs,
+        suggestions: state.relations.filter((relation) => relation.status === 'suggested').length,
+      };
+    },
+    memory_retry_all: () => {
+      let retried = 0;
+      for (const memory of Object.values(state.memory)) {
+        for (const stage of Object.values(memory.stages ?? {})) {
+          if (stage.status === 'failed' || stage.status === 'needs_attention') {
+            Object.assign(stage, { status: 'pending', attempts: 0, issue: null, retryAt: null });
+            retried += 1;
+          }
+        }
+      }
+      return changed(retried);
+    },
+    relations_list: (args) => {
+      const kind = args?.kind as LinkKind;
+      const id = String(args?.id);
+      if (!linkedResource(kind, id)) {
+        fail('not_found', 'item not found');
+      }
+      const rank = { accepted: 0, suggested: 1, rejected: 2 };
+      const views: RelationView[] = [];
+      for (const relation of state.relations) {
+        const outgoing = relation.sourceType === kind && relation.sourceId === id;
+        const incoming = relation.targetType === kind && relation.targetId === id;
+        if (relation.relationType === 'links_to' || (!outgoing && !incoming)) {
+          continue;
+        }
+        const otherKind = (outgoing ? relation.targetType : relation.sourceType) as LinkKind;
+        const other = linkedResource(otherKind, outgoing ? relation.targetId : relation.sourceId);
+        if (!other || (!other.available && relation.status !== 'accepted')) {
+          continue;
+        }
+        views.push({
+          id: relation.id,
+          relationType: relation.relationType,
+          origin: relation.origin,
+          status: relation.status,
+          confidence: relation.confidence,
+          provenance: relation.provenance,
+          direction: outgoing ? 'outgoing' : 'incoming',
+          other,
+          createdAt: relation.createdAt,
+          updatedAt: relation.updatedAt,
+        });
+      }
+      return views.sort(
+        (a, b) =>
+          rank[a.status] - rank[b.status] ||
+          (b.confidence ?? 1) - (a.confidence ?? 1) ||
+          a.other.title.toLowerCase().localeCompare(b.other.title.toLowerCase()),
+      );
+    },
+    relations_create: (args) => {
+      const input = args?.input as NewRelationInput;
+      checkRelationType(input.relationType);
+      for (const end of [input.source, input.target]) {
+        const found = linkedResource(end.kind, end.id) ?? fail('not_found', 'item not found');
+        if (!found.available) {
+          fail('invalid_input', 'the item is in the trash');
+        }
+      }
+      if (input.source.kind === input.target.kind && input.source.id === input.target.id) {
+        fail('invalid_input', 'an item cannot be related to itself');
+      }
+      if (duplicateRelation(input.source, input.target, input.relationType)) {
+        fail('name_taken', 'relation already exists');
+      }
+      state.relations = state.relations.filter(
+        (relation) =>
+          !(
+            relation.origin === 'rule' &&
+            relation.status === 'suggested' &&
+            relation.relationType === 'related_to' &&
+            joins(relation, input.source, input.target)
+          ),
+      );
+      const now = Date.now();
+      const relation: Relation = {
+        id: crypto.randomUUID(),
+        sourceType: input.source.kind,
+        sourceId: input.source.id,
+        targetType: input.target.kind,
+        targetId: input.target.id,
+        relationType: input.relationType,
+        origin: 'user',
+        status: 'accepted',
+        confidence: null,
+        provenance: { source: 'user' },
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.relations.push(relation);
+      return changed(relation);
+    },
+    relations_set_type: (args) => {
+      const relation = editableRelation(args?.id);
+      const relationType = String(args?.relationType);
+      checkRelationType(relationType);
+      const source = { kind: relation.sourceType as LinkKind, id: relation.sourceId };
+      const target = { kind: relation.targetType as LinkKind, id: relation.targetId };
+      if (duplicateRelation(source, target, relationType, relation.id)) {
+        fail('name_taken', 'relation already exists');
+      }
+      if (relation.status !== 'accepted') {
+        recordAccepted(relation);
+      }
+      Object.assign(relation, { relationType, status: 'accepted', updatedAt: Date.now() });
+      return changed({ ...relation });
+    },
+    relations_decide: (args) => {
+      const relation = editableRelation(args?.id);
+      if (relation.origin === 'user') {
+        fail('invalid_input', 'a relation created by the user is removed, not decided on');
+      }
+      const decision = args?.decision as RelationDecision;
+      const status =
+        decision === 'accept' ? 'accepted' : decision === 'reject' ? 'rejected' : 'suggested';
+      if (status === 'accepted' && relation.status !== 'accepted') {
+        recordAccepted(relation);
+      }
+      Object.assign(relation, { status, updatedAt: Date.now() });
+      return changed({ ...relation });
+    },
+    relations_remove: (args) => {
+      const relation = editableRelation(args?.id);
+      if (relation.origin === 'user') {
+        state.relations = state.relations.filter((other) => other.id !== relation.id);
+      } else {
+        Object.assign(relation, { status: 'rejected', updatedAt: Date.now() });
+      }
+      return changed(null);
+    },
   };
   return { handlers, state };
 }
 
 let seedSequence = 0;
+
+/** Relation to seed the double with: by default a suggestion of the rules, from shared terms. */
+export function seedRelation(
+  source: LinkTarget,
+  target: LinkTarget,
+  options: Partial<Omit<Relation, 'sourceType' | 'sourceId' | 'targetType' | 'targetId'>> & {
+    ageMs?: number;
+  } = {},
+): Relation {
+  const { ageMs = 60 * 60 * 1000, ...relation } = options;
+  const at = Date.now() - ageMs;
+  return {
+    id: seedId('d000'),
+    sourceType: source.kind,
+    sourceId: source.id,
+    targetType: target.kind,
+    targetId: target.id,
+    relationType: 'related_to',
+    origin: 'rule',
+    status: 'suggested',
+    confidence: 0.6,
+    provenance: { rule: 'shared_terms', version: 1, terms: [], tags: [], sameWorkspace: false },
+    createdAt: at,
+    updatedAt: at,
+    ...relation,
+  };
+}
 
 function seedId(group: string): string {
   seedSequence += 1;

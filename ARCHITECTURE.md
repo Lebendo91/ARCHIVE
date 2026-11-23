@@ -1,8 +1,8 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phases 1 à 6 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
-> espaces de travail, Bibliothèque, Notes, recherche plein texte). Les sections des phases suivantes restent
-> l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> **Statut : Phases 1 à 7 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
+> espaces de travail, Bibliothèque, Notes, recherche plein texte, moteur de mémoire). Les sections des phases
+> suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -115,7 +115,7 @@ archive/
 3. **Ajouts :** `src/i18n/` (français principal, architecture prête pour l'internationalisation),
    `assets/brand/`, `.github/workflows/` (développement 100 % cloud) et `CLAUDE.md` (continuité entre sessions).
 
-## 4. Frontend — *Implémenté (Phases 1 à 6)*
+## 4. Frontend — *Implémenté (Phases 1 à 7)*
 
 ### 4.1 Responsabilités
 
@@ -218,7 +218,7 @@ Règles qui en découlent :
 - Les textes anglais de la spec sont traduits dans l'interface (« Bonjour. Bienvenue dans ARCHIVE. »). Le
   traitement de la signature de marque est une décision ouverte (§16).
 
-## 5. Cœur natif Rust — *Implémenté (Phases 1 à 6)*
+## 5. Cœur natif Rust — *Implémenté (Phases 1 à 7)*
 
 - **Implémenté en Phase 1** : `app_info` (version, commit, profil de compilation, plateforme, version de
   Tauri, affichés dans Paramètres › À propos) et `log_frontend_event`. Ce dernier reçoit les diagnostics de
@@ -286,9 +286,10 @@ justifiés :
 | `notes`, `note_links` | Notes (`content_format = 'tiptap-json'` + texte dérivé), liens internes, rétroliens | 2/5 |
 | `tags`, `document_tags`, `note_tags` | Étiquettes | 2 |
 | `relations` | Relations, avec `origin` (`user`, `rule`, `ai`), `status` (`suggested`, `accepted`, `rejected`), `confidence` et `provenance_json` | 2/7 |
-| `concepts`, `concept_mentions` | Concepts extraits et leur source, séparés du contenu original (spec §10.3) | 7 |
+| `concepts`, `concept_mentions` | Concepts extraits et leur source (élément, page, extrait, provenance), séparés du contenu original (spec §10.3) ; remplis seulement avec un fournisseur d'IA | 7 |
+| `content_profiles`, `entity_terms`, `memory_state`, `search_vocabulary` | Description normalisée du contenu, termes caractéristiques, version des règles du moteur, vocabulaire de l'index (§8) | 7 |
 | `timeline_events` | Événements réels, enregistrés **dès la Phase 3** | 2 |
-| `processing_jobs` | File persistante du pipeline (elle survit aux redémarrages) | 4 |
+| `processing_jobs` | File persistante des étapes d'arrière-plan du pipeline (elle survit aux redémarrages) | 7 |
 | `search_index`, `search_titles`, `search_entries`, `search_index_state` | Index plein texte FTS5 par passage, trigrammes des titres, correspondance élément → lignes, version des règles d'indexation (§9) | 6 |
 | `search_history` | Historique de recherche, effaçable | 6 |
 | `app_settings` | Paramètres clé/valeur | 2 |
@@ -366,10 +367,12 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
 
-## 8. Pipeline d'import et moteur de mémoire — *Import implémenté (Phase 4), mémoire prévue (Phase 7)*
+## 8. Pipeline d'import et moteur de mémoire — *Implémenté (Phases 4 et 7)*
 
 Étapes de la spec §10.1 : **Import → Extraction → Normalisation → Indexation → Analyse → Relations.** Chaque
-étape a son propre statut : `pending`, `processing`, `completed`, `failed` ou `needs_attention`.
+étape a son propre statut : `pending`, `processing`, `completed`, `failed` ou `needs_attention`. L'import,
+l'extraction et l'indexation se font quand l'élément est écrit, et leur statut se lit sur l'élément lui-même ;
+les trois autres étapes passent par une file persistante, vidée en arrière-plan (Phase 7).
 
 - **Import** (pour chaque fichier, avec progression et annulation) : validation, identification du type, lecture
   des métadonnées, attribution de l'identifiant, empreinte, copie, insertion en base (transaction), mise en
@@ -378,16 +381,13 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   fichier dont le texte ne peut être extrait est conservé, marqué `failed` avec la raison
   (`metadata.extractionIssue`), jamais refusé pour cela. Les échecs d'accès temporaires (fichier illisible,
   copie ou écriture impossible) peuvent être relancés depuis le panneau d'import.
-- **Indexation** (Phase 6, implémenté) : écrite dans la transaction qui enregistre les données, pas par une file
-  (§9).
-- **Worker d'arrière-plan** (Phase 7, avec l'analyse) : il dépilera une file persistante `processing_jobs`, avec
-  reprise sur erreur et backoff. Les échecs resteront visibles (`needs_attention`) et pourront être relancés.
+- **Indexation** (Phase 6) : écrite dans la transaction qui enregistre les données, pas par une file (§9).
 - **Extracteurs** (`import/extract.rs`, chacun borné en taille, sans panic sur un fichier mal formé) :
   - TXT et MD : détection d'encodage (BOM, validation UTF-8, repli Windows-1252, fréquent dans les anciens
     fichiers français).
   - CSV : texte structuré (en-têtes et lignes, borné). JSON : valeurs textuelles aplaties avec leur chemin de clé.
   - DOCX : `zip` + `quick-xml` (`word/document.xml` pour les paragraphes, titres et tableaux,
-    `docProps/core.xml` pour l'auteur, les dates et le titre).
+    `docProps/core.xml` pour l'auteur, les dates, le titre et la langue).
   - PDF : **pdf.js** (décidé en Phase 4), déjà requis pour l'aperçu. L'extraction s'exécute dans son Web
     Worker, page par page ; le texte est envoyé au cœur, qui le valide (taille bornée) et l'enregistre. Un PDF
     importé reste « en attente » jusqu'à cette étape, reprise au lancement suivant si l'application est fermée
@@ -395,12 +395,54 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
     n'a pas besoin de `wasm-unsafe-eval`, au prix d'un décodage plus lent des rares images JBIG2 et JPEG 2000.
   - Images : stockage et aperçu uniquement. **Aucune extraction de texte sans moteur OCR réellement intégré**
     (spec §7.1).
-- **Métadonnées** : jamais inventées. Un champ indisponible reste vide ou marqué « inconnu » (spec §10.2).
-- **Analyse et relations** (Phase 7) : d'abord des règles déterministes, sans IA : liens explicites, étiquettes
-  partagées, même espace de travail, termes distinctifs communs (via la table virtuelle `fts5vocab`).
-  L'extraction de concepts par IA vient ensuite, en option, derrière un trait `ConceptExtractor`. Une relation
-  suggérée n'est **jamais présentée comme un fait** : l'utilisateur l'accepte, la rejette ou la modifie
-  (spec §10.5).
+  - Le texte d'un PDF est accompagné de ce que le fichier déclare (titre, auteur, dates, langue), lu par pdf.js
+    et vérifié par le cœur (Phase 7).
+- **File de traitement** (Phase 7, `processing_jobs`, `memory/queue.rs`) : une ligne par élément et par étape
+  d'arrière-plan (normalisation, analyse, relations). Toute écriture qui modifie un document ou une note met sa
+  normalisation en file, dans la même transaction (les éléments signalés pour l'index de recherche) ; une note
+  n'est traitée que 15 s après la dernière frappe. Chaque nouvelle demande élève la *génération* du travail :
+  un résultat calculé pour une demande dépassée n'est pas enregistré comme le sien, et le travail est refait.
+  Une étape terminée met la suivante en file.
+- **Worker** (`memory/worker.rs`) : un fil d'exécution du cœur, jamais celui de l'interface. Il prend le travail
+  dû le plus ancien, lit ce qu'il lui faut, calcule, puis écrit le résultat et la fin du travail dans une
+  transaction courte ; il dort jusqu'au prochain travail dû ou jusqu'à ce qu'une écriture le réveille. Un échec
+  est retenté plus tard (30 s, 2 min, 8 min, 32 min), puis attend l'utilisateur (`needs_attention`) ; le code
+  de l'erreur est gardé, jamais le contenu. Un travail interrompu par un arrêt reprend au lancement suivant.
+  Quand les règles du moteur changent (`MEMORY_VERSION`), tout est traité à nouveau. L'événement
+  `memory:changed` prévient l'interface, qui regroupe ses rafraîchissements.
+- **Normalisation** (`memory/normalize.rs`, spec §10.2) : une description commune à tous les formats
+  (`content_profiles`) : titre, auteur et dates déclarés par le fichier (propriétés Word, informations PDF), nombre
+  de pages, nombre de mots et de caractères, langue. La langue déclarée par le fichier l'emporte ; sinon, le
+  français ou l'anglais n'est reconnu que si le texte le dit clairement (mots courants nombreux, nettement
+  majoritaires) ; sinon elle reste inconnue. Rien n'est inventé.
+- **Analyse** (`memory/analysis.rs`) : les termes caractéristiques de chaque élément (`entity_terms`), au plus
+  12 : fréquents dans l'élément (trois fois plus dans son titre) et rares dans la base, d'après le nombre de
+  passages qui les contiennent dans l'index de recherche (`search_vocabulary`, table `fts5vocab`).
+- **Relations** (`memory/relate.rs`, spec §10.4) : deux éléments qui partagent au moins deux termes
+  caractéristiques avec une similarité suffisante, ou un terme et une étiquette, reçoivent une suggestion
+  `related_to` (origine `rule`, statut `suggested`), avec sa confiance et sa provenance : les termes partagés,
+  les étiquettes communes, le même espace de travail, la similarité. Une relation sans direction est enregistrée
+  une fois par paire. Le moteur ne touche jamais une relation décidée, créée par l'utilisateur ou écrite comme
+  lien dans une note, et ne propose plus ce qui a été rejeté ; il retire seulement ses suggestions qui ne tiennent
+  plus. Pour borner le travail, seuls les 200 éléments les plus proches sont comparés en détail (et toujours ceux
+  déjà suggérés).
+- **Contrôle par l'utilisateur** (`services/relations.rs`, spec §10.5) : accepter (événement « relation
+  acceptée » dans la chronologie), rejeter, rétablir une suggestion rejetée, changer le type (ce qui accepte une
+  suggestion), retirer (une relation trouvée par le moteur est alors rejetée, pour ne pas revenir ; une relation
+  créée par l'utilisateur est supprimée), créer une relation. Types : `related_to`, `references`, `explains`,
+  `example_of`, `part_of`, `depends_on`, `contradicts` ; les liens des notes (`links_to`) restent gérés par
+  leur texte.
+- **Concepts** (`memory/concepts.rs`, spec §10.3) : un trait `ConceptExtractor` indépendant du fournisseur ; les
+  concepts sont stockés à part (`concepts`, `concept_mentions`), chaque mention avec sa source et sa
+  provenance. Sans fournisseur d'IA configuré (avant la Phase 9), rien n'est extrait, et l'interface le dit.
+- **Interface** : sur chaque document et chaque note, une carte « Relations » (décidées, suggestions avec
+  pourquoi et confiance, rejetées) et une carte « Analyse » (langue, longueur, dates déclarées, termes menant à
+  une recherche, statut de chaque étape avec relance) ; dans Paramètres › Stockage, la vue d'ensemble des
+  traitements.
+- **Mesure indicative** (`perf::memory_engine_on_a_generated_corpus`, ignorée par défaut ; mode release,
+  conteneur cloud) : 1 000 documents de 8 pages et 1 000 notes (20 Mo de texte) entièrement traités en 44 s, soit
+  22 ms par élément pour ses trois étapes ; 3,8 suggestions par élément ; la lecture de l'analyse et des relations
+  d'un élément prend 0,1 ms.
 
 ## 9. Recherche et indexation — *Implémenté (Phase 6)*
 
@@ -454,7 +496,8 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   - les résultats en cache sont invalidés par toute modification des données (préfixe de clé `['search']`).
 - **Recherche sémantique** : non activée, et l'interface le dit. Elle pourra s'ajouter en option une fois un
   fournisseur configuré (Phase 9), avec repli sur FTS5 (spec §9.4).
-- **Mesure indicative** (`search::perf`, ignorée par défaut ; mode release, conteneur cloud) : sur 2 000
+- **Mesure indicative** (`perf::search_on_a_generated_corpus`, ignorée par défaut ; mode release, conteneur
+  cloud) : sur 2 000
   documents de 8 pages et 3 000 notes (41 Mo de texte) :
   - écriture et indexation : 1 837 éléments par seconde ;
   - reconstruction complète : 2,9 s ;
@@ -539,7 +582,7 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
 | UI, accessibilité, visuel | Playwright (Chromium, même moteur que WebView2) sur Vite avec doublure du runtime natif. Échec sur toute erreur console. axe-core WCAG 2.2 A/AA sur chaque écran. Captures 1440×900, 1280×800 et 1100×700 (`npm run test:visual`, dossier `visual-audit/`) | Conteneur et CI | ✅ Phase 1 (33 tests) |
 | Fumée native | Binaire de production lancé sous Xvfb (Linux), et sur `windows-latest` avec capture d'écran WebView2 | Conteneur et CI Windows | ✅ Phase 1 |
 | E2E sur l'application réelle | `tauri-driver` : WebKitWebDriver sous Xvfb, msedgedriver sous Windows | Conteneur et CI Windows | à confirmer (Phase 2) |
-| Performance | Jeux synthétiques générés, jamais livrés par défaut : `search::perf` (2 000 documents de 8 pages, 3 000 notes), ignoré par défaut | Conteneur | ✅ Phase 6 ; Phase 10 |
+| Performance | Jeux synthétiques générés, jamais livrés par défaut : `cargo test --release --lib perf:: -- --ignored --nocapture` (recherche sur 2 000 documents de 8 pages et 3 000 notes ; moteur de mémoire sur 1 000 documents et 1 000 notes) | Conteneur | ✅ Phases 6 et 7 ; Phase 10 |
 
 Règle absolue : un test n'est déclaré réussi que s'il a été exécuté, et son résultat est consigné dans
 `DEVELOPMENT_PROGRESS.md` (spec §22).
@@ -587,6 +630,22 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 7
+
+| Décision | Justification |
+|---|---|
+| Import, extraction et indexation lus sur l'élément ; normalisation, analyse et relations dans une file persistante (`processing_jobs`) vidée par un fil d'exécution du cœur | Les trois premières étapes ont lieu à l'écriture ; les suivantes peuvent attendre, échouer, reprendre après un arrêt, sans jamais bloquer l'interface |
+| Mise en file dans la transaction qui modifie l'élément, à partir des éléments signalés pour l'index de recherche ; notes traitées 15 s après la dernière frappe | Rien n'est oublié (même mécanisme que l'index) ; l'enregistrement automatique ne relance pas l'analyse à chaque pause |
+| Génération par travail : un résultat calculé pour une demande dépassée n'est pas enregistré comme le sien | Un élément modifié pendant son traitement est traité de nouveau, sans verrou ni attente |
+| Nouvel essai espacé (30 s × 4ⁿ), puis « À vérifier » après 5 échecs, avec relance à la demande ; code d'erreur seulement | Une panne passagère se résout seule ; une panne durable se voit sans inonder le journal ni exposer le contenu |
+| Langue : déclarée par le fichier, sinon reconnue seulement si le texte est clairement en français ou en anglais, sinon inconnue | Spec §10.2 : aucune métadonnée inventée ; une détection présentée comme telle (« reconnue dans le texte ») |
+| Termes caractéristiques pondérés par leur rareté dans l'index de recherche (`fts5vocab`, nombre de passages) | Pas de second index du vocabulaire : celui de la recherche est déjà tenu à jour |
+| Suggestions par règles explicites (deux termes partagés avec une similarité suffisante, ou un terme et une étiquette), avec provenance et confiance, jamais acceptées d'office | Spec §10.4 : un lien suggéré n'est jamais un fait ; l'utilisateur voit pourquoi et décide |
+| « Retirer » une relation trouvée par le moteur la rejette ; une relation de l'utilisateur est supprimée | Le moteur ne repropose jamais ce que l'utilisateur a écarté |
+| Comparaison détaillée limitée aux 200 éléments les plus proches, et vérification des éléments sans lire leur texte | Un mot présent partout ne doit pas faire de chaque élément un candidat (mesuré : 22 ms par élément) |
+| Extraction de concepts derrière un trait `ConceptExtractor`, indisponible sans fournisseur ; tables créées dès maintenant | Spec §10.3 : interface indépendante du fournisseur ; stockage séparé avec la source vérifié par des tests, sans IA simulée |
+| Un même sélecteur d'éléments (recherche par titre) pour les liens internes et les relations | Un seul comportement à apprendre et à tester |
 
 ### Décisions prises en Phase 6
 

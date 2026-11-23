@@ -28,8 +28,9 @@ async function drain(client: QueryClient): Promise<void> {
         await saveExtraction(id, extraction);
         await Promise.all([
           client.invalidateQueries({ queryKey: queryKeys.documents }),
-          // The text extracted is now searchable.
+          // The text extracted is now searchable, and analysed.
           client.invalidateQueries({ queryKey: queryKeys.search }),
+          client.invalidateQueries({ queryKey: queryKeys.memory }),
         ]);
       }
     } while (restartRequested());

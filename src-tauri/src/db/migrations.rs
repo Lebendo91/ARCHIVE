@@ -34,6 +34,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "search",
         sql: include_str!("../../migrations/0002_search.sql"),
     },
+    Migration {
+        version: 3,
+        name: "memory",
+        sql: include_str!("../../migrations/0003_memory.sql"),
+    },
 ];
 
 /// Schema version expected by this build.
@@ -243,6 +248,13 @@ mod tests {
             "search_entries",
             "search_index_state",
             "search_history",
+            "processing_jobs",
+            "content_profiles",
+            "entity_terms",
+            "search_vocabulary",
+            "concepts",
+            "concept_mentions",
+            "memory_state",
         ] {
             assert!(table_exists(&connection, table), "missing table {table}");
         }
