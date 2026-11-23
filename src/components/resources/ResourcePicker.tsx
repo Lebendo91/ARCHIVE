@@ -19,6 +19,8 @@ interface ResourcePickerProps {
   /** The item being edited: it is not offered. */
   exclude?: { kind: LinkKind; id: string };
   hint?: string;
+  /** Text already typed when the picker opens. */
+  initialQuery?: string;
   onPick: (resource: PickedResource) => void;
 }
 
@@ -26,10 +28,16 @@ interface ResourcePickerProps {
  * Notes and documents found by their title, to choose one (an internal link, a relation). The most recently
  * modified come first before anything is typed.
  */
-export function ResourcePicker({ inputRef, exclude, hint, onPick }: ResourcePickerProps) {
+export function ResourcePicker({
+  inputRef,
+  exclude,
+  hint,
+  initialQuery = '',
+  onPick,
+}: ResourcePickerProps) {
   const { t } = useI18n();
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery.trim());
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setQuery(search.trim());

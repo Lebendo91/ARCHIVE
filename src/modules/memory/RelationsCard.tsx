@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FileText, MoreHorizontal, NotebookText, Plus, X } from 'lucide-react';
+import { Check, FileText, MoreHorizontal, NotebookText, Plus, Waypoints, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router';
 import { ResourcePicker, type PickedResource } from '@/components/resources/ResourcePicker';
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   IconButton,
+  ButtonLink,
   SectionCard,
   Select,
   Skeleton,
@@ -86,7 +87,7 @@ function OtherItem({ relation }: { relation: RelationView }) {
 }
 
 /** Why the engine suggests a relation, and how sure it is. */
-function Why({ relation }: { relation: RelationView }) {
+export function Why({ relation }: { relation: RelationView }) {
   const { t, locale } = useI18n();
   const terms = strings(relation.provenance.terms);
   const tags = strings(relation.provenance.tags);
@@ -576,16 +577,26 @@ export function RelationsCard({ item, editable }: { item: Item; editable: boolea
       title={t('memory.relations.title')}
       actions={
         editable ? (
-          <Button
-            ref={addRef}
-            size="sm"
-            icon={Plus}
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            {t('memory.relations.add')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <ButtonLink
+              to={`/graph?focus=${item.kind}:${item.id}`}
+              size="sm"
+              variant="ghost"
+              icon={Waypoints}
+            >
+              {t('memory.relations.showInGraph')}
+            </ButtonLink>
+            <Button
+              ref={addRef}
+              size="sm"
+              icon={Plus}
+              onClick={() => {
+                setAdding(true);
+              }}
+            >
+              {t('memory.relations.add')}
+            </Button>
+          </div>
         ) : undefined
       }
     >

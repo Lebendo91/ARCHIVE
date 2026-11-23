@@ -271,6 +271,7 @@ export function createCoreDouble(
       workspaceId: string | null;
       title: string;
     },
+    metadata: Record<string, unknown> = {},
   ) => {
     state.events.push({
       id: crypto.randomUUID(),
@@ -279,7 +280,7 @@ export function createCoreDouble(
       entityId: entity.id,
       workspaceId: entity.workspaceId,
       description: entity.title,
-      metadata: {},
+      metadata,
       // Strictly increasing, like the order of the real timeline.
       createdAt: nextTime(),
       available: true,
@@ -639,12 +640,11 @@ export function createCoreDouble(
       deletedAt: null,
     };
     state.documents.push({ document, content, tagIds: [], base64: toBase64(bytes) });
-    record('document_imported', {
-      type: 'document',
-      id,
-      workspaceId: document.workspaceId,
-      title: document.title,
-    });
+    record(
+      'document_imported',
+      { type: 'document', id, workspaceId: document.workspaceId, title: document.title },
+      { format: document.fileExtension },
+    );
     const issue =
       metadata.extractionIssue === 'invalid_json' || metadata.extractionIssue === 'invalid_docx'
         ? metadata.extractionIssue
@@ -3042,7 +3042,7 @@ export function importEvent(entry: CoreDoubleDocument): TimelineEvent {
     entityId: entry.document.id,
     workspaceId: entry.document.workspaceId,
     description: entry.document.title,
-    metadata: {},
+    metadata: { format: entry.document.fileExtension },
     createdAt: entry.document.importedAt,
     available: true,
     target: null,
