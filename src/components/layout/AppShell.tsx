@@ -11,6 +11,7 @@ import { useFocusRecovery } from '@/hooks/useFocusRecovery';
 import { useI18n } from '@/i18n';
 import { ImportController } from '@/modules/library/ImportController';
 import { usePdfExtraction } from '@/modules/library/usePdfExtraction';
+import { useMemoryEvents } from '@/modules/memory/useMemoryEvents';
 import { useStartImport } from '@/modules/library/useStartImport';
 import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
@@ -62,6 +63,7 @@ export function AppShell() {
   useDesktopBehavior();
   useFocusRecovery('main-content');
   usePdfExtraction();
+  useMemoryEvents();
 
   useEffect(() => {
     if (mainRef.current) {

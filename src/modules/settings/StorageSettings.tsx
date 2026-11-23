@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, FolderOpen, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react';
 import { Badge, Button, Card, Skeleton } from '@/components/ui';
 import { formatDateTime, formatFileSize, useI18n, type MessageKey } from '@/i18n';
+import { MemoryOverviewCard } from '@/modules/memory/MemoryOverviewCard';
 import { errorMessageKey } from '@/services/errors';
 import { useIntegrityCheck, useOpenStorageFolder, useStorageOverview } from '@/services/queries';
 import type { StorageFolder, StorageOverview } from '@/services/storage';
@@ -172,7 +173,10 @@ function Backups() {
   );
 }
 
-/** Storage section (specification §15.3): real locations and sizes, folder access, integrity check. */
+/**
+ * Storage section (specification §15.3): real locations and sizes, folder access, integrity check, and the
+ * processing of the memory engine.
+ */
 export function StorageSettings() {
   const { t } = useI18n();
   const overview = useStorageOverview();
@@ -202,6 +206,7 @@ export function StorageSettings() {
           <Locations overview={overview.data} />
           <Usage overview={overview.data} />
           <Integrity />
+          <MemoryOverviewCard />
         </>
       )}
       <Backups />

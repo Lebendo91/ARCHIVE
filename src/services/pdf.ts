@@ -2,6 +2,7 @@ import type * as PdfJsModule from 'pdfjs-dist';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import type { TextItem } from 'pdfjs-dist/types/src/display/api';
 import type { PdfExtraction } from '@/types/bindings/PdfExtraction';
+import type { PdfInfo } from '@/types/bindings/PdfInfo';
 import { readDocumentBytes, readDocumentRange } from './documents';
 
 type PdfJs = typeof PdfJsModule;
@@ -82,6 +83,43 @@ async function pageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<stri
 }
 
 /**
+ * What a PDF declares about itself (its information dictionary and catalog): title, author, dates in ISO 8601
+ * and language. Anything absent or unreadable is left out; the core checks the rest again.
+ */
+async function pdfInfo(pdfjs: PdfJs, pdf: PDFDocumentProxy): Promise<PdfInfo> {
+  try {
+    const { info } = await pdf.getMetadata();
+    const fields = info as Record<string, unknown>;
+    const text = (key: string): string | undefined => {
+      const value = fields[key];
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+    };
+    const date = (key: string): string | undefined => {
+      const value = text(key);
+      const parsed = value ? pdfjs.PDFDateString.toDateObject(value) : null;
+      return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : undefined;
+    };
+    const entries: [keyof PdfInfo, string | undefined][] = [
+      ['title', text('Title')],
+      ['author', text('Author')],
+      ['created', date('CreationDate')],
+      ['modified', date('ModDate')],
+      ['language', text('Language')],
+    ];
+    const declared: PdfInfo = {};
+    for (const [key, value] of entries) {
+      if (value !== undefined) {
+        declared[key] = value;
+      }
+    }
+    return declared;
+  } catch {
+    // The information is optional: its absence never stops the extraction of the text.
+    return {};
+  }
+}
+
+/**
  * Extracts the text of a PDF document, page by page, for the core to store (ARCHITECTURE §8). A damaged or
  * protected file gives a failure the user can understand; any other error is rethrown, so that the
  * document stays pending instead of being wrongly marked as unreadable.
@@ -103,7 +141,12 @@ export async function extractPdfText(id: string, size: number): Promise<PdfExtra
       length += text.length;
     }
     // Pages are separated by a form feed: the search index knows on which page a passage is.
-    return { kind: 'text', text: pages.join(PAGE_BREAK), pageCount: pdf.numPages };
+    return {
+      kind: 'text',
+      text: pages.join(PAGE_BREAK),
+      pageCount: pdf.numPages,
+      info: await pdfInfo(await loadPdfJs(), pdf),
+    };
   } catch (error) {
     const name = error instanceof Error ? error.name : '';
     if (name === 'PasswordException') {
