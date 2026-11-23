@@ -116,6 +116,17 @@ impl Database {
     /// Runs `operation` inside an immediate write transaction, committed if it succeeds and rolled back
     /// otherwise (specification §5.2: related operations are transactional). The search index follows the
     /// entities the operation changed, in the same transaction.
+    /// Writes a consistent copy of the database to `target` (`VACUUM INTO`), outside any transaction: the copy
+    /// holds everything committed, and other writes wait for it to finish.
+    pub fn snapshot(&self, target: &std::path::Path) -> AppResult<()> {
+        let connection = lock(&self.writer);
+        connection.execute(
+            "VACUUM INTO ?1",
+            rusqlite::params![target.to_string_lossy()],
+        )?;
+        Ok(())
+    }
+
     pub fn write<T>(
         &self,
         operation: impl FnOnce(&Transaction<'_>) -> AppResult<T>,

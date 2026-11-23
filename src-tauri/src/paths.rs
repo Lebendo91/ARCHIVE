@@ -21,6 +21,8 @@ pub struct AppPaths {
     pub backups_dir: PathBuf,
     pub tmp_dir: PathBuf,
     pub logs_dir: PathBuf,
+    /// A restoration prepared by the user, applied at the next start before the database opens.
+    pub restore_dir: PathBuf,
 }
 
 impl AppPaths {
@@ -32,6 +34,7 @@ impl AppPaths {
             backups_dir: data_dir.join("backups"),
             tmp_dir: data_dir.join("tmp"),
             logs_dir: data_dir.join("logs"),
+            restore_dir: data_dir.join("restore"),
             data_dir,
         }
     }

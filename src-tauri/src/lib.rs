@@ -4,6 +4,7 @@
 //! crate and exposed to the interface through explicit, validated commands (see `ARCHITECTURE.md`).
 
 pub mod ai;
+pub mod backup;
 mod commands;
 pub mod db;
 pub mod error;

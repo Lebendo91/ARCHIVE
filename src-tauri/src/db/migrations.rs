@@ -44,6 +44,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "assistant",
         sql: include_str!("../../migrations/0004_assistant.sql"),
     },
+    Migration {
+        version: 5,
+        name: "backups",
+        sql: include_str!("../../migrations/0005_backups.sql"),
+    },
 ];
 
 /// Schema version expected by this build.
