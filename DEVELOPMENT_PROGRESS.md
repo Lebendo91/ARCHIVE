@@ -97,6 +97,11 @@ d'utilisation.
   le focus ne revenait pas au menu.
 - **Textes** : la page d'un document promettait encore « les relations proposées automatiquement arriveront avec le
   moteur de mémoire » ; le problème d'extraction d'un document était répété dans deux cartes.
+- **Méthode de validation** : ma chaîne de vérification filtrait la sortie de `npm run lint` par `tail -1`, qui
+  masquait le code de sortie d'ESLint (sa dernière ligne est vide) ; deux erreurs de lint d'un test ont donc
+  atteint la CI, rouge sur les commits `aef46ce` et `31a0d39` alors que je les croyais validés. Elles sont
+  corrigées, et chaque commande de validation est désormais vérifiée par son code de sortie (`set -o pipefail`) ;
+  la consigne est ajoutée à CLAUDE.md.
 
 ### Dépendances ajoutées
 

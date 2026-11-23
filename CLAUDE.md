@@ -46,6 +46,9 @@ npm run typecheck && npm run lint && npm run format:check && npm test && npm run
 cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
+Une commande n'est réussie que si son **code de sortie** vaut 0 : ne jamais filtrer sa sortie par un tube
+(`| tail`, `| grep`) sans `set -o pipefail`, qui sinon masque l'échec.
+
 Pour l'audit visuel : `npm run test:visual`, puis relire les captures dans `visual-audit/`.
 
 ## Conventions

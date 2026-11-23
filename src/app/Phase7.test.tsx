@@ -86,6 +86,14 @@ function knowledgeBase() {
   };
 }
 
+/** An element the test expects: its absence fails the test with a clear message. */
+function required(element: HTMLElement | null | undefined): HTMLElement {
+  if (!element) {
+    throw new Error('Expected element not found');
+  }
+  return element;
+}
+
 async function relationsCard() {
   const heading = await screen.findByRole('heading', { name: 'Relations' });
   const card = heading.closest('section');
@@ -277,7 +285,7 @@ describe('analysis', () => {
       '/search?q=NE555',
     );
     const processing = within(
-      card.getByRole('heading', { name: 'Traitement' }).parentElement as HTMLElement,
+      required(card.getByRole('heading', { name: 'Traitement' }).parentElement),
     );
     const stages = processing.getAllByRole('listitem').map((item) => item.textContent);
     expect(stages).toEqual([
@@ -333,7 +341,7 @@ describe('memory overview', () => {
     const { core } = mockNativeRuntime({}, { core: base.core });
     const { user } = renderApp('/settings/storage');
     const heading = await screen.findByRole('heading', { name: 'Moteur de mémoire' });
-    const card = within(heading.closest('div')?.parentElement?.parentElement as HTMLElement);
+    const card = within(required(heading.closest('div')?.parentElement?.parentElement));
     expect(await card.findByText('1 suggestion de relation attend votre avis.')).toBeVisible();
     const count = (label: string) => card.getByText(label).nextElementSibling?.textContent;
     expect(count('Nouvel essai prévu')).toBe('1');
