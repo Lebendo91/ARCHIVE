@@ -258,6 +258,7 @@ function KeyForm({ provider }: { provider: AiProviderView }) {
   const removeKey = useRemoveProviderKey();
   const [value, setValue] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const hintId = useId();
   const hasKey = provider.key !== null;
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -289,7 +290,7 @@ function KeyForm({ provider }: { provider: AiProviderView }) {
         <Input
           className="w-72"
           label={t(hasKey ? 'settings.ai.key.replaceLabel' : 'settings.ai.key.label')}
-          hint={t('settings.ai.key.hint')}
+          aria-describedby={hintId}
           type="password"
           autoComplete="off"
           spellCheck={false}
@@ -317,6 +318,9 @@ function KeyForm({ provider }: { provider: AiProviderView }) {
           </Button>
         )}
       </form>
+      <p id={hintId} className="text-xs text-fg-secondary">
+        {t('settings.ai.key.hint')}
+      </p>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
@@ -363,6 +367,7 @@ function ModelChoice({
   const { t } = useI18n();
   const update = useUpdateProvider();
   const [manual, setManual] = useState('');
+  const manualHintId = useId();
 
   const save = (model: string) => {
     update.mutate(
@@ -435,7 +440,7 @@ function ModelChoice({
         <Input
           className="w-72"
           label={t('settings.ai.model.manualLabel')}
-          hint={t('settings.ai.model.manualHint')}
+          aria-describedby={manualHintId}
           value={manual}
           maxLength={200}
           spellCheck={false}
@@ -448,6 +453,9 @@ function ModelChoice({
           {t('settings.ai.model.save')}
         </Button>
       </form>
+      <p id={manualHintId} className="text-xs text-fg-secondary">
+        {t('settings.ai.model.manualHint')}
+      </p>
     </div>
   );
 }

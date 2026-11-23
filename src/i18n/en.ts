@@ -1305,7 +1305,6 @@ export const en: Dictionary = {
     newConversation: 'New conversation',
     conversations: 'Conversations',
     conversationsEmpty: 'Your conversations will appear here.',
-    openConversation: 'Open the conversation “{title}”',
     conversationActions: 'Conversation actions',
     clear: 'Clear the conversation',
     clearConfirm: {

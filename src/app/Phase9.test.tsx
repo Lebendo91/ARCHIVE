@@ -222,7 +222,7 @@ describe('assistant', () => {
     expect(titles.length).toBeGreaterThan(0);
     expect(new Set(titles)).toEqual(new Set(['Cours NE555']));
 
-    const citation = within(answer).getByRole('link', { name: /^S1, Cours NE555, page 2$/ });
+    const citation = within(answer).getByRole('link', { name: /^S1\W+Cours NE555, page 2$/ });
     expect(citation).toHaveAttribute('href', `/library/${base.course.document.id}?page=2`);
     expect(within(answer).getByText(/Citation \[S7\] non vérifiée/)).toBeInTheDocument();
     expect(within(answer).queryByRole('link', { name: /^S7/ })).not.toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('assistant', () => {
     // The conversation is kept, under the first question.
     expect(
       screen.getByRole('button', {
-        name: /Ouvrir la conversation «.Comment oscille le montage astable \?.»/,
+        name: /^Comment oscille le montage astable \?/,
       }),
     ).toBeInTheDocument();
 

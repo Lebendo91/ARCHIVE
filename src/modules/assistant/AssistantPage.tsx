@@ -44,7 +44,7 @@ function ConversationList({ selected }: { selected: string | null }) {
   return (
     <nav
       aria-label={t('assistant.conversations')}
-      className="flex w-64 shrink-0 flex-col gap-3 border-r border-line bg-carbon p-3"
+      className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-line bg-carbon p-3"
     >
       <ButtonLink to="/assistant" variant="primary" icon={MessageSquarePlus} className="w-full">
         {t('assistant.newConversation')}
@@ -65,7 +65,6 @@ function ConversationList({ selected }: { selected: string | null }) {
                 <button
                   type="button"
                   aria-current={active ? 'page' : undefined}
-                  aria-label={t('assistant.openConversation', { title: conversation.title })}
                   className={cn(
                     'flex w-full flex-col items-start gap-0.5 rounded-control px-2 py-2 text-left transition-colors duration-150 ease-standard focus-visible:outline-2 focus-visible:outline-blue',
                     active ? 'bg-steel text-fg' : 'text-fg-secondary hover:bg-steel hover:text-fg',
@@ -257,7 +256,7 @@ export function AssistantPage() {
   const data = selected === null ? null : (conversation.data ?? null);
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex h-full min-h-[32rem] overflow-hidden rounded-card border border-line">
       <ConversationList selected={selected} />
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-line px-6 py-3">

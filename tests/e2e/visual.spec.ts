@@ -1,6 +1,7 @@
 import {
   creationEvent,
   seedDocument,
+  seedProvider,
   seedFolder,
   seedTag,
   seedWorkspace,
@@ -535,6 +536,62 @@ test.describe('@visual screenshots', () => {
       await page.getByRole('heading', { name: 'Moteur de mémoire' }).scrollIntoViewIfNeeded();
       await expect(page.getByText('1 suggestion de relation attend votre avis.')).toBeVisible();
       await shot('overview');
+    });
+
+    test(`assistant and AI settings at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const electronics = seedWorkspace('Électronique', { color: 'blue', icon: 'cpu' });
+      const course = seedDocument('cours-ne555.pdf', {
+        title: 'Cours NE555',
+        workspaceId: electronics.workspace.id,
+        content:
+          'Introduction aux circuits intégrés.\fLe montage astable du NE555 oscille sans cesse entre deux états.\fLe montage monostable délivre une seule impulsion.',
+      });
+      await seedCore(page, {
+        workspaces: [electronics],
+        documents: [course],
+        aiProviders: [seedProvider()],
+        aiReplies: [
+          {
+            pieces: [
+              'Le montage **astable** oscille sans cesse entre deux états [S1], tandis que le montage monostable ne délivre qu’une impulsion [S2].',
+              '\n\n[general] Le NE555 est un circuit intégré temporisateur très répandu.',
+              '\n\n[interpretation] Pour un clignotant, le montage astable convient donc mieux.',
+            ],
+          },
+        ],
+      });
+      const shot = async (name: string, fullPage = false) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase9-${name}.png`, fullPage });
+      };
+
+      await page.goto('/#/settings/ai');
+      await expect(page.getByRole('region', { name: 'Anthropic' })).toBeVisible();
+      await shot('ai-settings', true);
+      await page.getByRole('button', { name: 'Ajouter un fournisseur' }).click();
+      await expect(page.getByRole('dialog', { name: 'Ajouter un fournisseur' })).toBeVisible();
+      await shot('ai-add-provider');
+      await page.keyboard.press('Escape');
+
+      await page.goto('/#/assistant');
+      await expect(
+        page.getByRole('heading', { name: 'Interrogez vos connaissances' }),
+      ).toBeVisible();
+      await shot('assistant-empty');
+      await page.getByLabel('Espace de travail').selectOption(electronics.workspace.id);
+      await page
+        .getByLabel('Votre question')
+        .fill('Quelle différence entre un montage astable et monostable ?');
+      await page.getByRole('button', { name: 'Voir les passages' }).click();
+      await shot('assistant-preview');
+      await page.getByRole('button', { name: 'Envoyer' }).click();
+      const answer = page.getByRole('article', { name: 'Assistant' });
+      await expect(answer.getByText('Rédaction en cours…')).toBeHidden();
+      await expect(answer.getByText('Interprétation de l’IA')).toBeVisible();
+      await answer.getByRole('button', { name: /passages envoyés/ }).click();
+      await shot('assistant-answer');
     });
 
     test(`graph and timeline at ${size}`, async ({ page }) => {

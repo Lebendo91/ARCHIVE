@@ -1330,7 +1330,6 @@ export const fr = {
     newConversation: 'Nouvelle conversation',
     conversations: 'Conversations',
     conversationsEmpty: 'Vos conversations apparaîtront ici.',
-    openConversation: 'Ouvrir la conversation «\u00a0{title}\u00a0»',
     conversationActions: 'Actions de la conversation',
     clear: 'Effacer la conversation',
     clearConfirm: {
