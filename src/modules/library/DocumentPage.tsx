@@ -10,7 +10,7 @@ import {
   Tags,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { usePageTitle } from '@/app/router/pageTitle';
 import { QueryError } from '@/components/feedback/QueryError';
 import {
@@ -219,6 +219,10 @@ function TagsCard({ detail }: { detail: DocumentDetail }) {
 type PreviewMode = 'preview' | 'text';
 
 function DocumentView({ detail }: { detail: DocumentDetail }) {
+  // A citation of the assistant opens the document at the page of its passage (`?page=3`).
+  const [searchParams] = useSearchParams();
+  const requestedPage = Number(searchParams.get('page'));
+  const initialPage = Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
   const { t } = useI18n();
   const client = useQueryClient();
   const { document } = detail;
@@ -258,7 +262,13 @@ function DocumentView({ detail }: { detail: DocumentDetail }) {
   } else if (mode === 'text' && !image) {
     preview = <TextPreview content={detail.content} variant={dataText ? 'code' : 'prose'} />;
   } else if (kind === 'pdf') {
-    preview = <PdfViewer key={document.id} document={document} />;
+    preview = (
+      <PdfViewer
+        key={`${document.id}-${initialPage}`}
+        document={document}
+        initialPage={initialPage}
+      />
+    );
   } else if (kind === 'csv') {
     preview = <CsvPreview content={detail.content} title={document.title} />;
   } else if (kind === 'json') {

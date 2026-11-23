@@ -1,4 +1,17 @@
 import { invoke, type Channel } from '@tauri-apps/api/core';
+import type { AiOverview } from '@/types/bindings/AiOverview';
+import type { AiProviderView } from '@/types/bindings/AiProviderView';
+import type { AssistantAsk } from '@/types/bindings/AssistantAsk';
+import type { AssistantEvent } from '@/types/bindings/AssistantEvent';
+import type { AssistantPreview } from '@/types/bindings/AssistantPreview';
+import type { AssistantPreviewRequest } from '@/types/bindings/AssistantPreviewRequest';
+import type { AssistantRegenerate } from '@/types/bindings/AssistantRegenerate';
+import type { AssistantStarted } from '@/types/bindings/AssistantStarted';
+import type { ConnectionTest } from '@/types/bindings/ConnectionTest';
+import type { Conversation } from '@/types/bindings/Conversation';
+import type { ConversationSummary } from '@/types/bindings/ConversationSummary';
+import type { ProviderCreate } from '@/types/bindings/ProviderCreate';
+import type { ProviderPatch } from '@/types/bindings/ProviderPatch';
 import type { AppInfo } from '@/types/bindings/AppInfo';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
@@ -166,6 +179,28 @@ export interface CommandSignatures {
   relations_remove: { args: { id: string }; result: null };
   /** The knowledge graph, filtered and limited by the core before it is sent. */
   graph_load: { args: { query: GraphQuery }; result: GraphData };
+  ai_overview: { args: undefined; result: AiOverview };
+  ai_providers_create: { args: { input: ProviderCreate }; result: AiProviderView };
+  ai_providers_update: { args: { id: string; patch: ProviderPatch }; result: AiProviderView };
+  ai_providers_delete: { args: { id: string }; result: null };
+  /** The only command that receives a key; none returns it. */
+  ai_providers_set_key: { args: { id: string; key: string }; result: AiProviderView };
+  ai_providers_remove_key: { args: { id: string }; result: AiProviderView };
+  ai_providers_test: { args: { id: string }; result: ConnectionTest };
+  assistant_conversations: { args: undefined; result: ConversationSummary[] };
+  assistant_conversation: { args: { id: string }; result: Conversation };
+  assistant_conversation_clear: { args: { id: string }; result: null };
+  assistant_conversation_delete: { args: { id: string }; result: null };
+  assistant_preview: { args: { request: AssistantPreviewRequest }; result: AssistantPreview };
+  assistant_ask: {
+    args: { ask: AssistantAsk; channel: Channel<AssistantEvent> };
+    result: AssistantStarted;
+  };
+  assistant_regenerate: {
+    args: { request: AssistantRegenerate; channel: Channel<AssistantEvent> };
+    result: AssistantStarted;
+  };
+  assistant_stop: { args: { conversationId: string }; result: boolean };
   /** `null` when the user closes the file picker without choosing. */
   notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
   /** `false` when the user closes the save dialog. */

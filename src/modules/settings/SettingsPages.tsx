@@ -37,22 +37,6 @@ export function AppearanceSettings() {
   );
 }
 
-export function AiSettings() {
-  return (
-    <SettingsSection titleKey="settings.sections.ai" descriptionKey="settings.ai.description">
-      <CurrentValues
-        rows={[
-          {
-            labelKey: 'settings.ai.current.provider',
-            valueKey: 'settings.ai.current.providerValue',
-          },
-        ]}
-      />
-      <UpcomingSettings listKey="settings.ai.upcoming" />
-    </SettingsSection>
-  );
-}
-
 export function ShortcutsSettings() {
   return (
     <SettingsSection

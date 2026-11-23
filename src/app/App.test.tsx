@@ -36,8 +36,13 @@ describe('application shell', () => {
       const link = within(mainNavigation()).getByRole('link', { name: label });
       await user.click(link);
       expect(link).toHaveAttribute('aria-current', 'page');
-      expect(screen.getByRole('heading', { level: 2, name: emptyTitle })).toBeInTheDocument();
-      expect(screen.getAllByText('Bientôt disponible').length).toBeGreaterThan(0);
+      expect(
+        await screen.findByRole('heading', { level: 2, name: emptyTitle }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Configurer un fournisseur' })).toHaveAttribute(
+        'href',
+        '/settings/ai',
+      );
     },
   );
 

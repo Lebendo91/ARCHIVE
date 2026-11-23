@@ -1,3 +1,14 @@
+import type { AiProviderView } from '../types/bindings/AiProviderView';
+import type { AnswerDetails } from '../types/bindings/AnswerDetails';
+import type { AssistantEvent } from '../types/bindings/AssistantEvent';
+import type { AssistantScope } from '../types/bindings/AssistantScope';
+import type { Conversation } from '../types/bindings/Conversation';
+import type { Finish } from '../types/bindings/Finish';
+import type { MessageStatus } from '../types/bindings/MessageStatus';
+import type { ModelInfo } from '../types/bindings/ModelInfo';
+import type { ProviderError } from '../types/bindings/ProviderError';
+import type { SourcePassage } from '../types/bindings/SourcePassage';
+import type { Usage } from '../types/bindings/Usage';
 import type { DashboardOverview } from '../types/bindings/DashboardOverview';
 import type { Document } from '../types/bindings/Document';
 import type { DocumentItem } from '../types/bindings/DocumentItem';
@@ -122,6 +133,28 @@ export interface CoreDoubleState {
   relations: Relation[];
   /** What the memory engine knows of an item, by `kind:id`; every stage is done when not given. */
   memory: Record<string, CoreDoubleMemory>;
+  /** AI providers. Like the core, the double never holds a key: only where it is kept. */
+  aiProviders: AiProviderView[];
+  /** Whether the system has a credential store (otherwise keys are kept for the session only). */
+  aiSystemStore: boolean;
+  /** What the connection test of a provider returns, by provider id: its models, or an error. */
+  aiModels: Record<string, ModelInfo[] | ProviderError>;
+  conversations: Conversation[];
+  /** Answers the providers write next, in order; a default answer when none is left. */
+  aiReplies: CoreDoubleReply[];
+  /** What left for the providers: the question, the passages and the size of the history. */
+  aiSent: { providerId: string; question: string; sources: SourcePassage[]; history: number }[];
+}
+
+/** An answer a provider writes in the double: its pieces, and how it ends. */
+export interface CoreDoubleReply {
+  pieces: string[];
+  model?: string;
+  finish?: Finish;
+  error?: ProviderError;
+  usage?: Usage;
+  /** Delay between pieces, in milliseconds. */
+  delayMs?: number;
 }
 
 /** What the memory engine knows of an item, as seeded for a test. */
@@ -207,6 +240,12 @@ export function createCoreDouble(
     searchHistory: initial?.searchHistory ?? [],
     relations: initial?.relations ?? [],
     memory: initial?.memory ?? {},
+    aiProviders: initial?.aiProviders ?? [],
+    aiSystemStore: initial?.aiSystemStore ?? true,
+    aiModels: initial?.aiModels ?? {},
+    conversations: initial?.conversations ?? [],
+    aiReplies: initial?.aiReplies ?? [],
+    aiSent: initial?.aiSent ?? [],
   };
 
   const fail = (code: string, message: string): never => {
@@ -1506,6 +1545,266 @@ export function createCoreDouble(
     });
   };
 
+  // --- AI ------------------------------------------------------------------------------------------------
+  const AI_STOP_WORDS = new Set([
+    'les',
+    'des',
+    'une',
+    'est',
+    'dans',
+    'pour',
+    'que',
+    'qui',
+    'quelle',
+    'quel',
+    'entre',
+    'avec',
+    'sur',
+    'the',
+    'and',
+    'what',
+    'with',
+  ]);
+  /** Answers being written, by conversation: calling the function stops one. */
+  const streams = new Map<string, () => void>();
+  const aiProvider = (id: string): AiProviderView => {
+    const provider = state.aiProviders.find((candidate) => candidate.id === id);
+    return provider ?? fail('not_found', 'AI provider not found');
+  };
+  const readyAiProvider = (id: string | undefined): AiProviderView => {
+    const chosen =
+      (id === undefined
+        ? [...state.aiProviders].sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0]
+        : aiProvider(id)) ?? fail('not_found', 'AI provider not found');
+    if (chosen.model === '') {
+      fail('invalid_input', 'choose a model for this provider in the settings');
+    }
+    if (chosen.key === null) {
+      fail('invalid_input', 'this provider has no API key');
+    }
+    return chosen;
+  };
+  const conversationOf = (id: string): Conversation => {
+    const conversation = state.conversations.find((candidate) => candidate.id === id);
+    return conversation ?? fail('not_found', 'conversation not found');
+  };
+  const exchangesOf = (conversation: Conversation) => {
+    const exchanges: [string, string][] = [];
+    let asked: string | null = null;
+    for (const entry of conversation.messages) {
+      if (entry.role === 'user') {
+        asked = entry.content;
+      } else if (asked !== null && entry.status === 'complete' && entry.content.trim() !== '') {
+        exchanges.push([asked, entry.content]);
+        asked = null;
+      } else {
+        asked = null;
+      }
+    }
+    return exchanges;
+  };
+  const message = (
+    role: 'user' | 'assistant',
+    content: string,
+    status: MessageStatus,
+    sources: SourcePassage[],
+    details: AnswerDetails | null,
+  ) => ({
+    id: crypto.randomUUID(),
+    role,
+    content,
+    status,
+    sources,
+    details: details ?? {
+      provider: null,
+      providerName: null,
+      model: null,
+      servedBy: null,
+      declinedBy: null,
+      usage: null,
+      finish: null,
+      error: null,
+      historySent: false,
+      scopeShared: false,
+    },
+    createdAt: Date.now(),
+  });
+  /** The passages a question sends: the words of the question in the shared items, then their beginning. */
+  const retrieve = (scope: AssistantScope, question: string): SourcePassage[] => {
+    const items: {
+      kind: 'document' | 'note';
+      id: string;
+      title: string;
+      pages: (string | null)[];
+    }[] = [];
+    const add = (kind: 'document' | 'note', id: string) => {
+      if (items.some((item) => item.kind === kind && item.id === id)) {
+        return;
+      }
+      if (kind === 'document') {
+        const entry = state.documents.find((candidate) => candidate.document.id === id);
+        if (entry?.document.deletedAt === null) {
+          items.push({
+            kind,
+            id,
+            title: entry.document.title,
+            pages: (entry.content ?? '').split('\f'),
+          });
+        }
+      } else {
+        const entry = state.notes.find((candidate) => candidate.note.id === id);
+        if (entry?.note.deletedAt === null) {
+          items.push({ kind, id, title: entry.note.title, pages: [entry.contentText] });
+        }
+      }
+    };
+    for (const item of scope.items) {
+      add(item.kind, item.id);
+    }
+    if (scope.workspaceId !== null) {
+      for (const entry of state.documents) {
+        if (entry.document.workspaceId === scope.workspaceId) {
+          add('document', entry.document.id);
+        }
+      }
+      for (const entry of state.notes) {
+        if (entry.note.workspaceId === scope.workspaceId) {
+          add('note', entry.note.id);
+        }
+      }
+    }
+    const terms = [...new Set(fold(question).split(/[^\p{L}\p{N}]+/u))].filter(
+      (term) => term.length >= 3 && !AI_STOP_WORDS.has(term),
+    );
+    const chosen: Omit<SourcePassage, 'index'>[] = [];
+    const take = (item: (typeof items)[number], position: number) => {
+      const text = (item.pages[position] ?? '').trim();
+      if (text === '' || chosen.length >= 8) {
+        return;
+      }
+      const sent = text.slice(0, 1600);
+      chosen.push({
+        kind: item.kind,
+        id: item.id,
+        title: item.title,
+        page: item.kind === 'document' && item.pages.length > 1 ? position + 1 : null,
+        excerpt: sent.length > 280 ? `${sent.slice(0, 280)}…` : sent,
+        chars: sent.length,
+      });
+    };
+    if (terms.length > 0) {
+      for (const item of items) {
+        item.pages.forEach((page, position) => {
+          if (terms.some((term) => fold(page ?? '').includes(term))) {
+            take(item, position);
+          }
+        });
+      }
+    }
+    for (const item of scope.items) {
+      const shared = items.find(
+        (candidate) => candidate.kind === item.kind && candidate.id === item.id,
+      );
+      if (shared && !chosen.some((passage) => passage.id === shared.id)) {
+        take(shared, 0);
+      }
+    }
+    return chosen.map((passage, position) => ({ ...passage, index: position + 1 }));
+  };
+  /** Records an answer being written and streams the next prepared reply on the channel. */
+  const answer = (
+    conversation: Conversation,
+    provider: AiProviderView,
+    question: string,
+    history: number,
+    channel: unknown,
+  ) => {
+    const scope = conversation.scope;
+    const shared = scope.items.length > 0 || scope.workspaceId !== null;
+    const sources = retrieve(scope, question);
+    const reply: CoreDoubleReply = state.aiReplies.shift() ?? {
+      pieces:
+        sources.length > 0
+          ? ['D’après vos documents, ', `le passage cité répond à la question [S1].`]
+          : ['[general] Aucun document partagé : réponse de connaissances générales.'],
+    };
+    state.aiSent.push({ providerId: provider.id, question, sources, history });
+    const details: AnswerDetails = {
+      provider: provider.provider,
+      providerName: provider.displayName,
+      model: provider.model,
+      servedBy: null,
+      declinedBy: null,
+      usage: null,
+      finish: null,
+      error: null,
+      historySent: history > 0,
+      scopeShared: shared,
+    };
+    const entry = message('assistant', '', 'streaming', sources, details);
+    conversation.messages.push(entry);
+    conversation.updatedAt = Date.now();
+    changed(null);
+    const emit = (event: AssistantEvent) => {
+      (channel as { onmessage?: (event: AssistantEvent) => void } | undefined)?.onmessage?.(event);
+    };
+    let stopped = false;
+    streams.set(conversation.id, () => {
+      stopped = true;
+    });
+    const served = reply.model ?? `${provider.model}-2026`;
+    const steps: (() => void)[] = [
+      () => {
+        details.servedBy = served;
+        emit({ kind: 'model', model: served });
+      },
+      ...reply.pieces.map((piece) => () => {
+        entry.content += piece;
+        emit({ kind: 'text', text: piece });
+      }),
+    ];
+    const finish = () => {
+      streams.delete(conversation.id);
+      if (stopped) {
+        entry.status = 'interrupted';
+      } else if (reply.error) {
+        entry.status = 'failed';
+        details.error = reply.error;
+      } else if (reply.finish?.kind === 'refused') {
+        entry.status = 'refused';
+        entry.content = '';
+        details.finish = reply.finish;
+      } else if (reply.finish?.kind === 'blocked') {
+        entry.status = 'blocked';
+        entry.content = '';
+        details.finish = reply.finish;
+      } else {
+        entry.status = 'complete';
+        details.finish = reply.finish ?? { kind: 'complete' };
+        details.usage = { inputTokens: 900 + sources.length * 300, outputTokens: 60 };
+      }
+      conversation.updatedAt = Date.now();
+      changed(null);
+      emit({ kind: 'done', status: entry.status });
+    };
+    const run = (index: number) => {
+      const step = steps[index];
+      if (stopped || step === undefined) {
+        finish();
+        return;
+      }
+      step();
+      changed(null);
+      setTimeout(() => {
+        run(index + 1);
+      }, reply.delayMs ?? 30);
+    };
+    setTimeout(() => {
+      run(0);
+    }, reply.delayMs ?? 30);
+    return { conversationId: conversation.id, answerId: entry.id, sources };
+  };
+
   const handlers: Record<string, CoreDoubleHandler> = {
     workspaces_list: (args) =>
       state.workspaces
@@ -2504,6 +2803,230 @@ export function createCoreDouble(
       return changed(null);
     },
 
+    // --- AI providers and assistant (same rules as src-tauri/src/ai) --------------------------------------
+    // The double never holds a key: like the core, it only records where the key is kept.
+    ai_overview: () => ({
+      providers: [...state.aiProviders].sort(
+        (a, b) => Number(b.isDefault) - Number(a.isDefault) || a.createdAt - b.createdAt,
+      ),
+      systemStore: state.aiSystemStore,
+    }),
+    ai_providers_create: (args) => {
+      const input = (args?.input ?? {}) as {
+        provider: AiProviderView['provider'];
+        displayName: string;
+        model?: string;
+      };
+      const displayName = input.displayName.trim();
+      if (displayName === '' || displayName.length > NAME_MAX) {
+        fail('invalid_input', 'provider name');
+      }
+      const model = (input.model ?? '').trim();
+      if (model !== '' && !/^[A-Za-z0-9._:-]{1,200}$/.test(model)) {
+        fail('invalid_input', 'model identifier');
+      }
+      const now = Date.now();
+      const provider: AiProviderView = {
+        id: crypto.randomUUID(),
+        provider: input.provider,
+        displayName,
+        model,
+        preferences: {
+          maxOutputTokens: 16000,
+          refusalFallback: true,
+          modelMaxOutputTokens: null,
+          modelRefusalFallback: false,
+        },
+        isDefault: state.aiProviders.length === 0,
+        key: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.aiProviders.push(provider);
+      return changed(provider);
+    },
+    ai_providers_update: (args) => {
+      const provider = aiProvider(args?.id as string);
+      const patch = (args?.patch ?? {}) as {
+        displayName?: string;
+        model?: string;
+        preferences?: AiProviderView['preferences'];
+        isDefault?: boolean;
+      };
+      if (patch.displayName !== undefined) {
+        const name = patch.displayName.trim();
+        if (name === '' || name.length > NAME_MAX) {
+          fail('invalid_input', 'provider name');
+        }
+        provider.displayName = name;
+      }
+      if (patch.model !== undefined) {
+        const model = patch.model.trim();
+        if (model !== '' && !/^[A-Za-z0-9._:-]{1,200}$/.test(model)) {
+          fail('invalid_input', 'model identifier');
+        }
+        provider.model = model;
+      }
+      if (patch.preferences !== undefined) {
+        if (patch.preferences.maxOutputTokens < 256 || patch.preferences.maxOutputTokens > 200000) {
+          fail('invalid_input', 'longest answer');
+        }
+        provider.preferences = { ...patch.preferences };
+      }
+      if (patch.isDefault === true) {
+        for (const other of state.aiProviders) {
+          other.isDefault = other.id === provider.id;
+        }
+      }
+      provider.updatedAt = Date.now();
+      return changed({ ...provider });
+    },
+    ai_providers_delete: (args) => {
+      const provider = aiProvider(args?.id as string);
+      state.aiProviders = state.aiProviders.filter((other) => other.id !== provider.id);
+      const next = [...state.aiProviders].sort((a, b) => a.createdAt - b.createdAt)[0];
+      if (provider.isDefault && next) {
+        next.isDefault = true;
+      }
+      return changed(null);
+    },
+    ai_providers_set_key: (args) => {
+      const provider = aiProvider(args?.id as string);
+      const key = typeof args?.key === 'string' ? args.key.trim() : '';
+      if (key.length < 8 || key.length > 512 || !/^[\x21-\x7e]+$/.test(key)) {
+        fail('invalid_input', 'the API key must have between 8 and 512 visible ASCII characters');
+      }
+      provider.key = state.aiSystemStore ? 'system' : 'session';
+      provider.updatedAt = Date.now();
+      return changed({ ...provider });
+    },
+    ai_providers_remove_key: (args) => {
+      const provider = aiProvider(args?.id as string);
+      provider.key = null;
+      provider.updatedAt = Date.now();
+      return changed({ ...provider });
+    },
+    ai_providers_test: (args) => {
+      const provider = aiProvider(args?.id as string);
+      if (provider.key === null) {
+        fail('invalid_input', 'this provider has no API key');
+      }
+      const outcome = state.aiModels[provider.id] ?? [];
+      return Array.isArray(outcome)
+        ? { models: outcome, error: null, durationMs: 42 }
+        : { models: [], error: outcome, durationMs: 42 };
+    },
+    assistant_conversations: () =>
+      [...state.conversations]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .map((conversation) => ({
+          id: conversation.id,
+          title: conversation.title,
+          createdAt: conversation.createdAt,
+          updatedAt: conversation.updatedAt,
+          messages: conversation.messages.length,
+        })),
+    assistant_conversation: (args) => structuredClone(conversationOf(args?.id as string)),
+    assistant_conversation_clear: (args) => {
+      const conversation = conversationOf(args?.id as string);
+      if (streams.has(conversation.id)) {
+        fail('in_use', 'an answer is being written');
+      }
+      conversation.messages = [];
+      conversation.updatedAt = Date.now();
+      return changed(null);
+    },
+    assistant_conversation_delete: (args) => {
+      const conversation = conversationOf(args?.id as string);
+      if (streams.has(conversation.id)) {
+        fail('in_use', 'an answer is being written');
+      }
+      state.conversations = state.conversations.filter((other) => other.id !== conversation.id);
+      return changed(null);
+    },
+    assistant_preview: (args) => {
+      const request = (args?.request ?? {}) as {
+        conversationId?: string;
+        question: string;
+        scope: AssistantScope;
+      };
+      const passages = retrieve(request.scope, request.question);
+      let historyMessages = 0;
+      if (request.conversationId !== undefined) {
+        historyMessages = Math.min(
+          12,
+          exchangesOf(conversationOf(request.conversationId)).length * 2,
+        );
+      }
+      return {
+        passages,
+        chars: passages.reduce((total, passage) => total + passage.chars, 0),
+        historyMessages,
+        contextSize: 'standard',
+      };
+    },
+    assistant_ask: (args) => {
+      const ask = (args?.ask ?? {}) as {
+        conversationId?: string;
+        question: string;
+        scope?: AssistantScope;
+        providerId?: string;
+      };
+      const question = ask.question.trim();
+      if (question === '' || question.length > 8000) {
+        fail('invalid_input', 'the question is empty');
+      }
+      const provider = readyAiProvider(ask.providerId);
+      const scope = ask.scope ?? { items: [], workspaceId: null };
+      let conversation: Conversation;
+      if (ask.conversationId === undefined) {
+        const now = Date.now();
+        conversation = {
+          id: crypto.randomUUID(),
+          title: question.split('\n', 1).join('').trim().slice(0, 80),
+          scope,
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        };
+        state.conversations.push(conversation);
+      } else {
+        conversation = conversationOf(ask.conversationId);
+        if (streams.has(conversation.id)) {
+          fail('in_use', 'an answer is being written');
+        }
+        conversation.scope = scope;
+      }
+      const history = exchangesOf(conversation).length * 2;
+      conversation.messages.push(message('user', question, 'complete', [], null));
+      return answer(conversation, provider, question, history, args?.channel);
+    },
+    assistant_regenerate: (args) => {
+      const request = (args?.request ?? {}) as {
+        conversationId: string;
+        scope?: AssistantScope;
+        providerId?: string;
+      };
+      const conversation = conversationOf(request.conversationId);
+      if (streams.has(conversation.id)) {
+        fail('in_use', 'an answer is being written');
+      }
+      const provider = readyAiProvider(request.providerId);
+      const last = conversation.messages.map((entry) => entry.role).lastIndexOf('user');
+      const asked =
+        conversation.messages[last] ?? fail('invalid_input', 'the conversation has no question');
+      conversation.messages = conversation.messages.slice(0, last + 1);
+      conversation.scope = request.scope ?? conversation.scope;
+      const history =
+        exchangesOf({ ...conversation, messages: conversation.messages.slice(0, last) }).length * 2;
+      return answer(conversation, provider, asked.content, history, args?.channel);
+    },
+    assistant_stop: (args) => {
+      const stop = streams.get(args?.conversationId as string);
+      stop?.();
+      return stop !== undefined;
+    },
+
     // --- Knowledge graph (same selection rules as src-tauri/src/services/graph.rs) -----------------------
     graph_load: (args): GraphData => {
       const query = (args?.query ?? {}) as {
@@ -3071,5 +3594,27 @@ export function importEvent(entry: CoreDoubleDocument): TimelineEvent {
     available: true,
     target: null,
     currentTitle: null,
+  };
+}
+
+/** A provider to seed the double with: ready to answer (model and key) unless told otherwise. */
+export function seedProvider(options: Partial<AiProviderView> = {}): AiProviderView {
+  const at = Date.now() - 60 * 60 * 1000;
+  return {
+    id: seedId('a000'),
+    provider: 'anthropic',
+    displayName: 'Anthropic',
+    model: 'claude-opus-5-5',
+    preferences: {
+      maxOutputTokens: 16000,
+      refusalFallback: true,
+      modelMaxOutputTokens: 128000,
+      modelRefusalFallback: true,
+    },
+    isDefault: true,
+    key: 'system',
+    createdAt: at,
+    updatedAt: at,
+    ...options,
   };
 }

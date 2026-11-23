@@ -35,6 +35,11 @@ export default defineConfig([
     },
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
+      // Non-breaking spaces are written as the \u00a0 escape, never raw (CLAUDE.md): raw ones are invisible.
+      'no-irregular-whitespace': [
+        'error',
+        { skipStrings: false, skipTemplates: false, skipJSXText: false },
+      ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       'no-restricted-syntax': [

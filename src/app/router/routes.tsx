@@ -13,11 +13,11 @@ import { SearchPage } from '@/modules/search/SearchPage';
 import { AboutSettings } from '@/modules/settings/AboutSettings';
 import { SettingsLayout } from '@/modules/settings/SettingsLayout';
 import {
-  AiSettings,
   AppearanceSettings,
   GeneralSettings,
   ShortcutsSettings,
 } from '@/modules/settings/SettingsPages';
+import { AiSettings } from '@/modules/settings/AiSettings';
 import { StorageSettings } from '@/modules/settings/StorageSettings';
 import { NotFoundPage } from '@/modules/system/NotFoundPage';
 import { RouteErrorPage } from '@/modules/system/RouteErrorPage';

@@ -68,7 +68,7 @@ describe('translate', () => {
   });
 
   it('returns lists', () => {
-    expect(translateList(fr, 'modules.assistant.capabilities').length).toBe(3);
+    expect(translateList(fr, 'settings.ai.privacy.facts').length).toBe(4);
   });
 });
 
