@@ -12,4 +12,9 @@ available: boolean,
 /**
  * Where the interface leads: the resource itself, or the item an accepted relation starts from.
  */
-target: TimelineTarget | null, };
+target: TimelineTarget | null, 
+/**
+ * Title of the resource today, while it exists: a note is created without a title and named afterwards,
+ * a document may be renamed. The description keeps the title of the moment, for what no longer exists.
+ */
+currentTitle: string | null, };

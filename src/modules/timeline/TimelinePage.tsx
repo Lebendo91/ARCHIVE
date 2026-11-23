@@ -2,7 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/re
 import { History, SearchX, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { EVENT_ICONS, GENERIC_EVENTS, routeFor } from '@/components/activity/events';
+import { EVENT_ICONS, eventTitle, GENERIC_EVENTS, routeFor } from '@/components/activity/events';
 import { QueryError } from '@/components/feedback/QueryError';
 import { useListParams } from '@/components/resources/listControls';
 import {
@@ -212,7 +212,7 @@ export function TimelinePage() {
             <ul className="overflow-hidden rounded-card border border-line-subtle bg-graphite">
               {group.events.map((event) => {
                 const Icon = EVENT_ICONS[event.eventType];
-                const title = event.description || t('activity.untitled');
+                const title = eventTitle(event) || t('activity.untitled');
                 const to = routeFor(event);
                 const date = new Date(event.createdAt);
                 const facts = eventFacts(
@@ -291,11 +291,12 @@ export function TimelinePage() {
   const rangeError = invalidRange(filters) ? t('timeline.filters.invalidRange') : undefined;
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end gap-3">
+      {/* Aligned on the labels: the message of an impossible period, under its field, moves nothing else. */}
+      <div className="flex flex-wrap items-start gap-3">
         <div
           role="group"
           aria-label={t('timeline.filters.label')}
-          className="flex flex-wrap items-end gap-3"
+          className="flex flex-wrap items-start gap-3"
         >
           <Select
             label={t('timeline.filters.type')}
@@ -386,6 +387,7 @@ export function TimelinePage() {
           {filtered ? (
             <Button
               variant="ghost"
+              className="mt-6"
               onClick={() => {
                 update(RESET_TIMELINE_FILTERS);
               }}
@@ -394,7 +396,7 @@ export function TimelinePage() {
             </Button>
           ) : null}
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="mt-6 ml-auto flex items-center gap-3">
           {events.isFetching && !events.isFetchingNextPage && events.data ? (
             <Spinner size={16} />
           ) : null}

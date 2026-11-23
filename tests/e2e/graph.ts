@@ -49,6 +49,7 @@ export function graphState() {
     createdAt: at(ageMs),
     available: true,
     target: null,
+    currentTitle: null,
     ...extra,
   });
   const interrupts = {

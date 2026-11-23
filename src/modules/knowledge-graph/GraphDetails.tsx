@@ -182,6 +182,9 @@ export interface GraphDetailsProps {
   byKey: ReadonlyMap<string, GraphNode>;
   degrees: ReadonlyMap<string, number>;
   selection: GraphSelection;
+  /** The details take the focus (the item was chosen from the search results). */
+  focusHeading?: boolean;
+  onHeadingFocused?: () => void;
   focusKey: string | undefined;
   expandedKeys: ReadonlySet<string>;
   onSelect: (selection: GraphSelection) => void;
@@ -199,6 +202,8 @@ export function GraphDetails({
   byKey,
   degrees,
   selection,
+  focusHeading: focusHeadingRequest = false,
+  onHeadingFocused,
   focusKey,
   expandedKeys,
   onSelect,
@@ -219,6 +224,12 @@ export function GraphDetails({
       headingRef.current?.focus();
     }
   }, [selection]);
+  useEffect(() => {
+    if (focusHeadingRequest) {
+      headingRef.current?.focus();
+      onHeadingFocused?.();
+    }
+  }, [focusHeadingRequest, onHeadingFocused, selection]);
 
   if (selection.type === 'node') {
     const node = byKey.get(selection.key);

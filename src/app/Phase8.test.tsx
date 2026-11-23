@@ -240,7 +240,7 @@ describe('knowledge graph', () => {
     await user.keyboard('{Enter}');
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Montage astable du NE555' }),
-    ).toBeVisible();
+    ).toHaveFocus();
   });
 
   it('lists the items as an alternative to the map', async () => {
@@ -312,7 +312,8 @@ describe('timeline', () => {
       at(midnight.getTime() - 3 * 24 * HOUR, creationEvent(base.electronics)),
       at(midnight.getTime() - 6 * HOUR, importEvent(base.datasheet)),
       at(midnight.getTime() - 5 * HOUR, importEvent(base.course)),
-      at(today - 1000, noteCreationEvent(base.timer)),
+      // Created without a title, as Ctrl+N does, and named afterwards.
+      at(today - 1000, { ...noteCreationEvent(base.timer), description: '' }),
       at(today, {
         ...noteCreationEvent(base.timer),
         id: 'event-favorite',
@@ -329,6 +330,10 @@ describe('timeline', () => {
     const today = await screen.findByRole('region', { name: 'Aujourd’hui' });
     const yesterday = screen.getByRole('region', { name: 'Hier' });
     expect(within(today).getAllByRole('listitem')).toHaveLength(2);
+    // The note created without a title reads with its title of today.
+    expect(within(today).getAllByRole('link', { name: 'Montage astable du NE555' })).toHaveLength(
+      2,
+    );
     expect(within(today).getByText('Ajouté aux favoris · Note · Électronique')).toBeVisible();
     expect(within(yesterday).getByText('Document importé · PDF · Électronique')).toBeVisible();
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(3);

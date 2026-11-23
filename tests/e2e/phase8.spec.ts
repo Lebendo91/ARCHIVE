@@ -207,6 +207,12 @@ test.describe('knowledge graph', () => {
     await search.fill('ne555');
     await expect(results.getByRole('button')).toHaveCount(3);
     await results.getByRole('button', { name: 'Fiche technique NE555' }).click();
+    // A result chosen: its details take the focus, ready to be read and used.
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Fiche technique NE555', exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Fermer les détails' })).toBeFocused();
     const panel = details(page, 'Fiche technique NE555');
     await panel
       .getByRole('button', { name: /^Détails du lien avec «\sMontage astable du NE555\s»$/ })

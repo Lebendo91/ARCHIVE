@@ -375,3 +375,264 @@ fn memory_engine_on_a_generated_corpus() {
         percentile(&times, 0.95).as_secs_f64() * 1000.0
     );
 }
+
+const GRAPH_DOCUMENTS: usize = 1_000;
+const GRAPH_NOTES: usize = 1_000;
+const GRAPH_WORKSPACES: usize = 20;
+const GRAPH_TAGS: usize = 60;
+
+fn timed<T>(runs: usize, mut operation: impl FnMut() -> T) -> (Duration, Duration, T) {
+    let mut times = Vec::with_capacity(runs);
+    let mut last = None;
+    for _ in 0..runs {
+        let started = Instant::now();
+        last = Some(operation());
+        times.push(started.elapsed());
+    }
+    times.sort();
+    (
+        percentile(&times, 0.5),
+        percentile(&times, 0.95),
+        last.expect("at least one run"),
+    )
+}
+
+#[test]
+#[ignore = "indicative performance: run explicitly, in release mode"]
+fn graph_on_a_generated_corpus() {
+    use crate::repo::EntityKind;
+    use crate::repo::TokenColor;
+    use crate::repo::relations::{self, NewRelation, RelationOrigin, RelationStatus};
+    use crate::repo::tags::{self, Tagged};
+    use crate::repo::workspaces::{self, NewWorkspace};
+    use crate::services::graph::{GraphItem, GraphNodeKind, GraphQuery, LINK_TYPE, load_graph};
+    use crate::services::relations::RELATION_TYPES;
+
+    let (_dir, database) = open_temporary();
+    let mut generator = Generator(0x5eed_a5c1_1e55_0003);
+    let (documents, notes) = database
+        .write(|transaction| {
+            let spaces: Vec<String> = (0..GRAPH_WORKSPACES)
+                .map(|index| {
+                    workspaces::create(
+                        transaction,
+                        &NewWorkspace {
+                            name: format!("Espace {index}"),
+                            description: None,
+                            color: None,
+                            icon: None,
+                        },
+                    )
+                    .map(|workspace| workspace.id)
+                })
+                .collect::<Result<_, _>>()?;
+            let labels: Vec<String> = (0..GRAPH_TAGS)
+                .map(|index| {
+                    tags::create(
+                        transaction,
+                        &format!("Étiquette {index}"),
+                        TokenColor::Neutral,
+                    )
+                    .map(|tag| tag.id)
+                })
+                .collect::<Result<_, _>>()?;
+            let mut documents = Vec::with_capacity(GRAPH_DOCUMENTS);
+            for index in 0..GRAPH_DOCUMENTS {
+                let id = new_id();
+                let workspace =
+                    (generator.below(5) > 0).then(|| spaces[generator.below(spaces.len())].clone());
+                documents::insert(
+                    transaction,
+                    &NewDocument {
+                        stored_filename: format!("{id}.pdf"),
+                        id: id.clone(),
+                        title: format!("Document {index}"),
+                        original_filename: format!("document-{index}.pdf"),
+                        file_extension: "pdf".to_owned(),
+                        mime_type: "application/pdf".to_owned(),
+                        file_size: 1_024,
+                        content_hash: format!("{:0>64}", id.replace('-', "")),
+                        workspace_id: workspace,
+                        folder_id: None,
+                        metadata: serde_json::json!({}),
+                    },
+                )?;
+                for _ in 0..generator.below(4) {
+                    tags::attach(
+                        transaction,
+                        &labels[generator.skewed(labels.len())],
+                        Tagged::Document(&id),
+                    )?;
+                }
+                documents.push(id);
+            }
+            let mut notes = Vec::with_capacity(GRAPH_NOTES);
+            for index in 0..GRAPH_NOTES {
+                let workspace =
+                    (generator.below(5) > 0).then(|| spaces[generator.below(spaces.len())].clone());
+                let note = notes::create(
+                    transaction,
+                    &NoteContent {
+                        title: format!("Note {index}"),
+                        content: String::new(),
+                        content_format: NoteFormat::Plain,
+                        content_text: String::new(),
+                    },
+                    workspace.as_deref(),
+                    None,
+                )?;
+                for _ in 0..generator.below(4) {
+                    tags::attach(
+                        transaction,
+                        &labels[generator.skewed(labels.len())],
+                        Tagged::Note(&note.id),
+                    )?;
+                }
+                notes.push(note.id);
+            }
+            Ok((documents, notes))
+        })
+        .expect("knowledge base written");
+
+    // Links of notes, decided relations, suggestions and rejected ones, between distinct pairs.
+    let items: Vec<(EntityKind, String)> = documents
+        .iter()
+        .map(|id| (EntityKind::Document, id.clone()))
+        .chain(notes.iter().map(|id| (EntityKind::Note, id.clone())))
+        .collect();
+    let mut pairs = std::collections::HashSet::new();
+    let mut counts = [0usize; 4];
+    database
+        .write(|transaction| {
+            let mut relate = |source: &(EntityKind, String),
+                              target: &(EntityKind, String),
+                              relation_type: &str,
+                              origin: RelationOrigin,
+                              status: RelationStatus|
+             -> crate::error::AppResult<bool> {
+                if source == target
+                    || !pairs.insert((source.1.clone(), target.1.clone(), relation_type.to_owned()))
+                {
+                    return Ok(false);
+                }
+                let relation = relations::create(
+                    transaction,
+                    &NewRelation {
+                        source: source.clone(),
+                        target: target.clone(),
+                        relation_type: relation_type.to_owned(),
+                        origin,
+                        confidence: (origin != RelationOrigin::User).then_some(0.4),
+                        provenance: serde_json::json!({}),
+                    },
+                )?;
+                if status != relation.status {
+                    relations::set_status(transaction, &relation.id, status)?;
+                }
+                Ok(true)
+            };
+            for note in &notes {
+                for _ in 0..generator.below(5) {
+                    let target = &items[generator.skewed(items.len())];
+                    let source = (EntityKind::Note, note.clone());
+                    if relate(
+                        &source,
+                        target,
+                        LINK_TYPE,
+                        RelationOrigin::User,
+                        RelationStatus::Accepted,
+                    )? {
+                        counts[0] += 1;
+                    }
+                }
+            }
+            for (index, status) in [
+                (1, RelationStatus::Accepted),
+                (2, RelationStatus::Suggested),
+                (3, RelationStatus::Rejected),
+            ] {
+                let wanted = [0, 1_500, 4_000, 500][index];
+                while counts[index] < wanted {
+                    let source = &items[generator.below(items.len())];
+                    let target = &items[generator.skewed(items.len())];
+                    let relation_type = RELATION_TYPES[generator.below(RELATION_TYPES.len())];
+                    if relate(source, target, relation_type, RelationOrigin::Rule, status)? {
+                        counts[index] += 1;
+                    }
+                }
+            }
+            Ok(())
+        })
+        .expect("relations written");
+
+    let every_type: Vec<String> = std::iter::once(LINK_TYPE)
+        .chain(RELATION_TYPES.iter().copied())
+        .map(str::to_owned)
+        .collect();
+    let query = |kinds: &[GraphNodeKind], suggestions: bool| GraphQuery {
+        node_kinds: kinds.to_vec(),
+        relation_types: every_type.clone(),
+        include_suggestions: Some(suggestions),
+        workspace_id: None,
+        focus: None,
+        expanded: None,
+        limit: 300,
+    };
+    let items_only = [GraphNodeKind::Document, GraphNodeKind::Note];
+    let everything = [
+        GraphNodeKind::Document,
+        GraphNodeKind::Note,
+        GraphNodeKind::Workspace,
+        GraphNodeKind::Tag,
+    ];
+    println!();
+    println!(
+        "corpus: {GRAPH_DOCUMENTS} documents, {GRAPH_NOTES} notes, {GRAPH_WORKSPACES} workspaces, {GRAPH_TAGS} tags; \
+         {} links, {} decided relations, {} suggestions, {} rejected",
+        counts[0], counts[1], counts[2], counts[3]
+    );
+    let report = |label: &str, graph_query: &GraphQuery| {
+        let (median, p95, data) = timed(RUNS, || {
+            database
+                .read(|connection| load_graph(connection, graph_query))
+                .expect("graph")
+        });
+        let bytes = serde_json::to_vec(&data).expect("serialized").len();
+        println!(
+            "{label}: median {:.1} ms, p95 {:.1} ms; {} nodes of {}, {} edges, {:.0} KB sent",
+            median.as_secs_f64() * 1000.0,
+            p95.as_secs_f64() * 1000.0,
+            data.nodes.len(),
+            data.total,
+            data.edges.len(),
+            bytes as f64 / 1024.0
+        );
+        data
+    };
+    let overview = report("overview, items only", &query(&items_only, false));
+    assert_eq!(overview.nodes.len(), 300);
+    report(
+        "overview, organisation and suggestions",
+        &query(&everything, true),
+    );
+    let hub = overview.nodes[0].clone();
+    let mut around = query(&items_only, false);
+    around.focus = Some(GraphItem {
+        kind: hub.kind,
+        id: hub.id.clone(),
+    });
+    let focused = report("neighbourhood of the most connected item", &around);
+    around.expanded = Some(
+        focused
+            .nodes
+            .iter()
+            .skip(1)
+            .take(10)
+            .map(|node| GraphItem {
+                kind: node.kind,
+                id: node.id.clone(),
+            })
+            .collect(),
+    );
+    report("same, with 10 items expanded", &around);
+}

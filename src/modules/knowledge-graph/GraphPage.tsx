@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { FileUp, NotebookPen, Search, SearchX, Shuffle, Waypoints } from 'lucide-react';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { QueryError } from '@/components/feedback/QueryError';
 import { FilterChip, useListParams } from '@/components/resources/listControls';
@@ -44,7 +44,8 @@ import {
   type GraphFilters,
   type GraphView,
 } from './graphParams';
-import { layoutGraph, type Point } from './layout';
+import type { Point } from './layout';
+import { computeLayout } from './layoutClient';
 
 /** Search results listed under the field; the map highlights every one. */
 const MATCHES_LISTED = 8;
@@ -61,13 +62,80 @@ function activeFilters(filters: GraphFilters): number {
 }
 
 interface Layout {
+  /** The graph the positions belong to: the map shows it until the next one is laid out. */
   source: GraphData | null;
   /** Filters of the graph laid out: an expansion keeps them, a change of filters does not. */
   scope: string;
-  /** Every position computed or moved, kept while the user explores around the same item. */
+  /** Every position computed or moved, kept while the user explores. */
   positions: Map<string, Point>;
   /** Increased when the user asks for a new arrangement: the map is framed again. */
   generation: number;
+}
+
+/**
+ * Lays out each graph received once (spec §4.2), outside the interface thread. Until a graph is laid out, the
+ * map keeps showing the previous one. An expansion (same filters) leaves the placed nodes where they are;
+ * other filters let them make room.
+ */
+function useGraphLayout(data: GraphData | undefined, scopeKey: string) {
+  const [layout, setLayout] = useState<Layout>({
+    source: null,
+    scope: scopeKey,
+    positions: new Map(),
+    generation: 0,
+  });
+  const requested = useRef<GraphData | null>(null);
+  useEffect(() => {
+    if (!data || requested.current === data) {
+      return;
+    }
+    requested.current = data;
+    const pinKnown = layout.source !== null && layout.scope === scopeKey;
+    computeLayout(data.nodes, data.edges, layout.positions, { pinKnown })
+      .then((fresh) => {
+        // A newer graph was asked for meanwhile: this layout is no longer the one to show.
+        if (requested.current !== data) {
+          return;
+        }
+        setLayout((previous) => ({
+          source: data,
+          scope: scopeKey,
+          // Nodes moved by the user while the layout was computed keep where they were put.
+          positions: pinKnown
+            ? new Map([...fresh, ...previous.positions])
+            : new Map([...previous.positions, ...fresh]),
+          generation: previous.generation,
+        }));
+      })
+      .catch(() => undefined);
+  }, [data, layout.positions, layout.scope, layout.source, scopeKey]);
+
+  const move = (key: string, point: Point) => {
+    setLayout((previous) => ({
+      ...previous,
+      positions: new Map(previous.positions).set(key, point),
+    }));
+  };
+  const rearrange = () => {
+    const source = layout.source;
+    if (!source) {
+      return;
+    }
+    requested.current = source;
+    computeLayout(source.nodes, source.edges, new Map(), { pinKnown: false })
+      .then((positions) => {
+        if (requested.current === source) {
+          setLayout((previous) => ({
+            source,
+            scope: previous.scope,
+            positions,
+            generation: previous.generation + 1,
+          }));
+        }
+      })
+      .catch(() => undefined);
+  };
+  return { layout, move, rearrange };
 }
 
 /**
@@ -97,27 +165,10 @@ export function GraphPage() {
   const [scope, setScope] = useState(scopeKey);
   const [expanded, setExpanded] = useState<GraphItem[]>([]);
   const [selection, setSelection] = useState<GraphSelection | null>(null);
-  const [layout, setLayout] = useState<Layout>({
-    source: null,
-    scope: scopeKey,
-    positions: new Map(),
-    generation: 0,
-  });
-  const [placedFor, setPlacedFor] = useState(focusKey);
   if (scope !== scopeKey) {
     setScope(scopeKey);
     setExpanded([]);
     setSelection(null);
-  }
-  // Another starting item is another map: the positions of the previous one would only get in the way.
-  if (placedFor !== focusKey) {
-    setPlacedFor(focusKey);
-    setLayout({
-      source: null,
-      scope: scopeKey,
-      positions: new Map(),
-      generation: layout.generation,
-    });
   }
 
   const query = graphQuery(filters, expanded);
@@ -127,19 +178,7 @@ export function GraphPage() {
     placeholderData: keepPreviousData,
   });
   const data = graph.data;
-  // Laid out once per graph received (spec §4.2), keeping the nodes already placed where they are.
-  // An expansion (same filters) leaves the placed nodes where they are; other filters let them make room.
-  if (data && layout.source !== data) {
-    const fresh = layoutGraph(data.nodes, data.edges, layout.positions, {
-      pinKnown: layout.scope === scopeKey,
-    });
-    setLayout({
-      source: data,
-      scope: scopeKey,
-      positions: new Map([...layout.positions, ...fresh]),
-      generation: layout.generation,
-    });
-  }
+  const { layout, move, rearrange } = useGraphLayout(data, scopeKey);
 
   const byKey = useMemo(() => new Map((data?.nodes ?? []).map((node) => [node.key, node])), [data]);
   const degrees = useMemo(() => shownDegrees(data?.edges ?? []), [data]);
@@ -173,6 +212,15 @@ export function GraphPage() {
     enabled: data?.nodes.length === 0,
   });
 
+  // An item chosen from the search results: its details take the focus, ready to be read and used.
+  const [focusPanel, setFocusPanel] = useState(false);
+  const pick = (key: string) => {
+    setSelection({ type: 'node', key });
+    setFocusPanel(true);
+  };
+  const headingFocused = useCallback(() => {
+    setFocusPanel(false);
+  }, []);
   const focusOn = (item: GraphItem) => {
     update({ focus: focusParam(item) });
   };
@@ -304,24 +352,23 @@ export function GraphPage() {
     body = (
       <div className="flex min-h-0 flex-1 gap-4">
         {view === 'map' ? (
-          <GraphCanvas
-            nodes={data.nodes}
-            edges={data.edges}
-            positions={layout.positions}
-            frameKey={`${scopeKey}|${String(layout.generation)}`}
-            selection={current}
-            matches={matchKeys}
-            onSelect={setSelection}
-            onOpen={(node) => {
-              void navigate(nodeRoute(node));
-            }}
-            onMove={(key, point) => {
-              setLayout((previous) => ({
-                ...previous,
-                positions: new Map(previous.positions).set(key, point),
-              }));
-            }}
-          />
+          layout.source ? (
+            <GraphCanvas
+              nodes={layout.source.nodes}
+              edges={layout.source.edges}
+              positions={layout.positions}
+              frameKey={`${layout.scope}|${String(layout.generation)}`}
+              selection={current}
+              matches={matchKeys}
+              onSelect={setSelection}
+              onOpen={(node) => {
+                void navigate(nodeRoute(node));
+              }}
+              onMove={move}
+            />
+          ) : (
+            <Skeleton className="min-h-0 flex-1 rounded-card" />
+          )
         ) : (
           <GraphList
             nodes={data.nodes}
@@ -337,6 +384,8 @@ export function GraphPage() {
             byKey={byKey}
             degrees={degrees}
             selection={current}
+            focusHeading={focusPanel}
+            onHeadingFocused={headingFocused}
             focusKey={focusKey}
             expandedKeys={new Set(expanded.map((item) => `${item.kind}:${item.id}`))}
             onSelect={setSelection}
@@ -400,7 +449,7 @@ export function GraphPage() {
                 const first = matches?.[0];
                 if (event.key === 'Enter' && first) {
                   event.preventDefault();
-                  setSelection({ type: 'node', key: first.key });
+                  pick(first.key);
                 }
               }}
               className="min-w-64 flex-1 xl:max-w-md"
@@ -428,14 +477,7 @@ export function GraphPage() {
                   icon={Shuffle}
                   label={t('graph.map.relayout')}
                   variant="secondary"
-                  onClick={() => {
-                    setLayout({
-                      source: data,
-                      scope: scopeKey,
-                      positions: layoutGraph(data.nodes, data.edges, new Map()),
-                      generation: layout.generation + 1,
-                    });
-                  }}
+                  onClick={rearrange}
                 />
               ) : null}
               <SegmentedControl
@@ -492,7 +534,7 @@ export function GraphPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            setSelection({ type: 'node', key: node.key });
+                            pick(node.key);
                           }}
                         >
                           {nodeTitle(node, t)}

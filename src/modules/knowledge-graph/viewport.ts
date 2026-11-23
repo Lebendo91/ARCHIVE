@@ -61,13 +61,16 @@ export function fitView(
   };
 }
 
-/** The smallest move of the view that brings a point inside the area, `margin` away from its edges. */
+/**
+ * The smallest move of the view that brings a point inside the area, `margin` away from its edges: enough room
+ * for the label written under it.
+ */
 export function revealPoint(
   view: Viewport,
   point: Point,
   width: number,
   height: number,
-  margin = 72,
+  margin = 110,
 ): Viewport {
   const sx = view.x + view.k * point.x;
   const sy = view.y + view.k * point.y;

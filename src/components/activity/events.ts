@@ -45,3 +45,12 @@ export function routeFor(event: TimelineEvent): string | undefined {
       return undefined;
   }
 }
+
+/**
+ * Title of the resource an event concerns: its title today while it exists (a note is created without a title,
+ * a document may be renamed), otherwise the title it had then.
+ */
+export function eventTitle(event: TimelineEvent): string {
+  const current = event.currentTitle?.trim() ?? '';
+  return current !== '' ? current : event.description.trim();
+}

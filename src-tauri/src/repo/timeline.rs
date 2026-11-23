@@ -54,6 +54,9 @@ pub struct TimelineEvent {
     pub available: bool,
     /// Where the interface leads: the resource itself, or the item an accepted relation starts from.
     pub target: Option<TimelineTarget>,
+    /// Title of the resource today, while it exists: a note is created without a title and named afterwards,
+    /// a document may be renamed. The description keeps the title of the moment, for what no longer exists.
+    pub current_title: Option<String>,
 }
 
 /// A resource the interface can open from the timeline.
@@ -103,6 +106,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<TimelineEvent> {
         created_at: row.get(7)?,
         available,
         target,
+        current_title: row.get(11)?,
     })
 }
 
@@ -132,6 +136,7 @@ pub fn record(
         created_at: now_ms(),
         available: true,
         target: None,
+        current_title: None,
     };
     transaction
         .execute(
@@ -285,7 +290,12 @@ fn select(
                   END
                   ELSE 0
                 END, 0),
-                r.source_type, r.source_id
+                r.source_type, r.source_id,
+                CASE e.entity_type
+                  WHEN 'document' THEN (SELECT d.title FROM documents d WHERE d.id = e.entity_id)
+                  WHEN 'note' THEN (SELECT n.title FROM notes n WHERE n.id = e.entity_id)
+                  WHEN 'workspace' THEN (SELECT w.name FROM workspaces w WHERE w.id = e.entity_id)
+                END
          FROM timeline_events e
          LEFT JOIN relations r ON e.entity_type = 'relation' AND r.id = e.entity_id
          WHERE (?1 IS NULL OR e.created_at < ?1 OR (e.created_at = ?1 AND e.id < ?2))

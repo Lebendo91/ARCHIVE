@@ -18,6 +18,89 @@ export interface Point {
 interface LayoutNode extends SimulationNodeDatum {
   key: string;
   radius: number;
+  /** Width of the label written under the node. */
+  label: number;
+}
+
+/** Labels longer than this are shortened on the map (GraphCanvas). */
+export const LABEL_CHARS = 26;
+/** Average width of a character of the 11 px labels, and the height of a label line. */
+const CHAR_WIDTH = 6.4;
+const LABEL_HEIGHT = 16;
+const LABEL_GAP = 10;
+
+function labelWidth(node: Pick<GraphNode, 'label'>): number {
+  return Math.min(Math.max(node.label.length, 8), LABEL_CHARS) * CHAR_WIDTH;
+}
+
+/**
+ * Keeps the labels apart: two labels written side by side overlap long before their nodes touch, which a
+ * circular collision cannot see. Overlapping labels are pushed apart along the shorter way out, vertically
+ * most of the time. Nodes are looked up in a grid of label-sized cells, so each step stays linear.
+ */
+function forceLabels() {
+  let entries: LayoutNode[] = [];
+  const cellWidth = LABEL_CHARS * CHAR_WIDTH + LABEL_GAP;
+  const cellHeight = 120;
+  /** Numbered cells: no string built for each node at each step. */
+  const cellOf = (gx: number, gy: number) => (gx + 32_768) * 65_536 + (gy + 32_768);
+  const force = (alpha: number) => {
+    // Labels only matter once the map takes shape: the first steps move everything anyway.
+    if (alpha > 0.4) {
+      return;
+    }
+    const grid = new Map<number, LayoutNode[]>();
+    for (const entry of entries) {
+      const key = cellOf(
+        Math.floor((entry.x ?? 0) / cellWidth),
+        Math.floor((entry.y ?? 0) / cellHeight),
+      );
+      const bucket = grid.get(key);
+      if (bucket) {
+        bucket.push(entry);
+      } else {
+        grid.set(key, [entry]);
+      }
+    }
+    const share = alpha * 0.5;
+    for (const entry of entries) {
+      const x = entry.x ?? 0;
+      const base = (entry.y ?? 0) + entry.radius;
+      const cx = Math.floor(x / cellWidth);
+      const cy = Math.floor((entry.y ?? 0) / cellHeight);
+      for (let gx = cx - 1; gx <= cx + 1; gx += 1) {
+        for (let gy = cy - 1; gy <= cy + 1; gy += 1) {
+          for (const other of grid.get(cellOf(gx, gy)) ?? []) {
+            // Each pair once.
+            if ((other.index ?? 0) <= (entry.index ?? 0)) {
+              continue;
+            }
+            const dx = (other.x ?? 0) - x;
+            const dy = (other.y ?? 0) + other.radius - base;
+            const overlapX = (entry.label + other.label) / 2 + LABEL_GAP - Math.abs(dx);
+            const overlapY = LABEL_HEIGHT + LABEL_GAP - Math.abs(dy);
+            if (overlapX <= 0 || overlapY <= 0) {
+              continue;
+            }
+            // Half of the shorter way out for each label, scaled down like every force as the layout settles.
+            if (overlapY < overlapX) {
+              const push = (dy >= 0 ? 1 : -1) * overlapY * share;
+              entry.vy = (entry.vy ?? 0) - push;
+              other.vy = (other.vy ?? 0) + push;
+            } else {
+              const push = (dx >= 0 ? 1 : -1) * overlapX * share;
+              entry.vx = (entry.vx ?? 0) - push;
+              other.vx = (other.vx ?? 0) + push;
+            }
+          }
+        }
+      }
+    }
+  };
+  force.initialize = (nodes: LayoutNode[]) => {
+    entries = nodes;
+  };
+  return force;
 }
 
 interface LayoutLink extends SimulationLinkDatum<LayoutNode> {
@@ -158,16 +241,26 @@ export interface LayoutOptions {
  * node starts next to a placed neighbour. The layout runs a fixed number of steps of a force simulation,
  * without animation, with a seeded random source: the same graph is always drawn the same way.
  */
+/** Steps of a first layout, and of a map that only settles around what is already placed. */
+const FIRST_STEPS = 150;
+const SETTLE_STEPS = 90;
+/** Below this share of nodes already placed, another graph is laid out afresh. */
+const REUSE_SHARE = 0.5;
+
 export function layoutGraph(
   nodes: readonly GraphNode[],
   edges: readonly GraphEdge[],
   known: ReadonlyMap<string, Point>,
   { pinKnown }: LayoutOptions = { pinKnown: false },
 ): Map<string, Point> {
+  // Another graph (another starting item, for example) shares few nodes with the map drawn: its places would
+  // only get in the way.
+  const shared = nodes.filter((node) => known.has(node.key)).length;
+  const reuse = pinKnown || shared >= nodes.length * REUSE_SHARE;
   const byKey = new Map<string, LayoutNode>();
   for (const node of nodes) {
-    const entry: LayoutNode = { key: node.key, radius: nodeRadius(node) };
-    const previous = known.get(node.key);
+    const entry: LayoutNode = { key: node.key, radius: nodeRadius(node), label: labelWidth(node) };
+    const previous = reuse ? known.get(node.key) : undefined;
     if (previous) {
       entry.x = previous.x;
       entry.y = previous.y;
@@ -181,6 +274,13 @@ export function layoutGraph(
   const links: LayoutLink[] = edges
     .filter((edge) => byKey.has(edge.source) && byKey.has(edge.target))
     .map((edge) => ({ source: edge.source, target: edge.target, kind: edge.kind }));
+  const around = new Map<string, string[]>();
+  for (const link of links) {
+    if (typeof link.source === 'string' && typeof link.target === 'string') {
+      around.set(link.source, [...(around.get(link.source) ?? []), link.target]);
+      around.set(link.target, [...(around.get(link.target) ?? []), link.source]);
+    }
+  }
 
   // A new node starts on a circle around its first placed neighbour, at an angle of its own.
   let placed = 0;
@@ -189,13 +289,10 @@ export function layoutGraph(
       placed += 1;
       continue;
     }
-    const anchor = links
-      .map((link) =>
-        link.source === entry.key ? link.target : link.target === entry.key ? link.source : null,
-      )
-      .map((other) => (typeof other === 'string' ? known.get(other) : undefined))
-      .find((point) => point !== undefined);
-    if (anchor) {
+    const anchor = (around.get(entry.key) ?? [])
+      .map((other) => byKey.get(other))
+      .find((other) => other?.fx !== undefined || (other?.x !== undefined && reuse));
+    if (anchor?.x !== undefined && anchor.y !== undefined) {
       const angle = ((hash(entry.key) % 360) * Math.PI) / 180;
       entry.x = anchor.x + Math.cos(angle) * (entry.radius + 60);
       entry.y = anchor.y + Math.sin(angle) * (entry.radius + 60);
@@ -211,32 +308,47 @@ export function layoutGraph(
     );
   }
 
+  // The starting positions are already readable: a short simulation is enough (measured: about a quarter of
+  // a second for 300 nodes on a modest processor), and it runs outside the interface thread (layoutClient).
+  const steps = placed > 0 ? SETTLE_STEPS : FIRST_STEPS;
+  // Around nodes that do not move, a new node only answers to its neighbours: it is neither pulled towards the
+  // centre of the map nor pushed by its far side.
+  const settling = pinKnown && placed > 0;
   const simulation = forceSimulation<LayoutNode>(Array.from(byKey.values()))
     .randomSource(seeded(hash(nodes.map((node) => node.key).join('|'))))
+    .alphaDecay(1 - Math.pow(0.001, 1 / steps))
     .force(
       'link',
       forceLink<LayoutNode, LayoutLink>(links)
         .id((entry) => entry.key)
         .distance((link) => DISTANCE[link.kind])
-        .strength((link) => STRENGTH[link.kind]),
+        .strength((link) => Math.min(1, STRENGTH[link.kind] * (settling ? 1.6 : 1))),
     )
     .force(
       'charge',
       forceManyBody<LayoutNode>()
         .strength((entry) => -260 - entry.radius * 8)
-        .distanceMax(700),
+        .theta(1)
+        .distanceMax(settling ? 220 : 500),
     )
     // Room for the node and for the label under it.
-    .force('collide', forceCollide<LayoutNode>((entry) => entry.radius + 34).iterations(2))
+    .force(
+      'collide',
+      forceCollide<LayoutNode>((entry) => entry.radius + 30),
+    )
+    .force('labels', forceLabels());
+  if (!settling) {
     // Separate groups stay near the centre instead of drifting away.
-    .force('x', forceX<LayoutNode>(0).strength(0.03))
-    .force('y', forceY<LayoutNode>(0).strength(0.045))
-    .stop();
+    simulation
+      .force('x', forceX<LayoutNode>(0).strength(0.03))
+      .force('y', forceY<LayoutNode>(0).strength(0.045));
+  }
+  simulation.stop();
   if (placed > 0) {
     // A map already drawn only settles: it is not rebuilt.
     simulation.alpha(pinKnown ? 0.6 : 0.35);
   }
-  simulation.tick(placed > 0 ? 160 : 300);
+  simulation.tick(steps);
   return new Map(
     Array.from(byKey.values(), (entry) => [entry.key, { x: entry.x ?? 0, y: entry.y ?? 0 }]),
   );

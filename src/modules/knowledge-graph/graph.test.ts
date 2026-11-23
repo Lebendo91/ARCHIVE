@@ -137,9 +137,17 @@ describe('graph layout', () => {
     for (const [key, point] of known) {
       expect(next.get(key)).toEqual(point);
     }
-    const anchor = at(known, 'note:5');
+    // Among the closest nodes to the new one: the one it is connected to.
     const placed = at(next, 'note:99');
-    expect(Math.hypot(placed.x - anchor.x, placed.y - anchor.y)).toBeLessThan(200);
+    const nearest = [...known.entries()]
+      .map(([key, point]) => ({
+        key,
+        distance: Math.hypot(placed.x - point.x, placed.y - point.y),
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3)
+      .map((entry) => entry.key);
+    expect(nearest).toContain('note:5');
   });
 
   it('lays out a graph at the ceiling of the core in a reasonable time', () => {

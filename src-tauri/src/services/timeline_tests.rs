@@ -166,7 +166,15 @@ fn every_meaningful_operation_is_recorded_once_done() {
         })
     );
     // An accepted relation leads to the item it starts from.
+    // The note was named after its creation: the timeline shows its title of today.
+    let created = find(TimelineEventType::NoteCreated);
+    assert_eq!(created.description, "Montage astable");
+    assert_eq!(
+        created.current_title.as_deref(),
+        Some("Montage astable du NE555")
+    );
     let accepted = find(TimelineEventType::RelationAccepted);
+    assert_eq!(accepted.current_title, None);
     assert!(accepted.available);
     assert_eq!(
         accepted.target,

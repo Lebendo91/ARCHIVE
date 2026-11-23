@@ -19,6 +19,7 @@ import {
 import { libraryState, pickedFixture } from './library';
 import { notesState } from './notes';
 import { searchState } from './search';
+import { graphState } from './graph';
 import { memoryState } from './memory';
 
 /**
@@ -534,6 +535,96 @@ test.describe('@visual screenshots', () => {
       await page.getByRole('heading', { name: 'Moteur de mémoire' }).scrollIntoViewIfNeeded();
       await expect(page.getByText('1 suggestion de relation attend votre avis.')).toBeVisible();
       await shot('overview');
+    });
+
+    test(`graph and timeline at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const seeds = graphState();
+      await seedCore(page, seeds.state);
+      const shot = async (name: string, fullPage = false) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase8-${name}.png`, fullPage });
+      };
+      const map = page.getByRole('group', { name: /^Carte du graphe/ });
+      const node = (title: string) =>
+        map.getByRole('button', { name: new RegExp(`^[^:]+\\s:\\s${title},`) });
+
+      await page.goto('/#/graph');
+      await expect(map).toBeVisible();
+      await shot('graph-items');
+
+      await page.goto('/#/graph?kinds=document,note,workspace,tag&suggestions=1');
+      await node('Montage astable du NE555').click();
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Montage astable du NE555' }),
+      ).toBeVisible();
+      await expect(page.getByText(/^Étiquettes\s:\sProjet NE555$/)).toBeVisible();
+      await shot('graph-selection');
+      await page
+        .getByRole('button', { name: /^Détails du lien avec «\sFiche technique NE555\s»$/ })
+        .last()
+        .click();
+      await expect(page.getByRole('button', { name: 'Accepter' })).toBeVisible();
+      await shot('graph-suggestion');
+
+      await page.getByRole('searchbox', { name: 'Rechercher dans le graphe' }).fill('arduino');
+      await expect(
+        page.getByRole('list', { name: 'Éléments trouvés dans le graphe' }).getByRole('button'),
+      ).toHaveCount(2);
+      await shot('graph-search');
+      await page.getByRole('searchbox', { name: 'Rechercher dans le graphe' }).fill('');
+
+      await page.getByRole('button', { name: /^Filtres/ }).click();
+      await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeVisible();
+      await shot('graph-filters');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Légende' }).click();
+      await expect(page.getByRole('dialog', { name: 'Légende' })).toBeVisible();
+      await shot('graph-legend');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/#/graph?focus=note:${seeds.notes.timer.note.id}&view=list`);
+      await page
+        .getByRole('list', { name: 'Liste' })
+        .getByRole('button', { name: 'Fiche technique NE555' })
+        .click();
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Fiche technique NE555' }),
+      ).toBeVisible();
+      await shot('graph-list');
+
+      await page.goto('/#/timeline');
+      await expect(page.getByRole('heading', { level: 2, name: 'Aujourd’hui' })).toBeVisible();
+      await shot('timeline', true);
+      await page.goto(
+        '/#/timeline?type=document_imported&period=custom&from=2026-03-10&to=2026-03-01',
+      );
+      await expect(
+        page.getByText('La date de fin doit être postérieure ou égale à la date de début.'),
+      ).toBeVisible();
+      await shot('timeline-filters');
+      await page.goto('/#/timeline');
+      await page.getByRole('button', { name: 'Effacer l’historique' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await shot('timeline-clear');
+    });
+
+    test(`graph without relations at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const seeds = graphState();
+      await seedCore(page, {
+        ...seeds.state,
+        relations: seeds.state.relations.filter((relation) => relation.status === 'suggested'),
+        notes: seeds.state.notes.map((entry) => ({ ...entry, links: [] })),
+      });
+      await page.goto('/#/graph');
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Aucune relation pour l’instant' }),
+      ).toBeVisible();
+      await waitForFonts(page);
+      await page.mouse.move(0, viewport.height - 1);
+      await page.screenshot({ path: `visual-audit/${size}/phase8-graph-empty.png` });
     });
 
     test(`first run at ${size}`, async ({ page }) => {

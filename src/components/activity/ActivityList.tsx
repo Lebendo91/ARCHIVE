@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import { useNow } from '@/hooks/useNow';
 import { formatDateTime, formatRelativeTime, useI18n } from '@/i18n';
 import type { TimelineEvent } from '@/services/dashboard';
-import { EVENT_ICONS, GENERIC_EVENTS, routeFor } from './events';
+import { EVENT_ICONS, eventTitle, GENERIC_EVENTS, routeFor } from './events';
 
 export interface ActivityListProps {
   events: readonly TimelineEvent[];
@@ -25,7 +25,7 @@ export function ActivityList({ events, emptyText, currentEntityId }: ActivityLis
     <ul className="-my-3 flex flex-col">
       {events.map((event) => {
         const Icon = EVENT_ICONS[event.eventType];
-        const title = event.description || t('activity.untitled');
+        const title = eventTitle(event) || t('activity.untitled');
         const to = event.target?.id === currentEntityId ? undefined : routeFor(event);
         const label = GENERIC_EVENTS.has(event.eventType)
           ? `${t(`activity.events.${event.eventType}`)} · ${t(`activity.kinds.${event.entityType}`)}`

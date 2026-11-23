@@ -285,6 +285,7 @@ export function createCoreDouble(
       createdAt: nextTime(),
       available: true,
       target: null,
+      currentTitle: null,
     });
   };
   const available = (event: TimelineEvent): boolean => {
@@ -323,10 +324,30 @@ export function createCoreDouble(
     }
     return { kind: event.entityType, id: event.entityId };
   };
+  /** Title of the resource today, while it exists. */
+  const currentTitle = (event: TimelineEvent): string | null => {
+    switch (event.entityType) {
+      case 'document':
+        return (
+          state.documents.find((entry) => entry.document.id === event.entityId)?.document.title ??
+          null
+        );
+      case 'note':
+        return state.notes.find((entry) => entry.note.id === event.entityId)?.note.title ?? null;
+      case 'workspace':
+        return (
+          state.workspaces.find((entry) => entry.workspace.id === event.entityId)?.workspace.name ??
+          null
+        );
+      default:
+        return null;
+    }
+  };
   const shown = (event: TimelineEvent): TimelineEvent => ({
     ...event,
     available: available(event),
     target: targetOf(event),
+    currentTitle: currentTitle(event),
   });
   /** Most recent first, then by id, like the core. */
   const byRecency = (a: TimelineEvent, b: TimelineEvent) =>
@@ -1481,6 +1502,7 @@ export function createCoreDouble(
       createdAt: nextTime(),
       available: false,
       target: null,
+      currentTitle: null,
     });
   };
 
@@ -2880,6 +2902,7 @@ export function creationEvent(entry: CoreDoubleWorkspace): TimelineEvent {
     createdAt: entry.workspace.createdAt,
     available: true,
     target: null,
+    currentTitle: null,
   };
 }
 
@@ -3030,6 +3053,7 @@ export function noteCreationEvent(entry: CoreDoubleNote): TimelineEvent {
     createdAt: entry.note.createdAt,
     available: true,
     target: null,
+    currentTitle: null,
   };
 }
 
@@ -3046,5 +3070,6 @@ export function importEvent(entry: CoreDoubleDocument): TimelineEvent {
     createdAt: entry.document.importedAt,
     available: true,
     target: null,
+    currentTitle: null,
   };
 }

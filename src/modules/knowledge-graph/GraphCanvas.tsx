@@ -22,7 +22,7 @@ import {
   workspaceIconName,
   type GraphSelection,
 } from './graphModel';
-import { nodeRadius, type Point } from './layout';
+import { LABEL_CHARS, nodeRadius, type Point } from './layout';
 import { KIND_ICONS } from './NodeIcon';
 import {
   distanceToSegment,
@@ -40,7 +40,6 @@ import {
 const LABELS_ZOOM = 1.2;
 /** A small graph keeps every label. */
 const LABELS_ALWAYS = 40;
-const LABEL_CHARS = 26;
 /** A pointer that moves less than this (in pixels) clicked: it did not drag. */
 const DRAG_THRESHOLD = 4;
 /** Distance (in pixels) within which a click selects a line. */
