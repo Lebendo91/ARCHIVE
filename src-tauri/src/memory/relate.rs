@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use rusqlite::{Connection, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde_json::json;
 
 use super::{ItemKind, analysis};
@@ -26,6 +26,9 @@ const SUGGESTIONS_MAX: usize = 8;
 const TERMS_SHOWN: usize = 6;
 /// Cosine similarity of the distinctive terms from which two shared terms make a suggestion.
 const MIN_SIMILARITY: f64 = 0.12;
+/// Items compared in detail for one item, the closest first: a word common to the whole knowledge base must
+/// not make every item a candidate.
+const CANDIDATES_MAX: usize = 200;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Changes {
@@ -67,11 +70,45 @@ fn tags_of(
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
-/// Workspace of a live item, or `None` if it is in the trash or no longer exists.
+/// Workspace of a live item, or `None` if it is in the trash or no longer exists (its text is not read).
 fn live(connection: &Connection, kind: ItemKind, id: &str) -> AppResult<Option<Option<String>>> {
-    Ok(super::load(connection, kind, id)?
-        .filter(|item| !item.trashed)
-        .map(|item| item.workspace_id))
+    let sql = match kind {
+        ItemKind::Document => {
+            "SELECT workspace_id FROM documents WHERE id = ?1 AND deleted_at IS NULL"
+        }
+        ItemKind::Note => "SELECT workspace_id FROM notes WHERE id = ?1 AND deleted_at IS NULL",
+    };
+    Ok(connection
+        .prepare_cached(sql)?
+        .query_row([id], |row| row.get(0))
+        .optional()?)
+}
+
+/// Items carrying one of these tags.
+fn tagged(
+    connection: &Connection,
+    tags: &HashMap<String, String>,
+) -> AppResult<HashSet<(ItemKind, String)>> {
+    if tags.is_empty() {
+        return Ok(HashSet::new());
+    }
+    let ids = serde_json::to_string(&tags.keys().collect::<Vec<_>>())
+        .map_err(|error| crate::error::AppError::Internal(error.to_string()))?;
+    let mut statement = connection.prepare(
+        "SELECT 'document', document_id FROM document_tags WHERE tag_id IN (SELECT value FROM json_each(?1))
+         UNION SELECT 'note', note_id FROM note_tags WHERE tag_id IN (SELECT value FROM json_each(?1))",
+    )?;
+    let rows = statement.query_map([ids], |row| {
+        Ok((row.get::<_, EntityKind>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let mut found = HashSet::new();
+    for row in rows {
+        let (entity, id) = row?;
+        if let Some(kind) = ItemKind::from_entity(entity) {
+            found.insert((kind, id));
+        }
+    }
+    Ok(found)
 }
 
 /// Items sharing at least one distinctive term with the item, with the dot product of their weights.
@@ -220,11 +257,32 @@ pub fn suggest(transaction: &Transaction<'_>, kind: ItemKind, id: &str) -> AppRe
         tags: &tags,
         norm: norm(transaction, kind, id)?,
     };
+    let existing = relations::list_for_entity(transaction, kind.entity(), id)?;
+    let suggested: HashSet<(ItemKind, String)> = existing
+        .iter()
+        .filter(|relation| is_rule_suggestion(relation))
+        .filter_map(|relation| other_end(relation, kind, id))
+        .collect();
     let mut assessed: Vec<(ItemKind, String, Assessment)> = Vec::new();
     if !own_terms.is_empty() {
-        for other in others(transaction, kind, id, &own_terms)? {
-            if let Some(assessment) = assess(transaction, &own, &other)? {
-                assessed.push((other.kind, other.id, assessment));
+        // Only items that could qualify are compared: two shared terms, or one and a shared tag. The closest
+        // come first; those already suggested are always compared again.
+        let with_tags = tagged(transaction, &tags)?;
+        let mut candidates: Vec<Other> = others(transaction, kind, id, &own_terms)?
+            .into_iter()
+            .filter(|other| {
+                let key = (other.kind, other.id.clone());
+                other.shared.len() >= 2 || with_tags.contains(&key) || suggested.contains(&key)
+            })
+            .collect();
+        candidates.sort_by(|a, b| b.dot.total_cmp(&a.dot).then_with(|| a.id.cmp(&b.id)));
+        let (closest, rest) = candidates.split_at(candidates.len().min(CANDIDATES_MAX));
+        let again = rest
+            .iter()
+            .filter(|other| suggested.contains(&(other.kind, other.id.clone())));
+        for other in closest.iter().chain(again) {
+            if let Some(assessment) = assess(transaction, &own, other)? {
+                assessed.push((other.kind, other.id.clone(), assessment));
             }
         }
     }
@@ -234,7 +292,6 @@ pub fn suggest(transaction: &Transaction<'_>, kind: ItemKind, id: &str) -> AppRe
         .collect();
 
     // The relations the item already has: suggestions are refreshed, any other relation stands.
-    let existing = relations::list_for_entity(transaction, kind.entity(), id)?;
     let mut related: HashSet<(ItemKind, String)> = HashSet::new();
     let now = now_ms();
     for relation in &existing {

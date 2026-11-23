@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FileText, MoreHorizontal, NotebookText, Plus, X } from 'lucide-react';
-import { useId, useRef, useState, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router';
 import { ResourcePicker, type PickedResource } from '@/components/resources/ResourcePicker';
 import {
@@ -16,8 +16,9 @@ import {
   SectionCard,
   Select,
   Skeleton,
+  Tooltip,
 } from '@/components/ui';
-import { formatList, useI18n } from '@/i18n';
+import { formatList, useI18n, type MessageKey } from '@/i18n';
 import {
   RELATION_TYPES,
   createRelation,
@@ -204,6 +205,98 @@ function AddRelationDialog({
   );
 }
 
+/** The actions of a decided relation: its menu button is where the focus comes back after a dialog. */
+function RelationMenu({
+  relation,
+  onEdit,
+  onRemove,
+}: {
+  relation: RelationView;
+  onEdit: (trigger: HTMLButtonElement | null) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useI18n();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const label = t('memory.relations.actionsLabel', { title: relation.other.title });
+  return (
+    <DropdownMenu>
+      <Tooltip content={label} side="bottom">
+        <DropdownMenuTrigger asChild>
+          <IconButton
+            ref={triggerRef}
+            icon={MoreHorizontal}
+            size="sm"
+            label={label}
+            tooltip={false}
+          />
+        </DropdownMenuTrigger>
+      </Tooltip>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onSelect={() => {
+            onEdit(triggerRef.current);
+          }}
+        >
+          {t('memory.relations.changeType')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onRemove}>{t('memory.relations.remove')}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TypeForm({
+  formId,
+  relation,
+  onChanged,
+  onClose,
+}: {
+  formId: string;
+  relation: RelationView;
+  onChanged: () => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [type, setType] = useState<RelationType>(
+    isRelationType(relation.relationType) ? relation.relationType : 'related_to',
+  );
+  const [error, setError] = useState<string>();
+  return (
+    <form
+      id={formId}
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setRelationType(relation.id, type)
+          .then(onChanged)
+          .then(() => {
+            toast.success(t('memory.relations.changed'));
+            onClose();
+          })
+          .catch((reason: unknown) => {
+            setError(
+              isCommandError(reason) && reason.code === 'name_taken'
+                ? t('memory.relations.exists')
+                : t('memory.relations.failed'),
+            );
+          });
+      }}
+      className="flex flex-col gap-3"
+    >
+      <TypeSelect value={type} onChange={setType} />
+      {error ? (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/**
+ * The type of a relation, changed in a dialog that stays mounted: it closes like any dialog, and gives the
+ * focus back to the menu it was opened from.
+ */
 function TypeDialog({
   item,
   relation,
@@ -219,20 +312,19 @@ function TypeDialog({
 }) {
   const { t } = useI18n();
   const formId = useId();
-  const [type, setType] = useState<RelationType>(
-    relation && isRelationType(relation.relationType) ? relation.relationType : 'related_to',
-  );
-  const [error, setError] = useState<string>();
-  if (!relation) {
-    return null;
+  // The relation stays shown while the dialog fades out.
+  const [shown, setShown] = useState(relation);
+  if (relation !== null && relation !== shown) {
+    setShown(relation);
   }
-  const [source, target] =
-    relation.direction === 'outgoing'
-      ? [item.title, relation.other.title]
-      : [relation.other.title, item.title];
+  const [source, target] = !shown
+    ? ['', '']
+    : shown.direction === 'outgoing'
+      ? [item.title, shown.other.title]
+      : [shown.other.title, item.title];
   return (
     <Dialog
-      open
+      open={relation !== null}
       onOpenChange={(next) => {
         if (!next) {
           onClose();
@@ -245,7 +337,8 @@ function TypeDialog({
         size="sm"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          returnFocus.current?.focus();
+          const target = returnFocus.current;
+          (target?.isConnected ? target : document.getElementById('main-content'))?.focus();
         }}
         footer={
           <>
@@ -256,34 +349,15 @@ function TypeDialog({
           </>
         }
       >
-        <form
-          id={formId}
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            setRelationType(relation.id, type)
-              .then(onChanged)
-              .then(() => {
-                toast.success(t('memory.relations.changed'));
-                onClose();
-              })
-              .catch((reason: unknown) => {
-                setError(
-                  isCommandError(reason) && reason.code === 'name_taken'
-                    ? t('memory.relations.exists')
-                    : t('memory.relations.failed'),
-                );
-              });
-          }}
-          className="flex flex-col gap-3"
-        >
-          <TypeSelect value={type} onChange={setType} />
-          {error ? (
-            <p role="alert" className="text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
-        </form>
+        {shown ? (
+          <TypeForm
+            key={shown.id}
+            formId={formId}
+            relation={shown}
+            onChanged={onChanged}
+            onClose={onClose}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -321,42 +395,43 @@ export function RelationsCard({ item, editable }: { item: Item; editable: boolea
     ]);
 
   /** After a row leaves the list, the focus goes to the next decision to make, or to « Ajouter ». */
-  const focusNext = (index: number) => {
-    requestAnimationFrame(() => {
-      const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>('[data-decision]');
-      const target = buttons?.[Math.min(index, buttons.length - 1)] ?? addRef.current;
-      target?.focus();
-    });
+  // Set by a decision; the focus moves once the list without the decided row is on screen.
+  const pendingFocus = useRef<number | null>(null);
+  useEffect(() => {
+    const index = pendingFocus.current;
+    if (index === null) {
+      return;
+    }
+    pendingFocus.current = null;
+    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>('[data-decision]');
+    const target = buttons?.[Math.min(index, buttons.length - 1)] ?? addRef.current;
+    target?.focus();
+  }, [relations.data]);
+  /** Runs a change of the relations; once the list shows its result, the focus goes to `focusIndex`. */
+  const change = (action: () => Promise<unknown>, success: MessageKey, focusIndex: number) => {
+    // Set before the change: the list may be redrawn before the change's promise settles.
+    pendingFocus.current = focusIndex;
+    action()
+      .then(refresh)
+      .then(() => {
+        toast.success(t(success));
+      })
+      .catch(() => {
+        pendingFocus.current = null;
+        toast.error(t('memory.relations.failed'));
+      });
   };
-
   const decide = (relation: RelationView, decision: RelationDecision, index: number) => {
-    const message =
+    const message: MessageKey =
       decision === 'accept'
         ? 'memory.relations.accepted'
         : decision === 'reject'
           ? 'memory.relations.rejected'
           : 'memory.relations.restored';
-    decideRelation(relation.id, decision)
-      .then(refresh)
-      .then(() => {
-        toast.success(t(message));
-        focusNext(index);
-      })
-      .catch(() => {
-        toast.error(t('memory.relations.failed'));
-      });
+    change(() => decideRelation(relation.id, decision), message, index);
   };
-
   const remove = (relation: RelationView) => {
-    removeRelation(relation.id)
-      .then(refresh)
-      .then(() => {
-        toast.success(t('memory.relations.removed'));
-        focusNext(0);
-      })
-      .catch(() => {
-        toast.error(t('memory.relations.failed'));
-      });
+    change(() => removeRelation(relation.id), 'memory.relations.removed', 0);
   };
 
   let content;
@@ -385,36 +460,16 @@ export function RelationsCard({ item, editable }: { item: Item; editable: boolea
                   </span>
                 </div>
                 {editable ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <IconButton
-                        icon={MoreHorizontal}
-                        size="sm"
-                        label={t('memory.relations.actionsLabel', {
-                          title: relation.other.title,
-                        })}
-                        onFocus={(event) => {
-                          menuRef.current = event.currentTarget;
-                        }}
-                      />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          setEditing(relation);
-                        }}
-                      >
-                        {t('memory.relations.changeType')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          remove(relation);
-                        }}
-                      >
-                        {t('memory.relations.remove')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <RelationMenu
+                    relation={relation}
+                    onEdit={(trigger) => {
+                      menuRef.current = trigger;
+                      setEditing(relation);
+                    }}
+                    onRemove={() => {
+                      remove(relation);
+                    }}
+                  />
                 ) : null}
               </li>
             ))}
@@ -546,7 +601,6 @@ export function RelationsCard({ item, editable }: { item: Item; editable: boolea
         />
       ) : null}
       <TypeDialog
-        key={editing?.id ?? 'none'}
         item={item}
         relation={editing}
         returnFocus={menuRef}

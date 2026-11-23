@@ -19,6 +19,7 @@ import {
 import { libraryState, pickedFixture } from './library';
 import { notesState } from './notes';
 import { searchState } from './search';
+import { memoryState } from './memory';
 
 /**
  * Screenshots for the visual audit (specification §20). They are written to visual-audit/ (kept between runs) and
@@ -478,6 +479,61 @@ test.describe('@visual screenshots', () => {
       await page.goto('/#/search?q=transistor%20bipolaire');
       await expect(page.getByRole('heading', { name: 'Aucun résultat' })).toBeVisible();
       await shot('page-no-results');
+    });
+
+    test(`memory engine at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const seeds = memoryState();
+      await seedCore(page, seeds.state);
+      const shot = async (name: string) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase7-${name}.png` });
+      };
+      const section = (title: string) =>
+        page.locator('section').filter({
+          has: page.getByRole('heading', { name: title, exact: true }),
+        });
+
+      await page.goto(`/#/notes/${seeds.notes.timer.note.id}`);
+      const relations = section('Relations');
+      await relations.getByRole('button', { name: 'Afficher la suggestion rejetée' }).click();
+      await relations.scrollIntoViewIfNeeded();
+      await shot('note-relations');
+      await section('Analyse').scrollIntoViewIfNeeded();
+      await shot('note-analysis');
+      await relations.getByRole('button', { name: 'Ajouter' }).click();
+      await expect(
+        page.getByRole('dialog').getByRole('button', { name: 'Cours Arduino' }),
+      ).toBeVisible();
+      await shot('add-relation');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/#/notes/${seeds.notes.interrupts.note.id}`);
+      await section('Relations')
+        .getByRole('button', { name: /^Actions de la relation avec «\sCours Arduino\s»$/ })
+        .click();
+      await page.getByRole('menuitem', { name: 'Changer le type…' }).click();
+      await expect(page.getByRole('dialog', { name: 'Type de la relation' })).toBeVisible();
+      await shot('relation-type');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/#/notes/${seeds.notes.safety.note.id}`);
+      await section('Analyse').scrollIntoViewIfNeeded();
+      await expect(section('Analyse').getByRole('button', { name: 'Relancer' })).toBeVisible();
+      await shot('analysis-failed');
+
+      await page.goto(`/#/library/${seeds.documents.pdf.document.id}`);
+      await section('Relations').scrollIntoViewIfNeeded();
+      await expect(
+        section('Relations').getByRole('link', { name: 'Montage astable du NE555' }),
+      ).toBeVisible();
+      await shot('document-relations');
+
+      await page.goto('/#/settings/storage');
+      await page.getByRole('heading', { name: 'Moteur de mémoire' }).scrollIntoViewIfNeeded();
+      await expect(page.getByText('1 suggestion de relation attend votre avis.')).toBeVisible();
+      await shot('overview');
     });
 
     test(`first run at ${size}`, async ({ page }) => {

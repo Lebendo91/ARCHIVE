@@ -10,6 +10,8 @@ pub mod import;
 mod logging;
 pub mod memory;
 pub mod paths;
+#[cfg(test)]
+mod perf;
 pub mod repo;
 pub mod search;
 pub mod services;

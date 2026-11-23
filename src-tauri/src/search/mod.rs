@@ -7,6 +7,4 @@ pub mod index;
 pub mod query;
 
 #[cfg(test)]
-mod perf;
-#[cfg(test)]
 mod tests;

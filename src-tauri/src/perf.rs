@@ -1,17 +1,19 @@
-//! Indicative performance of search on a generated corpus. Not run by default (it takes a while and its figures
-//! depend on the machine); run it in release mode and read what it prints:
+//! Indicative performance on a generated corpus: full-text search, and the processing of the memory engine.
+//! Not run by default (it takes a while and its figures depend on the machine); run it in release mode and read
+//! what it prints:
 //!
-//! `cargo test --release --lib search::perf -- --ignored --nocapture`
+//! `cargo test --release --lib perf:: -- --ignored --nocapture`
 
 use std::time::{Duration, Instant};
 
-use super::index::{self, PAGE_BREAK};
-use super::query::{DateField, SearchKind, SearchRequest, SearchSort, search};
 use crate::db::Database;
 use crate::db::testing::open_temporary;
+use crate::memory::{self, ItemKind, worker};
 use crate::repo::documents::{self, NewDocument};
 use crate::repo::notes::{self, NoteContent, NoteFormat};
-use crate::util::new_id;
+use crate::search::index::{self, PAGE_BREAK};
+use crate::search::query::{DateField, SearchKind, SearchRequest, SearchSort, search};
+use crate::util::{new_id, now_ms};
 
 const DOCUMENTS: usize = 2_000;
 const PAGES: usize = 8;
@@ -138,17 +140,16 @@ fn measure(database: &Database, label: &str, request: &SearchRequest) {
     assert!(total > 0, "{label}: the corpus holds these words");
 }
 
-#[test]
-#[ignore = "indicative performance: run explicitly, in release mode"]
-fn indicative_performance_on_a_generated_corpus() {
-    let (dir, database) = open_temporary();
-    let mut generator = Generator(0x5eed_a5c1_1e55_0001);
-    let words = vocabulary(&mut generator);
-
-    // Writing: every document and note is indexed in the transaction that writes it.
-    let started = Instant::now();
+/// Writes `document_count` documents of [`PAGES`] pages and `note_count` notes; returns the characters written.
+fn write_corpus(
+    database: &Database,
+    generator: &mut Generator,
+    words: &[String],
+    document_count: usize,
+    note_count: usize,
+) -> usize {
     let mut characters = 0usize;
-    for batch in 0..DOCUMENTS / BATCH {
+    for batch in 0..document_count / BATCH {
         let pages: Vec<(String, String)> = (0..BATCH)
             .map(|index| {
                 let title = format!(
@@ -158,7 +159,7 @@ fn indicative_performance_on_a_generated_corpus() {
                     batch * BATCH + index
                 );
                 let body = (0..PAGES)
-                    .map(|_| text(&mut generator, &words, WORDS_PER_PAGE))
+                    .map(|_| text(generator, words, WORDS_PER_PAGE))
                     .collect::<Vec<_>>()
                     .join(&PAGE_BREAK.to_string());
                 (title, body)
@@ -191,7 +192,7 @@ fn indicative_performance_on_a_generated_corpus() {
             })
             .expect("documents written");
     }
-    for _ in 0..NOTES / BATCH {
+    for _ in 0..note_count / BATCH {
         let contents: Vec<(String, String)> = (0..BATCH)
             .map(|_| {
                 (
@@ -200,7 +201,7 @@ fn indicative_performance_on_a_generated_corpus() {
                         words[generator.skewed(words.len())],
                         words[generator.below(words.len())]
                     ),
-                    text(&mut generator, &words, WORDS_PER_NOTE),
+                    text(generator, words, WORDS_PER_NOTE),
                 )
             })
             .collect();
@@ -224,6 +225,19 @@ fn indicative_performance_on_a_generated_corpus() {
             })
             .expect("notes written");
     }
+    characters
+}
+
+#[test]
+#[ignore = "indicative performance: run explicitly, in release mode"]
+fn search_on_a_generated_corpus() {
+    let (dir, database) = open_temporary();
+    let mut generator = Generator(0x5eed_a5c1_1e55_0001);
+    let words = vocabulary(&mut generator);
+
+    // Writing: every document and note is indexed in the transaction that writes it.
+    let started = Instant::now();
+    let characters = write_corpus(&database, &mut generator, &words, DOCUMENTS, NOTES);
     let written = started.elapsed();
 
     // Rebuilding from scratch, as after an update that changes the rules of the index.
@@ -283,4 +297,81 @@ fn indicative_performance_on_a_generated_corpus() {
     deep.limit = 20;
     deep.offset = 400;
     measure(&database, "frequent word, results 401 to 420", &deep);
+}
+
+/// Documents and notes for the measure of the memory engine (it processes each one three times).
+const MEMORY_DOCUMENTS: usize = 1_000;
+const MEMORY_NOTES: usize = 1_000;
+
+#[test]
+#[ignore = "indicative performance: run explicitly, in release mode"]
+fn memory_engine_on_a_generated_corpus() {
+    let (_dir, database) = open_temporary();
+    let mut generator = Generator(0x5eed_a5c1_1e55_0002);
+    let words = vocabulary(&mut generator);
+    let characters = write_corpus(
+        &database,
+        &mut generator,
+        &words,
+        MEMORY_DOCUMENTS,
+        MEMORY_NOTES,
+    );
+
+    // Every write queued its item: the worker processes the whole knowledge base, as after a first import.
+    let started = Instant::now();
+    let jobs = worker::process_all(&database, now_ms() + 86_400_000).expect("processed");
+    let elapsed = started.elapsed();
+    let items = MEMORY_DOCUMENTS + MEMORY_NOTES;
+    let (suggestions, terms): (i64, i64) = database
+        .read(|connection| {
+            Ok((
+                connection.query_row(
+                    "SELECT count(*) FROM relations WHERE status = 'suggested'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                connection.query_row("SELECT count(*) FROM entity_terms", [], |row| row.get(0))?,
+            ))
+        })
+        .expect("counted");
+    println!();
+    println!(
+        "corpus: {MEMORY_DOCUMENTS} documents of {PAGES} pages and {MEMORY_NOTES} notes, {:.1} MB of text",
+        characters as f64 / 1_000_000.0
+    );
+    println!(
+        "processed {jobs} jobs in {:.1} s: {:.0} items/s ({:.1} ms per item for its three stages)",
+        elapsed.as_secs_f64(),
+        items as f64 / elapsed.as_secs_f64(),
+        elapsed.as_secs_f64() * 1000.0 / items as f64
+    );
+    println!(
+        "{terms} distinctive terms, {suggestions} suggested relations ({:.1} per item)",
+        suggestions as f64 * 2.0 / items as f64
+    );
+    assert_eq!(jobs, items * 3, "three stages for each item");
+
+    // What the interface reads for one item.
+    let id: String = database
+        .read(|connection| {
+            Ok(connection.query_row("SELECT id FROM notes LIMIT 1", [], |row| row.get(0))?)
+        })
+        .expect("a note");
+    let mut times = Vec::with_capacity(30);
+    for _ in 0..30 {
+        let started = Instant::now();
+        database
+            .read(|connection| {
+                memory::status::item(connection, ItemKind::Note, &id)?;
+                crate::services::relations::list(connection, ItemKind::Note, &id)
+            })
+            .expect("read");
+        times.push(started.elapsed());
+    }
+    times.sort();
+    println!(
+        "analysis and relations of a note, as the interface reads them: median {:.1} ms, p95 {:.1} ms",
+        percentile(&times, 0.5).as_secs_f64() * 1000.0,
+        percentile(&times, 0.95).as_secs_f64() * 1000.0
+    );
 }
