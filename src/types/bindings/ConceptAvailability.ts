@@ -3,4 +3,4 @@
 /**
  * Whether concepts can be extracted, and why not.
  */
-export type ConceptAvailability = "no_provider";
+export type ConceptAvailability = "no_provider" | "ready";

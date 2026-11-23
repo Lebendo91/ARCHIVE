@@ -15,7 +15,14 @@ type PdfStatus = 'loading' | 'ready' | 'error' | 'encrypted';
  * PDF preview (spec §7.4): one page at a time, with page navigation and zoom. The file is read by ranges
  * through the core; nothing is fetched from the network.
  */
-export function PdfViewer({ document }: { document: Document }) {
+/** `initialPage`: the page to open at (a cited passage), within the pages of the file. */
+export function PdfViewer({
+  document,
+  initialPage = 1,
+}: {
+  document: Document;
+  initialPage?: number;
+}) {
   const { t, locale } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -37,10 +44,11 @@ export function PdfViewer({ document }: { document: Document }) {
       })
       .then((proxy) => {
         if (!cancelled) {
+          const first = Math.min(Math.max(Math.trunc(initialPage), 1), proxy.numPages);
           setPdf(proxy);
           setStatus('ready');
-          setPageNumber(1);
-          setPageInput('1');
+          setPageNumber(first);
+          setPageInput(String(first));
         }
       })
       .catch((error: unknown) => {
@@ -54,7 +62,7 @@ export function PdfViewer({ document }: { document: Document }) {
       cancelled = true;
       void task?.destroy();
     };
-  }, [document.id, document.fileSize]);
+  }, [document.id, document.fileSize, initialPage]);
 
   useEffect(() => {
     const frame = frameRef.current;

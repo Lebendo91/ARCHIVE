@@ -146,6 +146,7 @@ const DISTANCE: Record<GraphEdgeKind, number> = {
   suggestion: 130,
   tag: 100,
   workspace: 120,
+  concept: 90,
 };
 const STRENGTH: Record<GraphEdgeKind, number> = {
   link: 0.6,
@@ -153,6 +154,7 @@ const STRENGTH: Record<GraphEdgeKind, number> = {
   suggestion: 0.3,
   tag: 0.2,
   workspace: 0.12,
+  concept: 0.25,
 };
 
 /**

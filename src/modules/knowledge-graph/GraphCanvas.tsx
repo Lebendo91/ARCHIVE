@@ -60,6 +60,7 @@ const EDGE_STYLES: Record<
   relation: { tone: 'text-purple', width: 2, marker: 'relation' },
   suggestion: { tone: 'text-cyan', width: 1.5, dash: '5 4', marker: 'suggestion' },
   tag: { tone: 'text-fg-muted', width: 1, dash: '2 3' },
+  concept: { tone: 'text-cyan', width: 1, dash: '1 3' },
   workspace: { tone: 'text-fg-muted', width: 1.25 },
 };
 
@@ -141,7 +142,7 @@ const NodeView = memo(function NodeView({
     node.kind === 'workspace'
       ? WORKSPACE_ICONS[workspaceIconName(node.icon)]
       : KIND_ICONS[node.kind];
-  const iconSize = node.kind === 'tag' ? r * 0.9 : r * 1.05;
+  const iconSize = node.kind === 'tag' || node.kind === 'concept' ? r * 0.9 : r * 1.05;
   const dash = node.archived ? '3 2' : undefined;
   let shape;
   if (node.kind === 'document' || node.kind === 'workspace') {
@@ -156,6 +157,17 @@ const NodeView = memo(function NodeView({
         stroke="currentColor"
         strokeWidth={1.5}
         strokeDasharray={dash}
+        className="fill-graphite"
+      />
+    );
+  } else if (node.kind === 'concept') {
+    // A hexagon: the concepts an AI provider found, apart from the user's own organisation.
+    const h = r * 0.87;
+    shape = (
+      <path
+        d={`M${r},0L${r / 2},${h}L${-r / 2},${h}L${-r},0L${-r / 2},${-h}L${r / 2},${-h}Z`}
+        stroke="currentColor"
+        strokeWidth={1.5}
         className="fill-graphite"
       />
     );
@@ -723,6 +735,7 @@ export function GraphCanvas({
                 node.key === focusedKey ||
                 node.kind === 'workspace' ||
                 node.kind === 'tag' ||
+                node.kind === 'concept' ||
                 (neighbourhood?.keys.has(node.key) ?? false) ||
                 (matches?.has(node.key) ?? false);
               return allLabels || emphasized ? (

@@ -6,6 +6,33 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 9 : Assistant IA (2026-11-23)
+
+- Couche IA indépendante du fournisseur, facultative : Anthropic (Messages API), OpenAI (Responses API, sans
+  conservation chez le fournisseur) et Google Gemini, appelés depuis le cœur natif uniquement, en HTTPS, en flux.
+- Réglages › Intelligence artificielle : fournisseurs, clé API rangée dans le Gestionnaire d'identifiants de
+  Windows (jamais réaffichée, jamais en base ni dans les journaux ; gardée en mémoire pour la session si le coffre
+  est indisponible, avec explication), test de connexion sur demande (liste des modèles du compte, sans jeton
+  consommé), choix du modèle, longueur maximale des réponses, repli automatique d'Anthropic en cas de refus,
+  préférences de confidentialité (part des documents envoyée, envoi de l'historique).
+- Assistant : historique des conversations, nouvelle conversation, effacement et suppression avec confirmation,
+  contexte partagé (documents, notes, espace de travail ou rien), aperçu des passages qui partiront avant l'envoi,
+  réponse en flux avec arrêt, copie, régénération, nouvel essai après une erreur.
+- Réponses ancrées et vérifiables : passages numérotés `[S1]…`, citations cliquables seulement si le passage a
+  réellement été envoyé (le PDF s'ouvre à la page citée), citations inventées signalées, paragraphes étiquetés
+  « Issu d'ARCHIVE », « Connaissances générales », « Interprétation de l'IA » ou « Non sourcé » ; refus du modèle,
+  filtres du fournisseur et erreurs (clé refusée, quota, débit, réseau…) expliqués.
+- Concepts par IA sur demande depuis la carte d'analyse, vérifiés dans le texte avant d'être enregistrés ; nœuds
+  « concept » dans le graphe de connaissances.
+- Schéma de base de données v4 : conversations et messages, avec les sources de chaque réponse.
+
+### Sécurité — Phase 9
+
+- Les clés n'entrent qu'une fois dans le cœur et n'en ressortent jamais ; type `Secret` effacé de la mémoire.
+- Messages d'erreur des fournisseurs nettoyés (tout ce qui ressemble à une clé est masqué).
+- Les passages envoyés sont des données dans des éléments `<source>` qu'ils ne peuvent pas refermer.
+- Espaces insécables écrits par la séquence `\u00a0` : règle ESLint ajoutée, 86 espaces brutes corrigées.
+
 ### Ajouté — Phase 8 : Graphe de connaissances et chronologie (2026-11-23)
 
 - Graphe de connaissances en deux dimensions, sans WebGL :

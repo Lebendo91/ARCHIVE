@@ -15,6 +15,7 @@ const ERROR_MESSAGES: Record<CommandErrorCode, MessageKey> = {
   storage: 'errors.codes.storage',
   database: 'errors.codes.database',
   io: 'errors.codes.io',
+  credentials: 'errors.codes.credentials',
   internal: 'errors.codes.internal',
   native_runtime_unavailable: 'errors.codes.native_runtime_unavailable',
   unknown: 'errors.codes.unknown',

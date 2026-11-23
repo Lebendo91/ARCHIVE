@@ -1,3 +1,4 @@
+import type { ConceptExtraction } from '@/types/bindings/ConceptExtraction';
 import type { ConceptAvailability } from '@/types/bindings/ConceptAvailability';
 import type { ConceptKind } from '@/types/bindings/ConceptKind';
 import type { ConceptMention } from '@/types/bindings/ConceptMention';
@@ -66,6 +67,15 @@ export function isRelationType(value: string): value is RelationType {
 /** What the memory engine knows of an item: its processing, its description, its terms, its concepts. */
 export function memoryItem(kind: LinkKind, id: string): Promise<MemoryItem> {
   return callCommand('memory_item', { kind, id });
+}
+
+/** Concepts of an item by an AI provider: only on the user's request, checked against the text. */
+export function extractConcepts(
+  kind: LinkKind,
+  id: string,
+  providerId: string,
+): Promise<ConceptExtraction> {
+  return callCommand('memory_extract_concepts', { kind, id, providerId });
 }
 
 export function retryMemoryItem(kind: LinkKind, id: string): Promise<MemoryItem> {

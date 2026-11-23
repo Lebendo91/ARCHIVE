@@ -3,4 +3,4 @@
 /**
  * Stable error codes shared with the interface.
  */
-export type ErrorCode = "invalid_input" | "not_found" | "name_taken" | "in_use" | "stale_revision" | "duplicate_content" | "database_unavailable" | "database_too_new" | "migration_failed" | "storage" | "database" | "io" | "internal";
+export type ErrorCode = "invalid_input" | "not_found" | "name_taken" | "in_use" | "stale_revision" | "duplicate_content" | "database_unavailable" | "database_too_new" | "migration_failed" | "storage" | "database" | "io" | "credentials" | "internal";

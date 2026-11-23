@@ -130,17 +130,6 @@ export const en: Dictionary = {
       documents: 'Documents',
       notes: 'Notes',
     },
-    capabilitiesTitle: 'What you will be able to do here',
-    assistant: {
-      title: 'No AI provider configured',
-      description:
-        'The assistant is optional. It will answer from the documents and notes you select, citing its sources.',
-      capabilities: [
-        'Use Anthropic, OpenAI or Google Gemini with your own key',
-        'Choose exactly what is shared with the provider',
-        'Verify every answer through its citations',
-      ],
-    },
     favorites: {
       title: 'No favorites',
       description: 'Star your essential documents and notes to find them here.',
@@ -983,6 +972,33 @@ export const en: Dictionary = {
         'Concept extraction needs an AI provider. It will be possible once a provider is configured in the settings.',
       unavailable: 'The analysis of this item could not be loaded.',
     },
+    concepts: {
+      extract: 'Extract the concepts with {provider}',
+      configure: 'Configure an AI provider',
+      none: 'No concept extracted yet.',
+      confirm: {
+        title: 'Extract the concepts of this item?',
+        description:
+          'The title and up to {chars} characters of the text will be sent to {provider}. Only the concepts the text holds will be recorded, apart from the content.',
+        confirm: 'Extract',
+      },
+      extracted: {
+        one: '1 concept found and checked in the text.',
+        other: '{count} concepts found and checked in the text.',
+      },
+      failed: 'The extraction failed.',
+      incomplete: 'The provider declined or did not finish the list: nothing was recorded.',
+      kinds: {
+        technical_term: 'Technical term',
+        person: 'Person',
+        organization: 'Organization',
+        technology: 'Technology',
+        subject: 'Subject',
+        method: 'Method',
+        product: 'Product',
+        project: 'Project',
+      },
+    },
     overview: {
       title: 'Memory engine',
       description:
@@ -1041,12 +1057,14 @@ export const en: Dictionary = {
       note: 'Note',
       workspace: 'Workspace',
       tag: 'Tag',
+      concept: 'Concept',
     },
     kindsPlural: {
       document: 'Documents',
       note: 'Notes',
       workspace: 'Workspaces',
       tag: 'Tags',
+      concept: 'Concepts',
     },
     focus: 'Around “{title}”',
     nodes: { one: '1 item', other: '{count} items' },
@@ -1087,6 +1105,7 @@ export const en: Dictionary = {
         note: 'Open the note',
         workspace: 'Open the workspace',
         tag: 'See its items',
+        concept: 'Search for this concept',
       },
       expand: 'Show the neighbours',
       hidden: {
@@ -1110,6 +1129,10 @@ export const en: Dictionary = {
         one: '1 displayed item carries this tag.',
         other: '{count} displayed items carry this tag.',
       },
+      mentioned: {
+        one: '1 displayed item mentions this concept.',
+        other: '{count} displayed items mention this concept.',
+      },
       unavailable: 'The details of this item could not be loaded.',
       directions: {
         linkOut: 'Links to',
@@ -1118,6 +1141,8 @@ export const en: Dictionary = {
         workspaceIn: 'Contains',
         tagOut: 'Tag',
         tagIn: 'Tagged',
+        conceptOut: 'Mentions',
+        conceptIn: 'Mentioned in',
         suggestion: 'Suggestion · {type}',
       },
     },
@@ -1128,11 +1153,13 @@ export const en: Dictionary = {
         suggestion: 'ARCHIVE suggestion',
         tag: 'Tag',
         workspace: 'Workspace',
+        concept: 'Mentioned concept',
       },
       link: '“{source}” contains a link to “{target}”.',
       linkHint: 'This link is written in the text of the note: it changes when the note is edited.',
       workspace: '“{source}” is stored in the workspace “{target}”.',
       tag: '“{source}” carries the tag “{target}”.',
+      concept: '“{source}” mentions the concept “{target}”.',
       relation: '“{source}” {verb} “{target}”.',
       verbs: {
         related_to: 'is related to',
@@ -1250,6 +1277,147 @@ export const en: Dictionary = {
     },
     untitled: 'Untitled',
   },
+  ai: {
+    kinds: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      gemini: 'Google Gemini',
+    },
+    errors: {
+      authentication: 'The provider refused the API key. Check it or replace it.',
+      permission_denied:
+        'This key may not perform this operation (organization, region or account permissions).',
+      model_not_found: 'Model not found, or not available to this account.',
+      rate_limited: 'Too many requests: the provider limits the rate. Try again in a moment.',
+      rate_limited_after: 'Too many requests: try again in {seconds} s.',
+      quota_exceeded: 'Credit or quota exhausted at the provider.',
+      overloaded: 'The provider is overloaded. Try again in a moment.',
+      invalid_request: 'The provider refused the request.',
+      server: 'Provider error (HTTP {status}). Try again later.',
+      network: 'The provider cannot be reached. Check your Internet connection or your proxy.',
+      timeout: 'The provider did not answer in time.',
+      invalid_response: 'The provider’s response cannot be read.',
+      interrupted: 'The provider’s response stopped before the end.',
+      detail: 'Provider message: {detail}',
+    },
+  },
+  assistant: {
+    newConversation: 'New conversation',
+    conversations: 'Conversations',
+    conversationsEmpty: 'Your conversations will appear here.',
+    conversationActions: 'Conversation actions',
+    clear: 'Clear the conversation',
+    clearConfirm: {
+      title: 'Clear this conversation?',
+      description:
+        'All its questions and answers will be permanently deleted. The conversation stays in the list, empty.',
+      confirm: 'Clear',
+    },
+    cleared: 'Conversation cleared.',
+    delete: 'Delete the conversation',
+    deleteConfirm: {
+      title: 'Delete this conversation?',
+      description: 'The conversation, its questions and its answers will be permanently deleted.',
+      confirm: 'Delete',
+    },
+    deleted: 'Conversation deleted.',
+    noProvider: {
+      title: 'No AI provider configured',
+      description:
+        'The assistant is optional: all of ARCHIVE works without it. Add your Anthropic, OpenAI or Google Gemini key, and it will answer from the documents and notes you choose, citing its sources.',
+      action: 'Configure a provider',
+    },
+    notReady: {
+      title: 'Configuration to finish',
+      description:
+        '“{name}” has no API key or model yet. Finish its configuration in the settings.',
+      action: 'Open the AI settings',
+    },
+    welcome: {
+      title: 'Ask your knowledge',
+      description:
+        'Choose what you share with the provider, then ask your question. Every answer cites the passages of your documents it relies on.',
+    },
+    provider: 'Provider: {name} · {model}',
+    scope: {
+      title: 'Shared context',
+      description: 'Only these items can be sent, and only the passages shown.',
+      none: 'Nothing is shared: answers will come from the model’s general knowledge.',
+      chooseItems: 'Choose documents and notes',
+      pickerTitle: 'Share with the assistant',
+      pickerDescription:
+        'Choose the documents and notes whose passages may be sent to the provider.',
+      workspace: 'Workspace',
+      noWorkspace: 'No workspace',
+      remove: 'Stop sharing “{title}”',
+      clear: 'Share nothing',
+      unavailable: 'Item unavailable',
+    },
+    composer: {
+      label: 'Your question',
+      placeholder: 'Ask a question about your documents and notes…',
+      send: 'Send',
+      stop: 'Stop the answer',
+      hint: 'Enter to send, Shift+Enter for a new line.',
+      busy: 'An answer is being written.',
+    },
+    preview: {
+      title: 'What will be sent to {provider}',
+      waiting: 'Type your question to see the passages that will be sent.',
+      nothingShared: 'No document or note is shared: only your question will be sent.',
+      noMatch:
+        'No passage of the shared items matches this question: only your question will be sent.',
+      passages: {
+        one: '{count} passage · {chars} characters',
+        other: '{count} passages · {chars} characters',
+      },
+      history: {
+        one: 'Along with {count} message of this conversation.',
+        other: 'Along with {count} messages of this conversation.',
+      },
+      show: 'Show the passages',
+      hide: 'Hide the passages',
+    },
+    message: {
+      you: 'You',
+      assistant: 'Assistant',
+      copy: 'Copy the answer',
+      copied: 'Answer copied.',
+      copyFailed: 'The answer could not be copied.',
+      regenerate: 'Regenerate the answer',
+      retry: 'Try again',
+      writing: 'Writing…',
+      stopping: 'Stopping…',
+      sources: {
+        one: '{count} passage sent',
+        other: '{count} passages sent',
+      },
+      noSources: 'No passage of your documents was sent with this question.',
+      model: 'Written by {model}',
+      switched: 'Written by {to} after {from} declined',
+      usage: '{input} input tokens · {output} output',
+      historySent: 'Previous conversation included',
+      truncated: 'Answer cut: the longest length set for this provider was reached.',
+      interrupted: 'Answer interrupted.',
+      refused: 'The model declined to answer this request.',
+      refusedExplanation: 'Reason given: {explanation}',
+      blocked: 'The provider’s filters stopped the answer ({reason}).',
+      failed: 'The answer failed.',
+      noCitation: 'This answer cites no passage of your documents: check it with care.',
+      generalOnly: 'No document was shared: answer from the model’s general knowledge.',
+    },
+    labels: {
+      archive: 'From ARCHIVE',
+      general: 'General knowledge',
+      interpretation: 'AI interpretation',
+      unsourced: 'Unsourced',
+    },
+    citation: {
+      open: 'Source {index}: {title}',
+      page: 'page {page}',
+      unverified: 'Citation [S{index}] unverified: no passage was sent under this number.',
+    },
+  },
   settings: {
     sectionsLabel: 'Settings sections',
     sections: {
@@ -1321,17 +1489,128 @@ export const en: Dictionary = {
       unavailable: 'Storage information is only available in the desktop application.',
     },
     ai: {
-      description: 'Optional artificial intelligence provider.',
-      current: {
-        provider: 'Provider',
-        providerValue: 'None. ARCHIVE works entirely without AI.',
+      description:
+        'Optional: ARCHIVE works entirely without AI. Nothing is sent to a provider without an action of yours.',
+      providersTitle: 'Providers',
+      providersDescription:
+        'Your own account at Anthropic, OpenAI or Google. Keys stay in the Windows credential manager.',
+      empty: {
+        title: 'No provider configured',
+        description:
+          'Add a provider with your API key to use the assistant. Everything else in ARCHIVE works without it.',
       },
-      upcoming: [
-        'Provider and model selection',
-        'API key kept in the Windows Credential Manager',
-        'Connection test on request only',
-        'Privacy preferences',
-      ],
+      add: 'Add a provider',
+      sessionOnly: {
+        title: 'Keys kept for this session only',
+        description:
+          'The system credential manager is unavailable. Keys are only kept in memory, never written to disk: you will have to type them again the next time ARCHIVE starts.',
+      },
+      isDefault: 'Default',
+      makeDefault: 'Use by default',
+      madeDefault: '“{name}” is now the default provider.',
+      remove: 'Remove the provider',
+      removeConfirm: {
+        title: 'Remove “{name}”?',
+        description:
+          'Its configuration and its API key will be deleted. Your conversations are kept.',
+        confirm: 'Remove',
+      },
+      removed: 'Provider removed.',
+      key: {
+        title: 'API key',
+        system: 'Stored in the Windows credential manager.',
+        session: 'Kept in memory for this session only.',
+        missing: 'No key stored.',
+        label: 'API key',
+        replaceLabel: 'New API key',
+        hint: 'Put in the credential manager by the ARCHIVE core, never shown again.',
+        save: 'Save the key',
+        replace: 'Replace the key',
+        saved: 'Key stored in the credential manager.',
+        savedSession: 'Key kept for this session only.',
+        remove: 'Remove the key',
+        removeConfirm: {
+          title: 'Remove the key of “{name}”?',
+          description:
+            'The key will be deleted from the credential manager. The assistant cannot use this provider until a new key is saved.',
+          confirm: 'Remove the key',
+        },
+        removed: 'Key removed.',
+      },
+      test: {
+        action: 'Test the connection',
+        hint: 'Asks the provider for the models of your account. Uses no tokens.',
+        needsKey: 'Save a key to test the connection.',
+        success: {
+          one: 'Connection successful: {count} model available ({duration} ms).',
+          other: 'Connection successful: {count} models available ({duration} ms).',
+        },
+        failed: 'Connection failed',
+      },
+      model: {
+        title: 'Model',
+        none: 'No model chosen.',
+        current: 'Model in use: {model}',
+        listLabel: 'Models of your account',
+        choose: 'Choose a model…',
+        deprecated: '{name} (end of life)',
+        manualLabel: 'Model identifier',
+        manualHint: 'Letters, digits, “.”, “_”, “:” and “-”.',
+        save: 'Save',
+        saved: 'Model saved.',
+        testFirst:
+          'Test the connection to choose among the models of your account, or type an identifier.',
+      },
+      answerLength: {
+        label: 'Longest answers',
+        hint: 'In tokens. The provider bills what the model writes.',
+        option: '{tokens} tokens',
+        limited: 'This model writes at most {tokens} tokens per answer.',
+      },
+      fallback: {
+        label: 'Automatic fallback on refusal',
+        description:
+          'If the model declines a request, Anthropic hands it to the Claude model it recommends; the assistant says so under the answer.',
+        unavailable: 'The chosen model does not allow it.',
+      },
+      saved: 'Preference saved.',
+      addDialog: {
+        title: 'Add a provider',
+        description: 'You will test the connection and choose the model next.',
+        kind: 'Provider',
+        name: 'Display name',
+        key: 'API key (optional for now)',
+        keyHint: 'Put in the credential manager, never shown again.',
+        submit: 'Add',
+        added: 'Provider added. Test the connection to choose a model.',
+      },
+      privacy: {
+        title: 'Assistant privacy',
+        contextLabel: 'Share of your documents sent with each question',
+        contexts: {
+          compact: {
+            label: 'Small',
+            description: 'At most 4 passages, about 5,000 characters.',
+          },
+          standard: {
+            label: 'Standard',
+            description: 'At most 8 passages, about 12,000 characters.',
+          },
+          extended: {
+            label: 'Extended',
+            description: 'At most 16 passages, about 30,000 characters.',
+          },
+        },
+        history: 'Send the conversation with each question',
+        historyDescription:
+          'Allows follow-up questions. When off, each question is sent alone, without the previous exchanges.',
+        facts: [
+          'Only the documents, notes or workspaces you choose can be shared, and you see the passages before sending.',
+          'API keys stay in the Windows credential manager; ARCHIVE never shows them again.',
+          'With OpenAI, the provider’s storage of responses is turned off.',
+          'No question, passage or answer is written to the ARCHIVE logs.',
+        ],
+      },
     },
   },
   about: {
@@ -1404,6 +1683,7 @@ export const en: Dictionary = {
       storage: 'A file operation failed.',
       database: 'A database operation failed.',
       io: 'A file or folder cannot be accessed.',
+      credentials: 'The system credential manager could not be used. The API key was not read.',
       internal: 'An unexpected error occurred.',
       native_runtime_unavailable: 'This feature is only available in the desktop application.',
       unknown: 'An unexpected error occurred.',

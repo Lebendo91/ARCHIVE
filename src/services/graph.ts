@@ -28,7 +28,13 @@ export const GRAPH_EXPANDED_MAX = 50;
 export const LINK_TYPE = 'links_to';
 /** Types of connection the graph can show: the links of notes, then the types of relation. */
 export const GRAPH_RELATION_TYPES: readonly string[] = [LINK_TYPE, ...RELATION_TYPES];
-export const GRAPH_NODE_KINDS: readonly GraphNodeKind[] = ['document', 'note', 'workspace', 'tag'];
+export const GRAPH_NODE_KINDS: readonly GraphNodeKind[] = [
+  'document',
+  'note',
+  'workspace',
+  'tag',
+  'concept',
+];
 
 /** The graph that answers a query, filtered and limited by the native core. */
 export function loadGraph(query: GraphQuery): Promise<GraphData> {

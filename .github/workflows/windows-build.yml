@@ -23,7 +23,7 @@ jobs:
   build:
     name: Build and smoke-test the Windows installers
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -54,6 +54,11 @@ jobs:
           $bitmap.Save("$env:RUNNER_TEMP\archive-windows-smoke.png", [System.Drawing.Imaging.ImageFormat]::Png)
           Stop-Process -Id $process.Id -Force
           Write-Host "ARCHIVE started and stayed up for 20 seconds."
+
+      - name: API keys in the real Windows Credential Manager
+        # Only Windows has the credential store ARCHIVE keeps the AI keys in: its test runs here.
+        working-directory: src-tauri
+        run: cargo test --lib ai::secret
 
       - name: Upload installers
         uses: actions/upload-artifact@v4

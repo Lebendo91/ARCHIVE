@@ -80,7 +80,11 @@ export function mockNativeRuntime(
   overrides: Partial<Record<CommandName, Handler>> = {},
   { core: seed = null }: { core?: Partial<CoreDoubleState> | null } = {},
 ) {
-  const settings: AppSettings = { language: 'fr' };
+  const settings: AppSettings = {
+    language: 'fr',
+    assistantContext: 'standard',
+    assistantHistory: true,
+  };
   const calls: { command: string; args: Record<string, unknown> | undefined }[] = [];
   const core = createCoreDouble(seed);
   const handlers = {

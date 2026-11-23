@@ -29,8 +29,8 @@ export function nodeTitle(node: Pick<GraphNode, 'label'>, t: I18nContextValue['t
   return node.label.trim() === '' ? t('graph.untitled') : node.label;
 }
 
-/** Page of the resource a node stands for; a tag leads to the search of its items. */
-export function nodeRoute(node: Pick<GraphNode, 'kind' | 'id'>): string {
+/** Page of the resource a node stands for; a tag leads to the search of its items, a concept to its search. */
+export function nodeRoute(node: Pick<GraphNode, 'kind' | 'id' | 'label'>): string {
   switch (node.kind) {
     case 'document':
       return `/library/${node.id}`;
@@ -40,6 +40,8 @@ export function nodeRoute(node: Pick<GraphNode, 'kind' | 'id'>): string {
       return `/workspaces/${node.id}`;
     case 'tag':
       return `/search?tag=${node.id}`;
+    case 'concept':
+      return `/search?q=${encodeURIComponent(node.label)}`;
   }
 }
 
@@ -58,6 +60,8 @@ export function nodeTone(node: Pick<GraphNode, 'kind' | 'color'>): string {
       return 'text-fg-secondary';
     case 'note':
       return 'text-amber';
+    case 'concept':
+      return 'text-cyan';
     default:
       return COLOR_TEXT_CLASSES[node.color ?? 'neutral'];
   }
@@ -85,6 +89,10 @@ export function connectionLabel(edge: GraphEdge, from: string, t: I18nContextVal
       );
     case 'tag':
       return t(outgoing ? 'graph.details.directions.tagOut' : 'graph.details.directions.tagIn');
+    case 'concept':
+      return t(
+        outgoing ? 'graph.details.directions.conceptOut' : 'graph.details.directions.conceptIn',
+      );
     case 'relation':
     case 'suggestion': {
       const type = edge.relationType ?? '';

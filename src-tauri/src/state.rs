@@ -91,6 +91,16 @@ fn open_database(paths: &AppPaths) -> DatabaseState {
                 Ok(None) => {}
                 Err(error) => log::error!("memory engine could not be prepared: {error}"),
             }
+            // Answers that were being written when ARCHIVE last closed were interrupted.
+            match database.write(crate::ai::conversations::interrupt_unfinished) {
+                Ok(0) => {}
+                Ok(count) => {
+                    log::info!("{count} unfinished assistant answers marked as interrupted")
+                }
+                Err(error) => {
+                    log::error!("unfinished assistant answers could not be updated: {error}")
+                }
+            }
             DatabaseState::Ready {
                 database: Arc::new(database),
                 report,

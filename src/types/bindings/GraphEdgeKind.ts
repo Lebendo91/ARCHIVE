@@ -4,4 +4,4 @@
  * What an edge stands for. The order is the order of importance: when there are too many edges, the last
  * kinds are left out first.
  */
-export type GraphEdgeKind = "link" | "relation" | "suggestion" | "tag" | "workspace";
+export type GraphEdgeKind = "link" | "relation" | "suggestion" | "tag" | "workspace" | "concept";

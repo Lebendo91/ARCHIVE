@@ -132,17 +132,6 @@ export const fr = {
       documents: 'Documents',
       notes: 'Notes',
     },
-    capabilitiesTitle: 'Ce que vous pourrez faire ici',
-    assistant: {
-      title: 'Aucun fournisseur IA configuré',
-      description:
-        'L’assistant est facultatif. Il répondra à partir des documents et des notes que vous choisirez, en citant ses sources.',
-      capabilities: [
-        'Utiliser Anthropic, OpenAI ou Google Gemini avec votre propre clé',
-        'Choisir précisément ce qui est partagé avec le fournisseur',
-        'Vérifier chaque réponse grâce aux citations',
-      ],
-    },
     favorites: {
       title: 'Aucun favori',
       description:
@@ -1000,6 +989,34 @@ export const fr = {
         'L’extraction de concepts demande un fournisseur d’IA. Elle sera possible une fois un fournisseur configuré dans les paramètres.',
       unavailable: 'L’analyse de cet élément n’a pas pu être chargée.',
     },
+    concepts: {
+      extract: 'Extraire les concepts avec {provider}',
+      configure: 'Configurer un fournisseur d’IA',
+      none: 'Aucun concept extrait pour l’instant.',
+      confirm: {
+        title: 'Extraire les concepts de cet élément\u00a0?',
+        description:
+          'Le titre et jusqu’à {chars} caractères du texte seront envoyés à {provider}. Seuls les concepts présents dans le texte seront enregistrés, à part du contenu.',
+        confirm: 'Extraire',
+      },
+      extracted: {
+        one: '1 concept trouvé et vérifié dans le texte.',
+        other: '{count} concepts trouvés et vérifiés dans le texte.',
+      },
+      failed: 'L’extraction a échoué.',
+      incomplete:
+        'Le fournisseur a refusé ou n’a pas terminé la liste\u00a0: rien n’a été enregistré.',
+      kinds: {
+        technical_term: 'Terme technique',
+        person: 'Personne',
+        organization: 'Organisation',
+        technology: 'Technologie',
+        subject: 'Sujet',
+        method: 'Méthode',
+        product: 'Produit',
+        project: 'Projet',
+      },
+    },
     overview: {
       title: 'Moteur de mémoire',
       description:
@@ -1028,8 +1045,8 @@ export const fr = {
       label: 'Rechercher dans le graphe',
       placeholder: 'Titre d’un élément affiché…',
       results: {
-        one: '1 élément affiché correspond :',
-        other: '{count} éléments affichés correspondent :',
+        one: '1 élément affiché correspond\u00a0:',
+        other: '{count} éléments affichés correspondent\u00a0:',
       },
       resultsLabel: 'Éléments trouvés dans le graphe',
       more: { one: 'et 1 autre', other: 'et {count} autres' },
@@ -1058,14 +1075,16 @@ export const fr = {
       note: 'Note',
       workspace: 'Espace de travail',
       tag: 'Étiquette',
+      concept: 'Concept',
     },
     kindsPlural: {
       document: 'Documents',
       note: 'Notes',
       workspace: 'Espaces de travail',
       tag: 'Étiquettes',
+      concept: 'Concepts',
     },
-    focus: 'Autour de « {title} »',
+    focus: 'Autour de «\u00a0{title}\u00a0»',
     nodes: { one: '1 élément', other: '{count} éléments' },
     edges: { one: '1 lien', other: '{count} liens' },
     truncated:
@@ -1076,15 +1095,15 @@ export const fr = {
     alone: 'Cet élément n’a encore aucune connexion avec ces filtres.',
     map: {
       label: 'Carte du graphe',
-      help: 'Flèches : passer d’un élément à l’autre. Entrée : afficher ses détails. Échap : désélectionner. + et − : zoomer. 0 : tout afficher.',
+      help: 'Flèches\u00a0: passer d’un élément à l’autre. Entrée\u00a0: afficher ses détails. Échap\u00a0: désélectionner. + et −\u00a0: zoomer. 0\u00a0: tout afficher.',
       zoomIn: 'Zoomer',
       zoomOut: 'Dézoomer',
       fit: 'Tout afficher',
       relayout: 'Réorganiser la carte',
       legend: 'Légende',
     },
-    node: '{kind} : {title}, {connections}',
-    nodeArchived: '{kind} archivé : {title}, {connections}',
+    node: '{kind}\u00a0: {title}, {connections}',
+    nodeArchived: '{kind} archivé\u00a0: {title}, {connections}',
     connections: { one: '1 connexion', other: '{count} connexions' },
     archived: 'Archivé',
     untitled: 'Sans titre',
@@ -1105,28 +1124,33 @@ export const fr = {
         note: 'Ouvrir la note',
         workspace: 'Ouvrir l’espace',
         tag: 'Voir ses éléments',
+        concept: 'Rechercher ce concept',
       },
       expand: 'Afficher les voisins',
       hidden: {
         one: '1 connexion n’est pas affichée.',
         other: '{count} connexions ne sont pas affichées.',
       },
-      full: 'Le graphe affiche déjà {max} éléments : partez de cet élément pour explorer son voisinage.',
+      full: 'Le graphe affiche déjà {max} éléments\u00a0: partez de cet élément pour explorer son voisinage.',
       center: 'Partir de cet élément',
       connections: 'Connexions affichées',
       noConnections: 'Aucune connexion affichée.',
       more: { one: 'Et 1 autre connexion.', other: 'Et {count} autres connexions.' },
-      showEdge: 'Détails du lien avec « {title} »',
+      showEdge: 'Détails du lien avec «\u00a0{title}\u00a0»',
       imported: 'Importé le {date}',
       updated: 'Modifiée le {date}',
-      inWorkspace: 'Espace : {name}',
+      inWorkspace: 'Espace\u00a0: {name}',
       noWorkspace: 'Sans espace de travail',
-      tags: 'Étiquettes : {tags}',
+      tags: 'Étiquettes\u00a0: {tags}',
       documents: { one: '1 document', other: '{count} documents' },
       notes: { one: '1 note', other: '{count} notes' },
       tagged: {
         one: '1 élément affiché porte cette étiquette.',
         other: '{count} éléments affichés portent cette étiquette.',
+      },
+      mentioned: {
+        one: '1 élément affiché mentionne ce concept.',
+        other: '{count} éléments affichés mentionnent ce concept.',
       },
       unavailable: 'Les détails de cet élément n’ont pas pu être chargés.',
       directions: {
@@ -1136,6 +1160,8 @@ export const fr = {
         workspaceIn: 'Contient',
         tagOut: 'Étiquette',
         tagIn: 'Étiqueté',
+        conceptOut: 'Mentionne',
+        conceptIn: 'Mentionné dans',
         suggestion: 'Suggestion · {type}',
       },
     },
@@ -1146,13 +1172,15 @@ export const fr = {
         suggestion: 'Suggestion d’ARCHIVE',
         tag: 'Étiquette',
         workspace: 'Espace de travail',
+        concept: 'Concept mentionné',
       },
-      link: '« {source} » contient un lien vers « {target} ».',
+      link: '«\u00a0{source}\u00a0» contient un lien vers «\u00a0{target}\u00a0».',
       linkHint:
-        'Ce lien est écrit dans le texte de la note : il change quand la note est modifiée.',
-      workspace: '« {source} » est rangé dans l’espace « {target} ».',
-      tag: '« {source} » porte l’étiquette « {target} ».',
-      relation: '« {source} » {verb} « {target} ».',
+        'Ce lien est écrit dans le texte de la note\u00a0: il change quand la note est modifiée.',
+      workspace: '«\u00a0{source}\u00a0» est rangé dans l’espace «\u00a0{target}\u00a0».',
+      tag: '«\u00a0{source}\u00a0» porte l’étiquette «\u00a0{target}\u00a0».',
+      concept: '«\u00a0{source}\u00a0» mentionne le concept «\u00a0{target}\u00a0».',
+      relation: '«\u00a0{source}\u00a0» {verb} «\u00a0{target}\u00a0».',
       verbs: {
         related_to: 'est lié à',
         references: 'fait référence à',
@@ -1163,7 +1191,7 @@ export const fr = {
         contradicts: 'contredit',
       },
       pending:
-        'Suggérée par ARCHIVE et pas encore validée : ce n’est pas un fait tant que vous ne l’acceptez pas.',
+        'Suggérée par ARCHIVE et pas encore validée\u00a0: ce n’est pas un fait tant que vous ne l’acceptez pas.',
       ends: 'Éléments reliés',
     },
     empty: {
@@ -1235,7 +1263,7 @@ export const fr = {
     },
     clear: {
       action: 'Effacer l’historique',
-      title: 'Effacer toute la chronologie ?',
+      title: 'Effacer toute la chronologie\u00a0?',
       description:
         'Tous les événements enregistrés seront supprimés définitivement. Vos documents, vos notes et vos espaces de travail ne sont pas touchés.',
       confirm: 'Effacer l’historique',
@@ -1271,6 +1299,155 @@ export const fr = {
       relation: 'Relation',
     },
     untitled: 'Sans titre',
+  },
+  ai: {
+    kinds: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      gemini: 'Google Gemini',
+    },
+    errors: {
+      authentication: 'Clé API refusée par le fournisseur. Vérifiez-la ou remplacez-la.',
+      permission_denied:
+        'Cette clé n’a pas accès à cette opération (organisation, région ou droits du compte).',
+      model_not_found: 'Modèle introuvable, ou indisponible pour ce compte.',
+      rate_limited:
+        'Trop de demandes\u00a0: le fournisseur limite le débit. Réessayez dans un moment.',
+      rate_limited_after: 'Trop de demandes\u00a0: réessayez dans {seconds}\u00a0s.',
+      quota_exceeded: 'Crédit ou quota épuisé chez le fournisseur.',
+      overloaded: 'Le fournisseur est surchargé. Réessayez dans un moment.',
+      invalid_request: 'Le fournisseur a refusé la demande.',
+      server: 'Erreur du fournisseur (HTTP {status}). Réessayez plus tard.',
+      network:
+        'Impossible de joindre le fournisseur. Vérifiez votre connexion à Internet ou votre proxy.',
+      timeout: 'Le fournisseur n’a pas répondu à temps.',
+      invalid_response: 'La réponse du fournisseur est illisible.',
+      interrupted: 'La réponse du fournisseur s’est interrompue avant la fin.',
+      detail: 'Message du fournisseur\u00a0: {detail}',
+    },
+  },
+  assistant: {
+    newConversation: 'Nouvelle conversation',
+    conversations: 'Conversations',
+    conversationsEmpty: 'Vos conversations apparaîtront ici.',
+    conversationActions: 'Actions de la conversation',
+    clear: 'Effacer la conversation',
+    clearConfirm: {
+      title: 'Effacer cette conversation\u00a0?',
+      description:
+        'Toutes ses questions et réponses seront supprimées définitivement. La conversation reste dans la liste, vide.',
+      confirm: 'Effacer',
+    },
+    cleared: 'Conversation effacée.',
+    delete: 'Supprimer la conversation',
+    deleteConfirm: {
+      title: 'Supprimer cette conversation\u00a0?',
+      description:
+        'La conversation, ses questions et ses réponses seront supprimées définitivement.',
+      confirm: 'Supprimer',
+    },
+    deleted: 'Conversation supprimée.',
+    noProvider: {
+      title: 'Aucun fournisseur IA configuré',
+      description:
+        'L’assistant est facultatif\u00a0: tout ARCHIVE fonctionne sans lui. Ajoutez votre clé Anthropic, OpenAI ou Google Gemini, et il répondra à partir des documents et des notes que vous choisirez, en citant ses sources.',
+      action: 'Configurer un fournisseur',
+    },
+    notReady: {
+      title: 'Configuration à terminer',
+      description:
+        '«\u00a0{name}\u00a0» n’a pas encore de clé API ou de modèle. Terminez sa configuration dans les paramètres.',
+      action: 'Ouvrir les paramètres de l’IA',
+    },
+    welcome: {
+      title: 'Interrogez vos connaissances',
+      description:
+        'Choisissez ce que vous partagez avec le fournisseur, puis posez votre question. Chaque réponse cite les passages de vos documents sur lesquels elle s’appuie.',
+    },
+    provider: 'Fournisseur\u00a0: {name} · {model}',
+    scope: {
+      title: 'Contexte partagé',
+      description: 'Seuls ces éléments peuvent être envoyés, et uniquement les passages affichés.',
+      none: 'Rien n’est partagé\u00a0: les réponses viendront des connaissances générales du modèle.',
+      chooseItems: 'Choisir des documents et des notes',
+      pickerTitle: 'Partager avec l’assistant',
+      pickerDescription:
+        'Choisissez les documents et les notes dont des passages pourront être envoyés au fournisseur.',
+      workspace: 'Espace de travail',
+      noWorkspace: 'Aucun espace',
+      remove: 'Ne plus partager «\u00a0{title}\u00a0»',
+      clear: 'Ne rien partager',
+      unavailable: 'Élément indisponible',
+    },
+    composer: {
+      label: 'Votre question',
+      placeholder: 'Posez une question sur vos documents et vos notes…',
+      send: 'Envoyer',
+      stop: 'Arrêter la réponse',
+      hint: 'Entrée pour envoyer, Maj+Entrée pour aller à la ligne.',
+      busy: 'Une réponse est en cours de rédaction.',
+    },
+    preview: {
+      title: 'Ce qui sera envoyé à {provider}',
+      waiting: 'Saisissez votre question pour voir les passages qui seront envoyés.',
+      nothingShared:
+        'Aucun document ni note n’est partagé\u00a0: seule votre question sera envoyée.',
+      noMatch:
+        'Aucun passage des éléments partagés ne correspond à cette question\u00a0: seule votre question sera envoyée.',
+      passages: {
+        one: '{count} passage · {chars} caractères',
+        other: '{count} passages · {chars} caractères',
+      },
+      history: {
+        one: 'Ainsi que {count} message de cette conversation.',
+        other: 'Ainsi que {count} messages de cette conversation.',
+      },
+      show: 'Voir les passages',
+      hide: 'Masquer les passages',
+    },
+    message: {
+      you: 'Vous',
+      assistant: 'Assistant',
+      copy: 'Copier la réponse',
+      copied: 'Réponse copiée.',
+      copyFailed: 'La réponse n’a pas pu être copiée.',
+      regenerate: 'Régénérer la réponse',
+      retry: 'Réessayer',
+      writing: 'Rédaction en cours…',
+      stopping: 'Arrêt en cours…',
+      sources: {
+        one: '{count} passage envoyé',
+        other: '{count} passages envoyés',
+      },
+      noSources: 'Aucun passage de vos documents n’a été envoyé avec cette question.',
+      model: 'Rédigée par {model}',
+      switched: 'Rédigée par {to} après un refus de {from}',
+      usage: '{input} jetons en entrée · {output} en sortie',
+      historySent: 'Conversation précédente incluse',
+      truncated:
+        'Réponse tronquée\u00a0: la longueur maximale réglée pour ce fournisseur est atteinte.',
+      interrupted: 'Réponse interrompue.',
+      refused: 'Le modèle a refusé de répondre à cette demande.',
+      refusedExplanation: 'Motif donné\u00a0: {explanation}',
+      blocked: 'Les filtres du fournisseur ont arrêté la réponse ({reason}).',
+      failed: 'La réponse a échoué.',
+      noCitation:
+        'Cette réponse ne cite aucun passage de vos documents\u00a0: vérifiez-la avec prudence.',
+      generalOnly:
+        'Aucun document n’était partagé\u00a0: réponse issue des connaissances générales du modèle.',
+    },
+    labels: {
+      archive: 'Issu d’ARCHIVE',
+      general: 'Connaissances générales',
+      interpretation: 'Interprétation de l’IA',
+      unsourced: 'Non sourcé',
+    },
+    citation: {
+      open: 'Source {index}\u00a0: {title}',
+      page: 'page {page}',
+      unverified:
+        'Citation [S{index}] non vérifiée\u00a0: aucun passage n’a été envoyé sous ce numéro.',
+    },
   },
   settings: {
     sectionsLabel: 'Sections des paramètres',
@@ -1350,17 +1527,129 @@ export const fr = {
         'Les informations de stockage ne sont disponibles que dans l’application de bureau.',
     },
     ai: {
-      description: 'Fournisseur d’intelligence artificielle facultatif.',
-      current: {
-        provider: 'Fournisseur',
-        providerValue: 'Aucun. ARCHIVE fonctionne entièrement sans IA.',
+      description:
+        'Facultative\u00a0: ARCHIVE fonctionne entièrement sans IA. Rien n’est envoyé à un fournisseur sans une action de votre part.',
+      providersTitle: 'Fournisseurs',
+      providersDescription:
+        'Votre propre compte chez Anthropic, OpenAI ou Google. Les clés restent dans le gestionnaire d’identifiants de Windows.',
+      empty: {
+        title: 'Aucun fournisseur configuré',
+        description:
+          'Ajoutez un fournisseur avec votre clé API pour utiliser l’assistant. Tout le reste d’ARCHIVE fonctionne sans.',
       },
-      upcoming: [
-        'Choix du fournisseur et du modèle',
-        'Clé API conservée dans le gestionnaire d’identifiants de Windows',
-        'Test de connexion sur demande uniquement',
-        'Préférences de confidentialité',
-      ],
+      add: 'Ajouter un fournisseur',
+      sessionOnly: {
+        title: 'Clés gardées pour cette session seulement',
+        description:
+          'Le gestionnaire d’identifiants du système est indisponible. Les clés ne sont gardées qu’en mémoire, jamais écrites sur le disque\u00a0: vous devrez les saisir de nouveau au prochain lancement d’ARCHIVE.',
+      },
+      isDefault: 'Par défaut',
+      makeDefault: 'Utiliser par défaut',
+      madeDefault: '«\u00a0{name}\u00a0» est désormais le fournisseur par défaut.',
+      remove: 'Supprimer le fournisseur',
+      removeConfirm: {
+        title: 'Supprimer «\u00a0{name}\u00a0»\u00a0?',
+        description:
+          'Sa configuration et sa clé API seront supprimées. Vos conversations sont conservées.',
+        confirm: 'Supprimer',
+      },
+      removed: 'Fournisseur supprimé.',
+      key: {
+        title: 'Clé API',
+        system: 'Enregistrée dans le gestionnaire d’identifiants de Windows.',
+        session: 'Gardée en mémoire pour cette session seulement.',
+        missing: 'Aucune clé enregistrée.',
+        label: 'Clé API',
+        replaceLabel: 'Nouvelle clé API',
+        hint: 'Rangée dans le gestionnaire d’identifiants par le cœur d’ARCHIVE, jamais réaffichée.',
+        save: 'Enregistrer la clé',
+        replace: 'Remplacer la clé',
+        saved: 'Clé enregistrée dans le gestionnaire d’identifiants.',
+        savedSession: 'Clé gardée pour cette session seulement.',
+        remove: 'Retirer la clé',
+        removeConfirm: {
+          title: 'Retirer la clé de «\u00a0{name}\u00a0»\u00a0?',
+          description:
+            'La clé sera supprimée du gestionnaire d’identifiants. L’assistant ne pourra plus utiliser ce fournisseur avant qu’une nouvelle clé soit enregistrée.',
+          confirm: 'Retirer la clé',
+        },
+        removed: 'Clé retirée.',
+      },
+      test: {
+        action: 'Tester la connexion',
+        hint: 'Demande au fournisseur la liste des modèles de votre compte. Ne consomme aucun jeton.',
+        needsKey: 'Enregistrez une clé pour tester la connexion.',
+        success: {
+          one: 'Connexion réussie\u00a0: {count} modèle disponible ({duration}\u00a0ms).',
+          other: 'Connexion réussie\u00a0: {count} modèles disponibles ({duration}\u00a0ms).',
+        },
+        failed: 'Échec de la connexion',
+      },
+      model: {
+        title: 'Modèle',
+        none: 'Aucun modèle choisi.',
+        current: 'Modèle utilisé\u00a0: {model}',
+        listLabel: 'Modèles de votre compte',
+        choose: 'Choisir un modèle…',
+        deprecated: '{name} (en fin de vie)',
+        manualLabel: 'Identifiant du modèle',
+        manualHint:
+          'Lettres, chiffres, «\u00a0.\u00a0», «\u00a0_\u00a0», «\u00a0:\u00a0» et «\u00a0-\u00a0».',
+        save: 'Enregistrer',
+        saved: 'Modèle enregistré.',
+        testFirst:
+          'Testez la connexion pour choisir parmi les modèles de votre compte, ou saisissez un identifiant.',
+      },
+      answerLength: {
+        label: 'Longueur maximale des réponses',
+        hint: 'En jetons. Le fournisseur facture ce que le modèle écrit.',
+        option: '{tokens} jetons',
+        limited: 'Ce modèle écrit au plus {tokens} jetons par réponse.',
+      },
+      fallback: {
+        label: 'Repli automatique en cas de refus',
+        description:
+          'Si le modèle refuse une demande, Anthropic la confie au modèle Claude qu’il recommande\u00a0; l’assistant l’indique sous la réponse.',
+        unavailable: 'Le modèle choisi ne le permet pas.',
+      },
+      saved: 'Préférence enregistrée.',
+      addDialog: {
+        title: 'Ajouter un fournisseur',
+        description: 'Vous testerez la connexion et choisirez le modèle ensuite.',
+        kind: 'Fournisseur',
+        name: 'Nom affiché',
+        key: 'Clé API (facultative maintenant)',
+        keyHint: 'Rangée dans le gestionnaire d’identifiants, jamais réaffichée.',
+        submit: 'Ajouter',
+        added: 'Fournisseur ajouté. Testez la connexion pour choisir un modèle.',
+      },
+      privacy: {
+        title: 'Confidentialité de l’assistant',
+        contextLabel: 'Part de vos documents envoyée avec chaque question',
+        contexts: {
+          compact: {
+            label: 'Réduite',
+            description: '4 passages au plus, environ 5\u00a0000 caractères.',
+          },
+          standard: {
+            label: 'Standard',
+            description: '8 passages au plus, environ 12\u00a0000 caractères.',
+          },
+          extended: {
+            label: 'Étendue',
+            description: '16 passages au plus, environ 30\u00a0000 caractères.',
+          },
+        },
+        history: 'Envoyer la conversation avec chaque question',
+        historyDescription:
+          'Permet les questions de suivi. Désactivé, chaque question part seule, sans les échanges précédents.',
+        facts: [
+          'Seuls les documents, notes ou espaces que vous choisissez peuvent être partagés, et vous voyez les passages avant l’envoi.',
+          'Les clés API restent dans le gestionnaire d’identifiants de Windows\u00a0; ARCHIVE ne les réaffiche jamais.',
+          'Avec OpenAI, la conservation des réponses par le fournisseur est désactivée.',
+          'Aucune question, aucun passage ni aucune réponse n’est écrit dans les journaux d’ARCHIVE.',
+        ],
+      },
     },
   },
   about: {
@@ -1434,6 +1723,8 @@ export const fr = {
       storage: 'Une opération sur les fichiers a échoué.',
       database: 'Une opération sur la base de données a échoué.',
       io: 'Un fichier ou un dossier est inaccessible.',
+      credentials:
+        'Le gestionnaire d’identifiants du système n’a pas pu être utilisé. La clé API n’a pas été lue.',
       internal: 'Une erreur inattendue s’est produite.',
       native_runtime_unavailable:
         'Cette fonction n’est disponible que dans l’application de bureau.',

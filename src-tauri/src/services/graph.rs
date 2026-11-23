@@ -37,6 +37,8 @@ pub enum GraphNodeKind {
     Note,
     Workspace,
     Tag,
+    /// A concept an AI provider found in items, at the user's request (specification §10.3).
+    Concept,
 }
 
 impl GraphNodeKind {
@@ -46,6 +48,7 @@ impl GraphNodeKind {
             GraphNodeKind::Note => "note",
             GraphNodeKind::Workspace => "workspace",
             GraphNodeKind::Tag => "tag",
+            GraphNodeKind::Concept => "concept",
         }
     }
 
@@ -79,6 +82,8 @@ pub enum GraphEdgeKind {
     Tag,
     /// The item belongs to the workspace.
     Workspace,
+    /// The item mentions the concept.
+    Concept,
 }
 
 /// An item of the graph, as the user designates it.
@@ -295,7 +300,7 @@ fn load_items(
             "SELECT id, title, workspace_id, is_archived, NULL FROM notes
              WHERE deleted_at IS NULL AND (?1 IS NULL OR workspace_id = ?1)"
         }
-        GraphNodeKind::Workspace | GraphNodeKind::Tag => return Ok(()),
+        GraphNodeKind::Workspace | GraphNodeKind::Tag | GraphNodeKind::Concept => return Ok(()),
     };
     let mut statement = connection.prepare(sql)?;
     let rows = statement.query_map(params![filters.workspace], |row| {
@@ -397,6 +402,44 @@ fn load_tags(connection: &Connection, universe: &mut Universe) -> AppResult<()> 
     Ok(())
 }
 
+/// Concepts mentioned by the items of the graph, and their mentions (one edge per item and concept).
+fn load_concepts(connection: &Connection, universe: &mut Universe) -> AppResult<()> {
+    let mut statement = connection.prepare(
+        "SELECT DISTINCT c.id, c.name, m.entity_type, m.entity_id
+         FROM concept_mentions m JOIN concepts c ON c.id = m.concept_id",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, EntityKind>(2)?,
+            row.get::<_, String>(3)?,
+        ))
+    })?;
+    for row in rows {
+        let (concept, name, kind, item) = row?;
+        let Some(kind) = GraphNodeKind::of_item(kind) else {
+            continue;
+        };
+        let source = kind.key(&item);
+        // Only concepts of the items shown: a concept of a trashed or filtered out item stays out.
+        if !universe.nodes.contains_key(&source) {
+            continue;
+        }
+        let target = universe.add(GraphNodeKind::Concept, concept.clone(), name, false);
+        universe.edges.push(GraphEdge {
+            id: format!("concept:{concept}:{source}"),
+            kind: GraphEdgeKind::Concept,
+            source,
+            target,
+            relation_type: None,
+            origin: None,
+            confidence: None,
+        });
+    }
+    Ok(())
+}
+
 /// Links, decided relations and, on request, suggestions between live items. Rejected suggestions never.
 fn load_relations(
     connection: &Connection,
@@ -490,6 +533,7 @@ fn load_focus(
         }
         GraphNodeKind::Workspace => "SELECT name, is_archived, NULL FROM workspaces WHERE id = ?1",
         GraphNodeKind::Tag => "SELECT name, 0, NULL FROM tags WHERE id = ?1",
+        GraphNodeKind::Concept => "SELECT name, 0, NULL FROM concepts WHERE id = ?1",
     };
     let found = connection
         .query_row(sql, [&focus.id], |row| {
@@ -522,6 +566,9 @@ fn load(connection: &Connection, filters: &Filters) -> AppResult<Universe> {
     }
     if filters.kinds.contains(&GraphNodeKind::Tag) {
         load_tags(connection, &mut universe)?;
+    }
+    if filters.kinds.contains(&GraphNodeKind::Concept) {
+        load_concepts(connection, &mut universe)?;
     }
     if let Some(focus) = &filters.focus {
         load_focus(connection, focus, &mut universe)?;
@@ -1118,6 +1165,75 @@ mod tests {
                 Err(AppError::NotFound { .. })
             ));
         }
+    }
+
+    #[test]
+    fn concepts_found_by_a_provider_join_the_items_that_mention_them() {
+        use crate::memory::ItemKind;
+        use crate::memory::concepts::{self, ConceptKind, ExtractedConcept, Mention};
+        let (_dir, database) = open_temporary();
+        let (first, second, trashed) = database
+            .write(|transaction| {
+                let first = note(transaction, "Montage astable", None)?;
+                let second = note(transaction, "Montage monostable", None)?;
+                let trashed = note(transaction, "Brouillon", None)?;
+                let ne555 = ExtractedConcept {
+                    name: "NE555".to_owned(),
+                    kind: ConceptKind::Product,
+                    confidence: None,
+                    mentions: vec![Mention {
+                        page: None,
+                        excerpt: Some("le NE555".to_owned()),
+                    }],
+                };
+                let provenance = serde_json::json!({ "provider": "anthropic", "model": "m" });
+                for id in [&first, &second, &trashed] {
+                    concepts::store(
+                        transaction,
+                        ItemKind::Note,
+                        id,
+                        std::slice::from_ref(&ne555),
+                        &provenance,
+                    )?;
+                }
+                crate::repo::notes::trash(transaction, &trashed)?;
+                Ok((first, second, trashed))
+            })
+            .expect("seeded");
+        let without = graph(&database, &query(ITEMS));
+        assert!(
+            without
+                .nodes
+                .iter()
+                .all(|node| node.kind != GraphNodeKind::Concept)
+        );
+
+        let mut kinds = ITEMS.to_vec();
+        kinds.push(GraphNodeKind::Concept);
+        let data = graph(&database, &query(&kinds));
+        let concept = data
+            .nodes
+            .iter()
+            .find(|node| node.kind == GraphNodeKind::Concept)
+            .expect("concept node");
+        assert_eq!(concept.label, "NE555");
+        assert_eq!(concept.degree, 2, "the trashed note does not count");
+        let mentions: Vec<&GraphEdge> = data
+            .edges
+            .iter()
+            .filter(|edge| edge.kind == GraphEdgeKind::Concept)
+            .collect();
+        assert_eq!(mentions.len(), 2);
+        let sources: Vec<String> =
+            sorted(mentions.iter().map(|edge| edge.source.clone()).collect());
+        assert_eq!(
+            sources,
+            sorted(vec![
+                GraphNodeKind::Note.key(&first),
+                GraphNodeKind::Note.key(&second)
+            ])
+        );
+        assert!(!data.nodes.iter().any(|node| node.id == trashed));
     }
 
     #[test]
