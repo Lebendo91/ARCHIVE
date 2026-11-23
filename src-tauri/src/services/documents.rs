@@ -849,7 +849,7 @@ mod tests {
             })
             .expect("flags");
         let events: Vec<TimelineEventType> = database
-            .read(|c| timeline::list(c, None, 10))
+            .read(|c| timeline::list(c, 10))
             .expect("timeline")
             .into_iter()
             .map(|event| event.event_type)

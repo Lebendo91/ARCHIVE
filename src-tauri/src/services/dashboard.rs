@@ -41,7 +41,7 @@ pub fn overview(connection: &Connection) -> AppResult<DashboardOverview> {
         notes,
         workspaces,
         recently_indexed: resources::indexed_since(connection, now_ms() - INDEXED_WINDOW_MS)?,
-        recent_activity: timeline::list(connection, None, RECENT_ACTIVITY)?,
+        recent_activity: timeline::list(connection, RECENT_ACTIVITY)?,
         recently_opened: resources::recently_opened(connection, None, RECENT_RESOURCES)?,
         favorites: resources::favorites(connection, None, RECENT_RESOURCES)?,
     })
