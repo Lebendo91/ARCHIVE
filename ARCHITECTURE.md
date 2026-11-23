@@ -553,28 +553,102 @@ les trois autres étapes passent par une file persistante, vidée en arrière-pl
   Les huit événements de la spec §13.1 sont vérifiés de bout en bout par un test Rust qui passe par les vrais
   services et le vrai pipeline d'import.
 
-## 11. Couche IA — *Prévu (Phase 9)*
+## 11. Couche IA — *Implémentée (Phase 9)*
 
-- **Trait Rust `AiProvider`** : `capabilities()`, `test_connection()` et `stream_chat(requête)`, qui produit un
-  flux d'événements (fragments de texte, usage, fin, erreurs). Les implémentations Anthropic, OpenAI et Gemini
-  sont isolées chacune dans son module. Le reste de l'application ne connaît que le trait et un registre
-  (spec §14.2).
-- **Les appels HTTP partent de Rust**, jamais de la WebView. La clé API n'entre donc jamais dans le JavaScript,
-  et la CSP interdit toute connexion externe depuis l'interface.
-- **Clés** : un trait `SecretStore` s'appuie sur `keyring` (Windows Credential Manager). La base ne stocke
-  qu'une référence. Si le stockage sécurisé est indisponible, l'interface l'explique et la clé n'est gardée qu'en
-  mémoire pour la session (spec §14.3).
-- **Contexte** : la portée est choisie par l'utilisateur (documents, notes, espace). La récupération se fait sur
-  les passages via FTS5, et via les embeddings s'ils sont activés. **La liste des sources envoyées est visible**,
-  et seuls les passages nécessaires partent (spec §14.4, §14.6).
-- **Citations** : les passages sont numérotés `[S1…Sn]`, avec document et page. Seules les citations qui
-  renvoient à un passage réellement envoyé deviennent des liens cliquables. Sans matériau pertinent, l'assistant
-  le dit (spec §14.5). Des badges distinguent l'information issue d'ARCHIVE, les connaissances générales du
-  modèle et l'interprétation.
-- **Modèles** : pas de liste figée dans le code. Les valeurs par défaut seront prises dans la documentation
-  officielle des fournisseurs au moment de la Phase 9, et la saisie libre d'un identifiant de modèle reste
-  possible.
-- **Aucun appel sans action explicite de l'utilisateur**, test de connexion compris (spec §15.4).
+L'IA est facultative (spec §14.1) : sans fournisseur configuré, tout le reste d'ARCHIVE fonctionne, et
+l'assistant affiche un état vide qui explique comment en ajouter un. **Aucun appel ne part sans une action
+explicite de l'utilisateur** : envoyer une question, régénérer une réponse, tester une connexion ou extraire des
+concepts (spec §15.4).
+
+### 11.1 Fournisseurs (`src-tauri/src/ai/`)
+
+- **Trait `AiProvider` « sans entrées-sorties »** (`provider.rs`) : chaque fournisseur construit ses requêtes
+  HTTP et lit ses réponses, sans jamais toucher le réseau. Il offre la liste des modèles du compte (qui sert de
+  test de connexion et ne consomme aucun jeton), une réponse en flux décodée en événements communs (`Model`,
+  `Text`, `Usage`, `Switched`, `Finished`, `Failed`), et la lecture des réponses d'erreur. Le reste de
+  l'application ne connaît que ce trait (spec §14.2).
+- **Anthropic** (`anthropic.rs`) : Messages API en flux (`POST /v1/messages`, en-tête `anthropic-version:
+  2026-10-21`, sans `temperature`/`top_p`/`top_k`, refusés par cette version), Models API pour le test.
+  Le refus d'un modèle (`stop_reason: "refusal"`) est un résultat, pas une erreur : la sortie partielle est
+  écartée, comme le demande la documentation. Le **repli côté serveur** (`fallbacks: "default"`, bêta
+  `server-side-fallback-2026-07-01`) n'est envoyé que si la liste des modèles indique que le modèle choisi
+  l'accepte (`allowed_fallback_models` non vide) et que la préférence est active ; le changement de modèle
+  est affiché (« Réponse rédigée par … après un refus de … »).
+- **OpenAI** (`openai.rs`) : Responses API en flux (`POST /v1/responses`) avec **`store: false`**, pour
+  qu'OpenAI ne conserve pas la réponse en vue d'une récupération ultérieure.
+- **Gemini** (`gemini.rs`) : `models/{modèle}:streamGenerateContent?alt=sse`, la clé dans l'en-tête
+  `x-goog-api-key` (jamais dans l'URL) ; les « pensées » du modèle ne sont pas montrées comme réponse ; la
+  liste des modèles est réduite à ceux qui génèrent du texte.
+- **Erreurs** : catégories stables (clé refusée, permission, modèle introuvable, limite de débit avec délai,
+  quota, surcharge, requête invalide, serveur, réseau, délai, réponse illisible, flux interrompu). Le message
+  du fournisseur n'est montré que nettoyé : tout ce qui ressemble à une clé est masqué, et il est raccourci.
+- **Modèles** : aucune liste figée. Le test de connexion lit la liste du compte ; l'utilisateur y choisit son
+  modèle, ou en saisit l'identifiant (lettres, chiffres, `. _ : -` seulement, car il entre dans l'URL de Gemini).
+  La limite de sortie annoncée par le fournisseur borne la préférence « longueur maximale des réponses ».
+- **Sources vérifiées** : les formats d'Anthropic ont été vérifiés sur sa documentation officielle au moment de
+  la phase 9. Les documentations d'OpenAI et de Google n'étaient pas joignables depuis l'environnement de
+  développement (réseau restreint) : leurs formats suivent leurs API publiques connues et sont isolés dans un
+  module chacun, avec des tests sur des réponses enregistrées.
+
+### 11.2 Réseau (`http.rs`)
+
+- **Les appels HTTP partent du cœur Rust**, jamais de la WebView : la CSP interdit toujours toute connexion
+  externe à l'interface (§12). `reqwest` avec **rustls et la cryptographie `ring`** (pas d'OpenSSL), le
+  **vérificateur de certificats du système** (`rustls-platform-verifier`) et ses réglages de proxy.
+- **HTTPS seulement** dans les builds distribués (`https_only`). L'en-tête qui porte la clé est marqué sensible ;
+  le type `HttpRequest` ne s'affiche jamais avec ses en-têtes.
+- **Flux** : décodeur SSE maison (`sse.rs`), insensible au découpage du réseau (testé octet par octet),
+  borné en mémoire. Arrêt immédiat par l'utilisateur (`tokio::select!` sur un signal d'annulation).
+- **Délais** : connexion 15 s, silence d'un flux 180 s (certains modèles réfléchissent longtemps avant le
+  premier mot), liste des modèles 30 s.
+- **Tests sans clé réelle** : un serveur HTTP local (`test_server.rs`) joue le rôle des fournisseurs dans les
+  tests Rust. La validation native utilise un build dédié (fonctionnalité Cargo `test-endpoints`) qui accepte
+  `ARCHIVE_AI_TEST_ENDPOINT=http://127.0.0.1:…` ; **les builds distribués ne contiennent pas ce code**.
+
+### 11.3 Clés API (`secret.rs`, spec §14.3)
+
+- **Gestionnaire d'identifiants de Windows**, via `keyring-core` et `windows-native-keyring-store` (service
+  `ARCHIVE`, entrée `ai-provider:<id>`). La base ne garde que le nom de l'entrée (`secret_ref`), et seulement
+  tant que le coffre du système détient la clé.
+- **Si le coffre est indisponible** (verrouillé, absent hors Windows) : la clé n'est gardée **qu'en mémoire,
+  jusqu'à la fermeture d'ARCHIVE**, jamais écrite ailleurs, et l'interface l'explique (« à saisir de nouveau au
+  prochain lancement »).
+- La clé entre une seule fois dans le cœur (formulaire des réglages, champ masqué, vidé aussitôt) et **n'en
+  ressort jamais** : aucune commande ne la renvoie, l'interface ne voit que « enregistrée dans le Gestionnaire
+  d'identifiants » ou « pour cette session ». Type `Secret` : jamais affiché, jamais sérialisé, effacé de la
+  mémoire à sa libération (`zeroize`). Les erreurs du coffre sont décrites sans leurs données.
+- **Journal** : jamais de clé, jamais de question, de passage ni de réponse ; seulement le fournisseur, le
+  modèle, le nombre de passages et de caractères envoyés, le statut, la durée et les jetons.
+
+### 11.4 Assistant ancré dans la base (spec §14.4–14.6)
+
+- **Portée choisie par l'utilisateur** : documents et notes un par un, ou un espace de travail, ou rien (les
+  réponses viennent alors des connaissances générales du modèle, et l'interface le dit). Rien n'est jamais pris
+  hors de ce choix.
+- **Récupération** (`retrieval.rs`) : les mots de la question (sans mots vides) sont cherchés dans l'index
+  FTS5 de la phase 6, **sur le texte des passages d'abord** (le titre étant répété sur chaque passage, un
+  passage ne doit pas être retenu pour son seul titre), puis le début des éléments dont le titre correspond ;
+  chaque élément choisi un par un apporte au moins son début (« Résume ce document »). Fenêtre de 1 600
+  caractères autour des mots de la question, 3 passages au plus par élément, et un **budget réglable**
+  (préférence de confidentialité) : compact 4 passages / 5 000 caractères, standard 8 / 12 000, étendu
+  16 / 30 000. Les éléments à la corbeille sont exclus.
+- **Aperçu avant envoi** : la liste exacte des passages (titre, page, extrait, taille) et le nombre de messages
+  de la conversation qui partiront sont affichés pendant la saisie ; ce sont les mêmes qui partent.
+- **Message envoyé** (`prompt.rs`) : consignes communes (les passages sont des données, jamais des
+  instructions ; citer `[S1]`… seulement pour les passages fournis ; dire d'abord quand les passages ne
+  répondent pas ; marquer `[general]` et `[interpretation]`), passages dans des éléments `<source>` qui ne
+  peuvent pas être refermés par leur contenu, puis la question. L'historique (préférence, activée par défaut)
+  ne reprend que les échanges complets, sans leurs anciennes citations, dans une limite de 12 000 caractères.
+- **Conversations** (`conversations.rs`, schéma v4) : questions, réponses et, avec chaque réponse, les passages
+  envoyés (référence et extrait court, jamais le texte complet). Statuts : complète, en cours, interrompue,
+  échouée, refusée, bloquée. Une réponse en cours à la fermeture d'ARCHIVE devient « interrompue » au
+  lancement suivant. Une seule réponse à la fois par conversation ; arrêt, régénération, effacement (avec
+  confirmation) et suppression.
+- **Citations vérifiées** : une citation `[Sn]` ne devient un lien que si le passage n a réellement été envoyé
+  avec cette question ; sinon elle est signalée comme non vérifiée. Chaque paragraphe est étiqueté : issu
+  d'ARCHIVE (au moins une citation vérifiée), connaissances générales, interprétation, ou non sourcé.
+- **Flux vers l'interface** : `tauri::ipc::Channel` (morceaux de texte, modèle, changement de modèle, fin) ;
+  la réponse est enregistrée par le cœur même si la fenêtre a disparu.
 
 ## 12. Modèle de sécurité — *Socle implémenté (Phase 1), renforcé à chaque phase*
 

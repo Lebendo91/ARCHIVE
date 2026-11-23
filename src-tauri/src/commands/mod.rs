@@ -3,6 +3,7 @@
 //! Database and file operations run on Tauri's blocking thread pool, never on the main thread, so that the
 //! interface stays responsive (specification §4.2).
 
+pub mod ai;
 pub mod app;
 pub mod dashboard;
 pub mod diagnostics;

@@ -3,6 +3,7 @@
 //! The webview only renders the interface. Data, files, network access and secrets are owned by this
 //! crate and exposed to the interface through explicit, validated commands (see `ARCHITECTURE.md`).
 
+pub mod ai;
 mod commands;
 pub mod db;
 pub mod error;
@@ -50,6 +51,10 @@ pub fn run() {
                 paths.data_dir.display()
             );
             app.manage(AppState::initialize(paths));
+            // AI providers: keys in the operating system's credential store (the Windows Credential Manager).
+            app.manage(std::sync::Arc::new(ai::assistant::AiState::new(
+                ai::secret::Secrets::new(ai::secret::platform_vault()),
+            )));
             // The memory engine works in the background from the start (it waits in safe mode).
             memory::worker::start(app.handle().clone());
             Ok(())
@@ -134,6 +139,21 @@ pub fn run() {
             commands::memory::relations_decide,
             commands::memory::relations_remove,
             commands::graph::graph_load,
+            commands::ai::ai_overview,
+            commands::ai::ai_providers_create,
+            commands::ai::ai_providers_update,
+            commands::ai::ai_providers_delete,
+            commands::ai::ai_providers_set_key,
+            commands::ai::ai_providers_remove_key,
+            commands::ai::ai_providers_test,
+            commands::ai::assistant_conversations,
+            commands::ai::assistant_conversation,
+            commands::ai::assistant_conversation_clear,
+            commands::ai::assistant_conversation_delete,
+            commands::ai::assistant_preview,
+            commands::ai::assistant_ask,
+            commands::ai::assistant_regenerate,
+            commands::ai::assistant_stop,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

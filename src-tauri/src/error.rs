@@ -24,6 +24,8 @@ pub enum ErrorCode {
     Storage,
     Database,
     Io,
+    /// The operating system's credential store could not be used.
+    Credentials,
     Internal,
 }
 
@@ -58,6 +60,8 @@ pub enum AppError {
     Database(#[from] rusqlite::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("credential store error: {0}")]
+    Credentials(String),
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -88,6 +92,7 @@ impl AppError {
             Self::Storage(_) => ErrorCode::Storage,
             Self::Database(_) => ErrorCode::Database,
             Self::Io(_) => ErrorCode::Io,
+            Self::Credentials(_) => ErrorCode::Credentials,
             Self::Internal(_) => ErrorCode::Internal,
         }
     }
@@ -102,6 +107,7 @@ impl AppError {
                 | Self::Storage(_)
                 | Self::Database(_)
                 | Self::Io(_)
+                | Self::Credentials(_)
                 | Self::Internal(_)
         )
     }
@@ -113,6 +119,7 @@ impl AppError {
             Self::Io(_) => "A file operation failed.".to_owned(),
             Self::Storage(_) => "A storage operation failed.".to_owned(),
             Self::Internal(_) => "An unexpected error occurred.".to_owned(),
+            Self::Credentials(_) => "The credential store could not be used.".to_owned(),
             Self::DatabaseUnavailable(_) => "The database is unavailable.".to_owned(),
             other => other.to_string(),
         }

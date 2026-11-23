@@ -4,10 +4,13 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::ai::retrieval::ContextSize;
 use crate::error::AppResult;
 use crate::util::now_ms;
 
 const LANGUAGE_KEY: &str = "general.language";
+const ASSISTANT_CONTEXT_KEY: &str = "assistant.context_size";
+const ASSISTANT_HISTORY_KEY: &str = "assistant.share_history";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -23,6 +26,10 @@ pub enum Language {
 #[ts(export)]
 pub struct AppSettings {
     pub language: Language,
+    /// How much of the knowledge base goes with each question to the AI provider.
+    pub assistant_context: ContextSize,
+    /// Whether the conversation so far is sent with each question.
+    pub assistant_history: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, TS)]
@@ -32,6 +39,12 @@ pub struct SettingsPatch {
     #[serde(default)]
     #[ts(optional)]
     pub language: Option<Language>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub assistant_context: Option<ContextSize>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub assistant_history: Option<bool>,
 }
 
 fn read_value<T: for<'de> Deserialize<'de>>(
@@ -70,12 +83,20 @@ fn write_value<T: Serialize>(transaction: &Transaction<'_>, key: &str, value: &T
 pub fn load(connection: &Connection) -> AppResult<AppSettings> {
     Ok(AppSettings {
         language: read_value(connection, LANGUAGE_KEY)?.unwrap_or_default(),
+        assistant_context: read_value(connection, ASSISTANT_CONTEXT_KEY)?.unwrap_or_default(),
+        assistant_history: read_value(connection, ASSISTANT_HISTORY_KEY)?.unwrap_or(true),
     })
 }
 
 pub fn update(transaction: &Transaction<'_>, patch: &SettingsPatch) -> AppResult<AppSettings> {
     if let Some(language) = patch.language {
         write_value(transaction, LANGUAGE_KEY, &language)?;
+    }
+    if let Some(context) = patch.assistant_context {
+        write_value(transaction, ASSISTANT_CONTEXT_KEY, &context)?;
+    }
+    if let Some(history) = patch.assistant_history {
+        write_value(transaction, ASSISTANT_HISTORY_KEY, &history)?;
     }
     load(transaction)
 }
@@ -88,19 +109,30 @@ mod tests {
     #[test]
     fn defaults_apply_until_a_value_is_stored() {
         let (_dir, database) = open_temporary();
-        assert_eq!(database.read(load).expect("load").language, Language::Fr);
+        let defaults = database.read(load).expect("load");
+        assert_eq!(defaults.language, Language::Fr);
+        assert_eq!(defaults.assistant_context, ContextSize::Standard);
+        assert!(
+            defaults.assistant_history,
+            "the conversation is sent by default, as in every assistant"
+        );
         let updated = database
             .write(|tx| {
                 update(
                     tx,
                     &SettingsPatch {
                         language: Some(Language::En),
+                        assistant_context: Some(ContextSize::Compact),
+                        assistant_history: Some(false),
                     },
                 )
             })
             .expect("update");
         assert_eq!(updated.language, Language::En);
-        assert_eq!(database.read(load).expect("reload").language, Language::En);
+        let reloaded = database.read(load).expect("reload");
+        assert_eq!(reloaded.language, Language::En);
+        assert_eq!(reloaded.assistant_context, ContextSize::Compact);
+        assert!(!reloaded.assistant_history);
     }
 
     #[test]

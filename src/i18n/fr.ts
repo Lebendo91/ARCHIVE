@@ -1434,6 +1434,8 @@ export const fr = {
       storage: 'Une opération sur les fichiers a échoué.',
       database: 'Une opération sur la base de données a échoué.',
       io: 'Un fichier ou un dossier est inaccessible.',
+      credentials:
+        'Le gestionnaire d’identifiants du système n’a pas pu être utilisé. La clé API n’a pas été lue.',
       internal: 'Une erreur inattendue s’est produite.',
       native_runtime_unavailable:
         'Cette fonction n’est disponible que dans l’application de bureau.',

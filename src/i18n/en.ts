@@ -1404,6 +1404,7 @@ export const en: Dictionary = {
       storage: 'A file operation failed.',
       database: 'A database operation failed.',
       io: 'A file or folder cannot be accessed.',
+      credentials: 'The system credential manager could not be used. The API key was not read.',
       internal: 'An unexpected error occurred.',
       native_runtime_unavailable: 'This feature is only available in the desktop application.',
       unknown: 'An unexpected error occurred.',
