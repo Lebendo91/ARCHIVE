@@ -14,16 +14,22 @@ use crate::ai::assistant::{
     self, AiState, AssistantAsk, AssistantEvent, AssistantPreview, AssistantPreviewRequest,
     AssistantRegenerate, AssistantSettings, AssistantStarted, Prepared,
 };
+use crate::ai::concepts;
 use crate::ai::config::{self, AiProviderView, ProviderCreate, ProviderPatch};
 use crate::ai::conversations::{self, Conversation, ConversationSummary};
 use crate::ai::http;
-use crate::ai::provider::{Endpoint, ModelInfo, ProviderError, provider};
+use crate::ai::provider::{
+    ChatMessage, ChatRequest, ChatRole, Endpoint, Finish, ModelInfo, ProviderError, StreamEvent,
+    provider,
+};
 use crate::ai::secret::{KeyStorage, entry_name, parse_key};
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
+use crate::memory::concepts::ConceptMention;
+use crate::memory::{self, ItemKind};
 use crate::repo::settings;
 use crate::state::AppState;
-use crate::util::validate_id;
+use crate::util::{now_ms, validate_id};
 
 /// The configured providers, and whether this platform has a credential store.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -420,4 +426,139 @@ pub async fn assistant_stop(
 ) -> AppResult<bool> {
     validate_id(&conversation_id, "conversation")?;
     Ok(ai.stop(&conversation_id))
+}
+
+/// Concepts extracted by a provider from an item, checked against its text.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ConceptExtraction {
+    /// The concepts of the item now recorded (empty when the extraction failed).
+    pub concepts: Vec<ConceptMention>,
+    /// Characters of the item that were sent.
+    pub sent_chars: u32,
+    pub error: Option<ProviderError>,
+    /// How the provider's answer ended, when it declined or was stopped.
+    pub finish: Option<Finish>,
+}
+
+/// Extracts the concepts of a document or a note with an AI provider, on the user's request (specification
+/// §10.3). Only the title and the beginning of the text are sent; the result is checked against the text.
+#[tauri::command]
+pub async fn memory_extract_concepts(
+    state: State<'_, AppState>,
+    ai: State<'_, Arc<AiState>>,
+    kind: ItemKind,
+    id: String,
+    provider_id: Option<String>,
+) -> AppResult<ConceptExtraction> {
+    validate_id(&id, "item")?;
+    let database = state.database()?;
+    let ai = Arc::clone(&ai);
+    let (store, item_id) = (Arc::clone(&database), id.clone());
+    let (row, key, item) = blocking("memory_extract_concepts", move || {
+        let (row, key) = store.read(|connection| {
+            assistant::chosen_provider(connection, &ai.secrets, provider_id.as_deref())
+        })?;
+        let item = store
+            .read(|connection| memory::load(connection, kind, &item_id))?
+            .filter(|item| !item.trashed)
+            .ok_or(AppError::NotFound { entity: "item" })?;
+        Ok((row, key, item))
+    })
+    .await?;
+    let (turn, sent_chars) = concepts::user_turn(&item.title, &item.text);
+    let sent_chars = u32::try_from(sent_chars).unwrap_or(u32::MAX);
+    let implementation = provider(row.provider, Endpoint::for_kind(row.provider));
+    let messages = [ChatMessage {
+        role: ChatRole::User,
+        content: turn,
+    }];
+    let request = implementation.chat_request(
+        &key,
+        &ChatRequest {
+            model: &row.model,
+            system: concepts::SYSTEM_PROMPT,
+            messages: &messages,
+            max_output_tokens: concepts::ANSWER_TOKENS.min(row.preferences.answer_tokens()),
+            refusal_fallback: false,
+        },
+    );
+    drop(key);
+    let mut answer = String::new();
+    let mut served: Option<String> = None;
+    let mut failure: Option<ProviderError> = None;
+    let mut finish: Option<Finish> = None;
+    let end = http::stream(
+        implementation.as_ref(),
+        request,
+        http::Cancellation::never(),
+        |event| match event {
+            StreamEvent::Text(text) => answer.push_str(&text),
+            StreamEvent::Model(model) | StreamEvent::Switched { to: model, .. } => {
+                served = Some(model);
+            }
+            StreamEvent::Finished(end) => finish = Some(end),
+            StreamEvent::Failed(error) => {
+                failure.get_or_insert(error);
+            }
+            StreamEvent::Usage(_) => {}
+        },
+    )
+    .await;
+    let failed = |error: Option<ProviderError>, finish: Option<Finish>| ConceptExtraction {
+        concepts: Vec::new(),
+        sent_chars,
+        error,
+        finish,
+    };
+    match (end, failure, &finish) {
+        (Err(error), _, _) | (Ok(_), Some(error), _) => {
+            log::warn!(
+                "concept extraction of {} {id} failed: {}",
+                kind.entity().as_str(),
+                error.kind()
+            );
+            return Ok(failed(Some(error), None));
+        }
+        (Ok(_), None, Some(Finish::Complete)) => {}
+        (Ok(_), None, Some(other)) => {
+            log::info!(
+                "concept extraction of {} {id} ended without a list",
+                kind.entity().as_str()
+            );
+            return Ok(failed(None, Some(other.clone())));
+        }
+        (Ok(_), None, None) => return Ok(failed(Some(ProviderError::Interrupted), None)),
+    }
+    let Some(found) = concepts::parse(&answer, &item.text) else {
+        log::warn!(
+            "concept extraction of {} {id}: unreadable answer",
+            kind.entity().as_str()
+        );
+        return Ok(failed(Some(ProviderError::InvalidResponse), None));
+    };
+    let provenance = serde_json::json!({
+        "provider": row.provider.as_str(),
+        "model": served.unwrap_or_else(|| row.model.clone()),
+        "extractedAt": now_ms(),
+    });
+    let kept = found.len();
+    let concepts = blocking("memory_extract_concepts", move || {
+        database.write(|transaction| {
+            memory::concepts::store(transaction, kind, &id, &found, &provenance)?;
+            memory::concepts::mentions(transaction, kind, &id)
+        })
+    })
+    .await?;
+    log::info!(
+        "concept extraction: {kept} concepts kept from {}",
+        row.provider.as_str()
+    );
+    Ok(ConceptExtraction {
+        concepts,
+        sent_chars,
+        error: None,
+        finish: None,
+    })
 }

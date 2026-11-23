@@ -154,6 +154,7 @@ pub fn run() {
             commands::ai::assistant_ask,
             commands::ai::assistant_regenerate,
             commands::ai::assistant_stop,
+            commands::ai::memory_extract_concepts,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

@@ -187,7 +187,7 @@ pub struct Prepared {
 }
 
 /// The provider asked for, or the default one; with its model and key.
-fn chosen_provider(
+pub(crate) fn chosen_provider(
     connection: &Connection,
     secrets: &Secrets,
     id: Option<&str>,

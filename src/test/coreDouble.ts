@@ -1,4 +1,5 @@
 import type { AiProviderView } from '../types/bindings/AiProviderView';
+import type { ConceptMention } from '../types/bindings/ConceptMention';
 import type { AnswerDetails } from '../types/bindings/AnswerDetails';
 import type { AssistantEvent } from '../types/bindings/AssistantEvent';
 import type { AssistantScope } from '../types/bindings/AssistantScope';
@@ -144,6 +145,13 @@ export interface CoreDoubleState {
   aiReplies: CoreDoubleReply[];
   /** What left for the providers: the question, the passages and the size of the history. */
   aiSent: { providerId: string; question: string; sources: SourcePassage[]; history: number }[];
+  /** Concepts a provider answers for an item, by `kind:id` (checked against its text, as the core does). */
+  aiConceptReplies: Record<
+    string,
+    { name: string; kind: ConceptMention['kind']; excerpt: string | null }[]
+  >;
+  /** Concepts recorded for an item, by `kind:id`. */
+  concepts: Record<string, ConceptMention[]>;
 }
 
 /** An answer a provider writes in the double: its pieces, and how it ends. */
@@ -246,6 +254,8 @@ export function createCoreDouble(
     conversations: initial?.conversations ?? [],
     aiReplies: initial?.aiReplies ?? [],
     aiSent: initial?.aiSent ?? [],
+    aiConceptReplies: initial?.aiConceptReplies ?? {},
+    concepts: initial?.concepts ?? {},
   };
 
   const fail = (code: string, message: string): never => {
@@ -1484,8 +1494,10 @@ export function createCoreDouble(
             }
           : null,
       terms: memory.terms ?? [],
-      concepts: [],
-      conceptExtraction: 'no_provider',
+      concepts: state.concepts[`${kind}:${id}`] ?? [],
+      conceptExtraction: state.aiProviders.some((provider) => provider.model !== '')
+        ? 'ready'
+        : 'no_provider',
     };
   };
   const checkRelationType = (value: unknown) => {
@@ -2635,6 +2647,32 @@ export function createCoreDouble(
       return changed(null);
     },
     memory_item: (args) => memoryItemOf(args?.kind as LinkKind, String(args?.id)),
+    memory_extract_concepts: (args) => {
+      const kind = args?.kind as LinkKind;
+      const id = String(args?.id);
+      const provider = readyAiProvider(args?.providerId as string | undefined);
+      const text = textOf(kind, id) ?? fail('not_found', 'item not found');
+      const key = `${kind}:${id}`;
+      // Only what the text holds is kept, as the core checks it.
+      const found = (state.aiConceptReplies[key] ?? []).filter((concept) =>
+        fold(text).includes(fold(concept.name)),
+      );
+      state.concepts[key] = found.map((concept) => ({
+        conceptId: crypto.randomUUID(),
+        name: concept.name,
+        kind: concept.kind,
+        page: null,
+        excerpt: concept.excerpt,
+        confidence: null,
+        provenance: { provider: provider.provider, model: provider.model },
+      }));
+      return changed({
+        concepts: structuredClone(state.concepts[key]),
+        sentChars: Math.min(text.length, 24000),
+        error: null,
+        finish: null,
+      });
+    },
     memory_retry: (args) => {
       const kind = args?.kind as LinkKind;
       const id = String(args?.id);
@@ -3256,6 +3294,7 @@ export function createCoreDouble(
         note: 1,
         workspace: 2,
         tag: 3,
+        concept: 4,
       };
       const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
       const byRank = (a: GraphNode, b: GraphNode) =>
@@ -3317,6 +3356,7 @@ export function createCoreDouble(
         suggestion: 2,
         tag: 3,
         workspace: 4,
+        concept: 5,
       };
       const kept = edges
         .filter((entry) => chosen.has(entry.source) && chosen.has(entry.target))

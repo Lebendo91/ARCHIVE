@@ -69,13 +69,24 @@ pub trait ConceptExtractor {
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum ConceptAvailability {
-    /// No AI provider is configured: no concept is extracted.
+    /// No AI provider is configured with a model: no concept is extracted.
     NoProvider,
+    /// A provider is configured: the user may ask for an extraction (its key is checked then).
+    Ready,
 }
 
-/// Concept extraction needs an AI provider with its credential; none can be configured before Phase 9.
-pub fn availability(_connection: &Connection) -> AppResult<ConceptAvailability> {
-    Ok(ConceptAvailability::NoProvider)
+/// Concept extraction needs a configured AI provider with a model; it only runs when the user asks.
+pub fn availability(connection: &Connection) -> AppResult<ConceptAvailability> {
+    let configured: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM ai_providers WHERE model <> '')",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(if configured {
+        ConceptAvailability::Ready
+    } else {
+        ConceptAvailability::NoProvider
+    })
 }
 
 /// A concept found in an item, with its source.

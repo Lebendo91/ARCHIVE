@@ -338,4 +338,44 @@ describe('assistant', () => {
       '/settings/ai',
     );
   });
+
+  it('extracts concepts on request only, after saying what will be sent, and keeps those of the text', async () => {
+    const base = knowledgeBase();
+    const { core, calls } = mockNativeRuntime(
+      {},
+      {
+        core: {
+          ...base.state,
+          aiProviders: [seedProvider()],
+          aiConceptReplies: {
+            [`document:${base.course.document.id}`]: [
+              { name: 'NE555', kind: 'product', excerpt: 'Le montage astable du NE555' },
+              { name: 'Transistor', kind: 'technical_term', excerpt: null },
+            ],
+          },
+        },
+      },
+    );
+    const { user } = renderApp(`/library/${base.course.document.id}`);
+    const extract = await screen.findByRole('button', {
+      name: 'Extraire les concepts avec Anthropic',
+    });
+    expect(calls.some((call) => call.command === 'memory_extract_concepts')).toBe(false);
+    await user.click(extract);
+    const dialog = await screen.findByRole('dialog', {
+      name: /Extraire les concepts de cet élément/,
+    });
+    expect(
+      within(dialog).getByText(/24.000 caractères du texte seront envoyés à Anthropic/),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Extraire' }));
+    expect(
+      await screen.findByText('1 concept trouvé et vérifié dans le texte.'),
+    ).toBeInTheDocument();
+    // The concept the text does not hold was not recorded.
+    expect(
+      core.concepts[`document:${base.course.document.id}`]?.map((concept) => concept.name),
+    ).toEqual(['NE555']);
+    expect(await screen.findByText('NE555')).toBeInTheDocument();
+  });
 });

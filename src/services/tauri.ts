@@ -7,6 +7,7 @@ import type { AssistantPreview } from '@/types/bindings/AssistantPreview';
 import type { AssistantPreviewRequest } from '@/types/bindings/AssistantPreviewRequest';
 import type { AssistantRegenerate } from '@/types/bindings/AssistantRegenerate';
 import type { AssistantStarted } from '@/types/bindings/AssistantStarted';
+import type { ConceptExtraction } from '@/types/bindings/ConceptExtraction';
 import type { ConnectionTest } from '@/types/bindings/ConnectionTest';
 import type { Conversation } from '@/types/bindings/Conversation';
 import type { ConversationSummary } from '@/types/bindings/ConversationSummary';
@@ -201,6 +202,10 @@ export interface CommandSignatures {
     result: AssistantStarted;
   };
   assistant_stop: { args: { conversationId: string }; result: boolean };
+  memory_extract_concepts: {
+    args: { kind: LinkKind; id: string; providerId: string };
+    result: ConceptExtraction;
+  };
   /** `null` when the user closes the file picker without choosing. */
   notes_import_markdown_pick: { args: undefined; result: MarkdownFile[] | null };
   /** `false` when the user closes the save dialog. */

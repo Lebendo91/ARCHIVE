@@ -972,6 +972,33 @@ export const en: Dictionary = {
         'Concept extraction needs an AI provider. It will be possible once a provider is configured in the settings.',
       unavailable: 'The analysis of this item could not be loaded.',
     },
+    concepts: {
+      extract: 'Extract the concepts with {provider}',
+      configure: 'Configure an AI provider',
+      none: 'No concept extracted yet.',
+      confirm: {
+        title: 'Extract the concepts of this item?',
+        description:
+          'The title and up to {chars} characters of the text will be sent to {provider}. Only the concepts the text holds will be recorded, apart from the content.',
+        confirm: 'Extract',
+      },
+      extracted: {
+        one: '1 concept found and checked in the text.',
+        other: '{count} concepts found and checked in the text.',
+      },
+      failed: 'The extraction failed.',
+      incomplete: 'The provider declined or did not finish the list: nothing was recorded.',
+      kinds: {
+        technical_term: 'Technical term',
+        person: 'Person',
+        organization: 'Organization',
+        technology: 'Technology',
+        subject: 'Subject',
+        method: 'Method',
+        product: 'Product',
+        project: 'Project',
+      },
+    },
     overview: {
       title: 'Memory engine',
       description:
@@ -1030,12 +1057,14 @@ export const en: Dictionary = {
       note: 'Note',
       workspace: 'Workspace',
       tag: 'Tag',
+      concept: 'Concept',
     },
     kindsPlural: {
       document: 'Documents',
       note: 'Notes',
       workspace: 'Workspaces',
       tag: 'Tags',
+      concept: 'Concepts',
     },
     focus: 'Around “{title}”',
     nodes: { one: '1 item', other: '{count} items' },
@@ -1076,6 +1105,7 @@ export const en: Dictionary = {
         note: 'Open the note',
         workspace: 'Open the workspace',
         tag: 'See its items',
+        concept: 'Search for this concept',
       },
       expand: 'Show the neighbours',
       hidden: {
@@ -1099,6 +1129,10 @@ export const en: Dictionary = {
         one: '1 displayed item carries this tag.',
         other: '{count} displayed items carry this tag.',
       },
+      mentioned: {
+        one: '1 displayed item mentions this concept.',
+        other: '{count} displayed items mention this concept.',
+      },
       unavailable: 'The details of this item could not be loaded.',
       directions: {
         linkOut: 'Links to',
@@ -1107,6 +1141,8 @@ export const en: Dictionary = {
         workspaceIn: 'Contains',
         tagOut: 'Tag',
         tagIn: 'Tagged',
+        conceptOut: 'Mentions',
+        conceptIn: 'Mentioned in',
         suggestion: 'Suggestion · {type}',
       },
     },
@@ -1117,11 +1153,13 @@ export const en: Dictionary = {
         suggestion: 'ARCHIVE suggestion',
         tag: 'Tag',
         workspace: 'Workspace',
+        concept: 'Mentioned concept',
       },
       link: '“{source}” contains a link to “{target}”.',
       linkHint: 'This link is written in the text of the note: it changes when the note is edited.',
       workspace: '“{source}” is stored in the workspace “{target}”.',
       tag: '“{source}” carries the tag “{target}”.',
+      concept: '“{source}” mentions the concept “{target}”.',
       relation: '“{source}” {verb} “{target}”.',
       verbs: {
         related_to: 'is related to',

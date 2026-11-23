@@ -989,6 +989,34 @@ export const fr = {
         'L’extraction de concepts demande un fournisseur d’IA. Elle sera possible une fois un fournisseur configuré dans les paramètres.',
       unavailable: 'L’analyse de cet élément n’a pas pu être chargée.',
     },
+    concepts: {
+      extract: 'Extraire les concepts avec {provider}',
+      configure: 'Configurer un fournisseur d’IA',
+      none: 'Aucun concept extrait pour l’instant.',
+      confirm: {
+        title: 'Extraire les concepts de cet élément\u00a0?',
+        description:
+          'Le titre et jusqu’à {chars} caractères du texte seront envoyés à {provider}. Seuls les concepts présents dans le texte seront enregistrés, à part du contenu.',
+        confirm: 'Extraire',
+      },
+      extracted: {
+        one: '1 concept trouvé et vérifié dans le texte.',
+        other: '{count} concepts trouvés et vérifiés dans le texte.',
+      },
+      failed: 'L’extraction a échoué.',
+      incomplete:
+        'Le fournisseur a refusé ou n’a pas terminé la liste\u00a0: rien n’a été enregistré.',
+      kinds: {
+        technical_term: 'Terme technique',
+        person: 'Personne',
+        organization: 'Organisation',
+        technology: 'Technologie',
+        subject: 'Sujet',
+        method: 'Méthode',
+        product: 'Produit',
+        project: 'Projet',
+      },
+    },
     overview: {
       title: 'Moteur de mémoire',
       description:
@@ -1047,12 +1075,14 @@ export const fr = {
       note: 'Note',
       workspace: 'Espace de travail',
       tag: 'Étiquette',
+      concept: 'Concept',
     },
     kindsPlural: {
       document: 'Documents',
       note: 'Notes',
       workspace: 'Espaces de travail',
       tag: 'Étiquettes',
+      concept: 'Concepts',
     },
     focus: 'Autour de «\u00a0{title}\u00a0»',
     nodes: { one: '1 élément', other: '{count} éléments' },
@@ -1094,6 +1124,7 @@ export const fr = {
         note: 'Ouvrir la note',
         workspace: 'Ouvrir l’espace',
         tag: 'Voir ses éléments',
+        concept: 'Rechercher ce concept',
       },
       expand: 'Afficher les voisins',
       hidden: {
@@ -1117,6 +1148,10 @@ export const fr = {
         one: '1 élément affiché porte cette étiquette.',
         other: '{count} éléments affichés portent cette étiquette.',
       },
+      mentioned: {
+        one: '1 élément affiché mentionne ce concept.',
+        other: '{count} éléments affichés mentionnent ce concept.',
+      },
       unavailable: 'Les détails de cet élément n’ont pas pu être chargés.',
       directions: {
         linkOut: 'Lien vers',
@@ -1125,6 +1160,8 @@ export const fr = {
         workspaceIn: 'Contient',
         tagOut: 'Étiquette',
         tagIn: 'Étiqueté',
+        conceptOut: 'Mentionne',
+        conceptIn: 'Mentionné dans',
         suggestion: 'Suggestion · {type}',
       },
     },
@@ -1135,12 +1172,14 @@ export const fr = {
         suggestion: 'Suggestion d’ARCHIVE',
         tag: 'Étiquette',
         workspace: 'Espace de travail',
+        concept: 'Concept mentionné',
       },
       link: '«\u00a0{source}\u00a0» contient un lien vers «\u00a0{target}\u00a0».',
       linkHint:
         'Ce lien est écrit dans le texte de la note\u00a0: il change quand la note est modifiée.',
       workspace: '«\u00a0{source}\u00a0» est rangé dans l’espace «\u00a0{target}\u00a0».',
       tag: '«\u00a0{source}\u00a0» porte l’étiquette «\u00a0{target}\u00a0».',
+      concept: '«\u00a0{source}\u00a0» mentionne le concept «\u00a0{target}\u00a0».',
       relation: '«\u00a0{source}\u00a0» {verb} «\u00a0{target}\u00a0».',
       verbs: {
         related_to: 'est lié à',

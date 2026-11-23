@@ -132,6 +132,8 @@ function NodeFacts({ node, shown }: { node: GraphNode; shown: number }) {
       return <WorkspaceFacts id={node.id} />;
     case 'tag':
       return <Facts facts={[tCount('graph.details.tagged', shown)]} />;
+    case 'concept':
+      return <Facts facts={[tCount('graph.details.mentioned', shown)]} />;
   }
 }
 
@@ -425,6 +427,9 @@ function EdgeDetails({ headingRef, edge, byKey, onSelect, onClose }: EdgeDetails
       break;
     case 'tag':
       sentence = t('graph.edge.tag', names);
+      break;
+    case 'concept':
+      sentence = t('graph.edge.concept', names);
       break;
     default:
       sentence = t('graph.edge.relation', {

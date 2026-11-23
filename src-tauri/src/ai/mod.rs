@@ -10,6 +10,7 @@
 
 pub mod anthropic;
 pub mod assistant;
+pub mod concepts;
 pub mod config;
 pub mod conversations;
 pub mod gemini;

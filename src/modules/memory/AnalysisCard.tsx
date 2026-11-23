@@ -14,6 +14,7 @@ import {
 import { INDEXING_TONES } from '@/modules/library/documentFormat';
 import { useNow } from '@/hooks/useNow';
 import { memoryItem, retryMemoryItem, type MemoryItem, type StageState } from '@/services/memory';
+import { ConceptsBlock } from './ConceptsBlock';
 import type { LinkKind } from '@/services/notes';
 import { queryKeys } from '@/services/queries';
 import { toast } from '@/stores/toasts';
@@ -217,17 +218,7 @@ export function AnalysisCard({
         </div>
         <div className="flex flex-col gap-2">
           <Subheading>{t('memory.analysis.concepts')}</Subheading>
-          {item.data.concepts.length > 0 ? (
-            <ul className="flex flex-wrap gap-2">
-              {item.data.concepts.map((concept) => (
-                <li key={`${concept.conceptId}:${String(concept.page)}`}>
-                  <Badge tone="intelligence">{concept.name}</Badge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-fg-secondary">{t('memory.analysis.conceptsUnavailable')}</p>
-          )}
+          <ConceptsBlock kind={kind} id={id} item={item.data} editable={editable} />
         </div>
       </div>
     );
