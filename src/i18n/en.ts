@@ -1049,7 +1049,6 @@ export const en: Dictionary = {
       tag: 'Tags',
     },
     focus: 'Around “{title}”',
-    focusRemove: 'Back to the full graph',
     nodes: { one: '1 item', other: '{count} items' },
     edges: { one: '1 link', other: '{count} links' },
     truncated:
@@ -1057,7 +1056,6 @@ export const en: Dictionary = {
     truncatedFocus: '{shown} items out of {total} are displayed around this item.',
     edgesTruncated: 'Some workspace and tag links are not drawn, to keep the graph readable.',
     alone: 'This item has no connection yet with these filters.',
-    failed: 'The graph could not be loaded.',
     map: {
       label: 'Graph map',
       help: 'Arrows: move from one item to another. Enter: show its details. Escape: clear the selection. + and −: zoom. 0: show everything.',
@@ -1083,7 +1081,6 @@ export const en: Dictionary = {
       arrow: 'The arrow shows the direction of the relationship.',
     },
     details: {
-      label: 'Selection details',
       close: 'Close the details',
       open: {
         document: 'Open the document',
@@ -1101,7 +1098,6 @@ export const en: Dictionary = {
       connections: 'Displayed connections',
       noConnections: 'No displayed connection.',
       more: { one: 'And 1 more connection.', other: 'And {count} more connections.' },
-      showNode: 'Show “{title}”',
       showEdge: 'Details of the link with “{title}”',
       imported: 'Imported on {date}',
       updated: 'Modified on {date}',
@@ -1232,7 +1228,6 @@ export const en: Dictionary = {
       filteredTitle: 'No matching event',
       filteredDescription: 'No event matches these filters. Widen the period or remove a filter.',
     },
-    failed: 'The timeline could not be loaded.',
   },
   activity: {
     events: {

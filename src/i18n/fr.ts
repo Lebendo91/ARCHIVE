@@ -1066,7 +1066,6 @@ export const fr = {
       tag: 'Étiquettes',
     },
     focus: 'Autour de « {title} »',
-    focusRemove: 'Revenir au graphe complet',
     nodes: { one: '1 élément', other: '{count} éléments' },
     edges: { one: '1 lien', other: '{count} liens' },
     truncated:
@@ -1075,7 +1074,6 @@ export const fr = {
     edgesTruncated:
       'Certains liens d’espaces et d’étiquettes ne sont pas dessinés, pour que le graphe reste lisible.',
     alone: 'Cet élément n’a encore aucune connexion avec ces filtres.',
-    failed: 'Le graphe n’a pas pu être chargé.',
     map: {
       label: 'Carte du graphe',
       help: 'Flèches : passer d’un élément à l’autre. Entrée : afficher ses détails. Échap : désélectionner. + et − : zoomer. 0 : tout afficher.',
@@ -1101,7 +1099,6 @@ export const fr = {
       arrow: 'La flèche indique le sens de la relation.',
     },
     details: {
-      label: 'Détails de la sélection',
       close: 'Fermer les détails',
       open: {
         document: 'Ouvrir le document',
@@ -1119,7 +1116,6 @@ export const fr = {
       connections: 'Connexions affichées',
       noConnections: 'Aucune connexion affichée.',
       more: { one: 'Et 1 autre connexion.', other: 'Et {count} autres connexions.' },
-      showNode: 'Afficher « {title} »',
       showEdge: 'Détails du lien avec « {title} »',
       imported: 'Importé le {date}',
       updated: 'Modifiée le {date}',
@@ -1254,7 +1250,6 @@ export const fr = {
       filteredDescription:
         'Aucun événement ne correspond à ces filtres. Élargissez la période ou retirez un filtre.',
     },
-    failed: 'La chronologie n’a pas pu être chargée.',
   },
   activity: {
     events: {
