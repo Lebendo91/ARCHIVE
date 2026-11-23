@@ -2805,8 +2805,9 @@ export function createCoreDouble(
 
     // --- AI providers and assistant (same rules as src-tauri/src/ai) --------------------------------------
     // The double never holds a key: like the core, it only records where the key is kept.
+    // Copies, as the real core sends JSON: the double changes its own objects in place.
     ai_overview: () => ({
-      providers: [...state.aiProviders].sort(
+      providers: structuredClone(state.aiProviders).sort(
         (a, b) => Number(b.isDefault) - Number(a.isDefault) || a.createdAt - b.createdAt,
       ),
       systemStore: state.aiSystemStore,
@@ -2843,7 +2844,7 @@ export function createCoreDouble(
         updatedAt: now,
       };
       state.aiProviders.push(provider);
-      return changed(provider);
+      return changed(structuredClone(provider));
     },
     ai_providers_update: (args) => {
       const provider = aiProvider(args?.id as string);
@@ -2879,7 +2880,7 @@ export function createCoreDouble(
         }
       }
       provider.updatedAt = Date.now();
-      return changed({ ...provider });
+      return changed(structuredClone(provider));
     },
     ai_providers_delete: (args) => {
       const provider = aiProvider(args?.id as string);
@@ -2898,13 +2899,13 @@ export function createCoreDouble(
       }
       provider.key = state.aiSystemStore ? 'system' : 'session';
       provider.updatedAt = Date.now();
-      return changed({ ...provider });
+      return changed(structuredClone(provider));
     },
     ai_providers_remove_key: (args) => {
       const provider = aiProvider(args?.id as string);
       provider.key = null;
       provider.updatedAt = Date.now();
-      return changed({ ...provider });
+      return changed(structuredClone(provider));
     },
     ai_providers_test: (args) => {
       const provider = aiProvider(args?.id as string);
