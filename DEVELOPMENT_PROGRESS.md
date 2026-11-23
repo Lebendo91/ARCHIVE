@@ -5,12 +5,11 @@
 
 ## Phase courante
 
-**Phase 9 — Assistant IA : terminée et validée localement** (branche `phase/9-assistant`) ; reste la CI sur la pull
-request, puis la fusion dans `main`. Ensuite : **Phase 10 — Sauvegarde, sécurité, optimisation et packaging**, tâche
-**10.1**. La Phase 8 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#5 le 2026-11-23 (commit
-`b5b73c1`, CI de `main` au vert : runs 45187531267 et 45187531587). Le porteur du projet a demandé l'enchaînement
-autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
-d'utilisation.
+**Phase 10 — Sauvegarde, sécurité, optimisation et packaging : en cours** (branche `phase/10-finalisation`, créée
+depuis `main` à `350bf83`). La Phase 9 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#6 le
+2026-11-23 (commit `350bf83` ; CI de la pull request au vert : run 45254927340 ; CI de `main` lancée : runs
+45256167211 et 45256167237, à consigner une fois terminés). Le porteur du projet a demandé l'enchaînement autonome
+des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -23,8 +22,8 @@ d'utilisation.
 | 6 | Recherche intelligente | ✅ Terminée |
 | 7 | Moteur de mémoire | ✅ Terminée |
 | 8 | Graphe de connaissances et chronologie | ✅ Terminée |
-| 9 | Assistant IA | ✅ Terminée (fusion en attente de la CI) |
-| 10 | Sauvegarde, sécurité, optimisation et packaging | ▶ Prochaine |
+| 9 | Assistant IA | ✅ Terminée |
+| 10 | Sauvegarde, sécurité, optimisation et packaging | ▶ En cours |
 
 ---
 
@@ -906,10 +905,10 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Terminer la Phase 9** : pull request `phase/9-assistant` → `main`, CI verte (Linux et Windows, dont le test du
-   Gestionnaire d'identifiants), fusion par merge commit, puis consigner les numéros des runs ici.
-2. **Phase 10 — Sauvegarde, sécurité, optimisation et packaging** (spec §21), branche `phase/10-finalisation` à
-   créer depuis `main`. Prochaine tâche : **10.1**.
+**Phase 10** (spec §16 et §21), branche `phase/10-finalisation`. Décisions de la tâche 10.1 consignées dans
+ARCHITECTURE §7.1 (sauvegarde ZIP avec manifeste et empreintes, historique en table `backups` au schéma v5,
+vérification stricte, restauration appliquée au démarrage avant l'ouverture de la base, export lisible). Prochaine
+tâche : **10.2** (sauvegarde, vérification, historique et restauration, côté cœur puis Paramètres › Stockage).
 
 | # | Tâche |
 |---|---|

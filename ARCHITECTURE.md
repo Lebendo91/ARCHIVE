@@ -297,8 +297,8 @@ justifiés :
 | `search_history` | Historique de recherche, effaçable | 6 |
 | `app_settings` | Paramètres clé/valeur | 2 |
 | `ai_providers` | Fournisseur, modèle, préférences non secrètes et **référence** vers le secret | 9 |
-| `conversations`, `messages`, `message_citations` | Assistant IA | 9 |
-| `backups` | Historique des sauvegardes | 10 |
+| `conversations`, `conversation_messages` | Assistant IA : questions, réponses et, avec chaque réponse, les passages envoyés (`sources_json`) | 9 |
+| `backups` | Historique des sauvegardes : emplacement, date, taille, contenu, dernière vérification | 10 |
 
 **Écarts assumés par rapport à la spec §5.1 (Phase 2) :**
 - `app_settings` utilise la clé (`setting_key`) comme clé primaire, sans colonne `id` : la clé est l'identité
@@ -369,6 +369,30 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   d'origine, sans tenir compte de la casse ni des accents, grâce à la fonction SQL `archive_fold` enregistrée
   par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
+
+### 7.1 Sauvegarde, restauration et export — *Prévu (Phase 10)*
+
+- **Sauvegarde = un fichier ZIP ouvert** (spec §16.1), à l'emplacement choisi par l'utilisateur (dialogue
+  d'enregistrement ouvert par le cœur) : `manifest.json`, `archive.db` et `files/…` (les copies gérées, avec leur
+  arborescence). La base est un instantané cohérent pris par `VACUUM INTO`, même pendant l'utilisation. Le
+  manifeste donne la version du format, de l'application et du schéma, la date, les nombres d'éléments, et
+  l'empreinte SHA-256 et la taille de chaque fichier. **Aucun secret** : les clés sont dans le Gestionnaire
+  d'identifiants, la base n'en nomme que l'entrée ; le manifeste le dit (`secretsIncluded: false`).
+- **Historique** (table `backups`, schéma v5) : emplacement, date, taille, contenu, dernière vérification ; une
+  sauvegarde déplacée ou supprimée est signalée comme introuvable, jamais effacée de l'historique en silence.
+- **Vérification** : seules les entrées attendues sont acceptées (pas de chemin absolu ni `..`, noms de fichiers
+  gérés seulement) ; chaque empreinte est recalculée ; la base extraite passe `PRAGMA integrity_check` ; un schéma
+  plus récent que l'application est refusé.
+- **Restauration en deux temps** (spec §16.3) : après validation et affichage de la date et du contenu, puis
+  confirmation, le cœur extrait la sauvegarde (empreintes vérifiées) dans `restore/` et redémarre ARCHIVE. Au
+  démarrage, **avant toute ouverture de la base** (aucune connexion ni verrou Windows), les données actuelles sont
+  déplacées dans `backups/before-restore-<date>/` puis remplacées par celles de la sauvegarde. Rien n'est supprimé :
+  en cas d'échec, les déplacements sont annulés et l'écran de démarrage l'explique. Une sauvegarde d'un schéma plus
+  ancien est migrée normalement (avec sa copie de sécurité habituelle).
+- **Export** (spec §16.4) dans un dossier choisi, pour toute la base ou un espace de travail : fichiers d'origine
+  (`documents/`), notes en Markdown avec leurs métadonnées en tête (`notes/`), tableaux CSV des documents, notes et
+  espaces (`metadata/`), et un `archive.json` complet (espaces, dossiers, étiquettes, documents, notes, relations,
+  conversations). Lisibles sans ARCHIVE.
 
 ## 8. Pipeline d'import et moteur de mémoire — *Implémenté (Phases 4 et 7)*
 
