@@ -6,6 +6,30 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 7 : Moteur de mémoire (2026-11-23)
+
+- Chaque document et chaque note est traité en arrière-plan, sur cet appareil et sans IA, sans gêner
+  l'utilisation : description du contenu, termes caractéristiques, relations suggérées. Le traitement reprend
+  après un arrêt de l'application ; une étape en échec est retentée automatiquement, puis signalée et relançable.
+- Description de chaque contenu : langue (déclarée par le fichier, ou reconnue quand le texte est clairement en
+  français ou en anglais), longueur, titre, auteur et dates déclarés par les documents Word et PDF. Rien n'est
+  inventé : ce qui est inconnu le reste.
+- Termes caractéristiques de chaque élément ; un clic lance la recherche du terme.
+- Relations suggérées entre les documents et les notes qui partagent des termes caractéristiques, avec ce qui les
+  justifie (termes, étiquettes, espace de travail communs) et une confiance. Rien n'est retenu sans accord :
+  accepter, rejeter (la suggestion ne revient pas), rétablir une suggestion rejetée.
+- Relations ajoutées à la main entre documents et notes, avec leur type (lié à, fait référence à, explique,
+  exemple de, fait partie de, dépend de, contredit), lisibles dans les deux sens ; type modifiable, relation
+  retirable. Une relation acceptée apparaît dans l'activité récente.
+- Statut de chaque étape du traitement (import, extraction, normalisation, indexation, analyse, relations) sur
+  chaque élément, et vue d'ensemble des traitements dans Paramètres › Stockage.
+- L'extraction de concepts est prête à recevoir un fournisseur d'IA ; tant qu'aucun n'est configuré, l'interface
+  l'explique et rien n'est extrait.
+
+### Corrigé — Phase 7
+
+- La page d'un document annonçait encore que les relations proposées automatiquement arriveraient plus tard.
+
 ### Ajouté — Phase 6 : Recherche intelligente (2026-11-22)
 
 - Recherche plein texte dans tout ARCHIVE, sur cet appareil : titres, texte extrait des documents (PDF page par

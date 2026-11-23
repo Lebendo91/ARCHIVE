@@ -17,13 +17,14 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phases 1 à 6 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
-et espaces de travail, Bibliothèque, Notes, recherche. On y importe ses documents (PDF, Word, texte, Markdown,
-CSV, JSON, images) sans jamais toucher aux originaux, on y rédige des notes riches, enregistrées automatiquement,
-reliées entre elles et aux documents, importables et exportables en Markdown, et on retrouve tout avec `Ctrl+K` :
-recherche plein texte dans le contenu, insensible aux accents, avec extraits surlignés, filtres et historique.
-Les modules suivants (moteur de mémoire, graphe, assistant…) arrivent phase par phase ; en attendant, leurs
-écrans affichent un état vide honnête, sans contenu simulé.
+**Phases 1 à 7 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
+et espaces de travail, Bibliothèque, Notes, recherche, moteur de mémoire. On y importe ses documents (PDF, Word,
+texte, Markdown, CSV, JSON, images) sans jamais toucher aux originaux, on y rédige des notes riches, reliées entre
+elles et aux documents, et on retrouve tout avec `Ctrl+K`. En arrière-plan, sur l'appareil et sans IA, ARCHIVE
+décrit chaque contenu, en dégage les termes caractéristiques et suggère des relations entre documents et notes,
+avec leur justification : rien n'est retenu sans l'accord de l'utilisateur. Les modules suivants (graphe,
+chronologie, assistant…) arrivent phase par phase ; en attendant, leurs écrans affichent un état vide honnête, sans
+contenu simulé.
 
 Le développement suit 11 phases séquentielles (0 à 10), décrites dans le [cahier des charges](docs/SPECIFICATION.md).
 L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md).
@@ -31,6 +32,8 @@ L'avancement détaillé se trouve dans [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PRO
 ![Une note dans ARCHIVE](docs/screenshots/phase-5/note-editor.png)
 
 ![La recherche globale d'ARCHIVE](docs/screenshots/phase-6/palette.png)
+
+![Relations suggérées et analyse d'un document](docs/screenshots/phase-7/native-suggestion.png)
 
 D'autres captures sont dans [docs/screenshots](docs/screenshots), rangées par phase.
 
