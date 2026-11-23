@@ -1,8 +1,8 @@
 # ARCHIVE — Architecture
 
-> **Statut : Phases 1 à 8 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
+> **Statut : Phases 1 à 9 implémentées (fondation, design system, données et stockage local, vue d'ensemble et
 > espaces de travail, Bibliothèque, Notes, recherche plein texte, moteur de mémoire, graphe de connaissances et
-> chronologie). Les sections des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
+> chronologie, assistant IA). Les sections des phases suivantes restent l'architecture cible.** Chaque section indique la phase qui la réalise. Quand une décision est implémentée, son statut passe de
 > *Prévu* à *Implémenté (Phase N)*. Toute décision qui s'écarte de ce document doit y être reportée avec sa
 > justification.
 >
@@ -53,6 +53,9 @@ explicitement, qui valide ses entrées (spec §18.3).
 | Base de données | SQLite via `rusqlite` (`bundled`) | 0.43 / SQLite 3.54 | FTS5 inclus (sonde validée), même moteur sous Linux et Windows |
 | Recherche | SQLite FTS5 | — | `unicode61 remove_diacritics 2` (accents) et `trigram` (sous-chaînes) |
 | Éditeur | TipTap 3 | 3.33.1 (exacte) | Notes (Phase 5) ; aperçu Markdown de la Bibliothèque |
+| IA (réseau) | `reqwest` (rustls, cryptographie `ring`, vérificateur du système) | 0.13.5 | Appels HTTPS des fournisseurs depuis le cœur uniquement, en flux ; aucun OpenSSL (Phase 9, §11) |
+| IA (clés) | `keyring-core` + `windows-native-keyring-store` | 1.0.1 (exacte) / 1.1 | Clés API dans le Gestionnaire d'identifiants de Windows ; repli en mémoire pour la session (Phase 9, §11.3) |
+| Rendu des réponses | `marked` (analyse seule, rendu React sans HTML) | 17.0.6 (exacte) | Markdown des réponses de l'assistant ; déjà présent via `@tiptap/markdown` (Phase 9) |
 | Graphe | `d3-force` (disposition) + SVG dessiné par React | 3.0.1 (exacte) | Rendu 2D sans WebGL ; chaque nœud est un élément du DOM, stylé par les jetons et atteignable au clavier ; disposition calculée dans un Web Worker (Phase 8, voir §10 ; Cytoscape.js écarté) |
 | PDF | `pdfjs-dist` | 6.5 | Aperçu, et candidat pour l'extraction (Phase 4) |
 | Polices | `@fontsource-variable` : Inter, Space Grotesk, JetBrains Mono | 5.3 | Fichiers embarqués, aucune requête réseau à l'exécution |
@@ -650,6 +653,17 @@ concepts (spec §15.4).
 - **Flux vers l'interface** : `tauri::ipc::Channel` (morceaux de texte, modèle, changement de modèle, fin) ;
   la réponse est enregistrée par le cœur même si la fenêtre a disparu.
 
+### 11.5 Concepts par IA (spec §10.3)
+
+- **Sur demande seulement**, depuis la carte d'analyse d'un document ou d'une note, après une confirmation qui dit
+  ce qui partira : le titre et au plus 24 000 caractères du texte (`ai/concepts.rs`).
+- Le fournisseur répond en JSON (nom, type parmi les huit de la spec, citation courte). **Chaque concept est
+  vérifié dans le texte** : il n'est gardé que si son nom ou sa citation s'y trouve, avec la page de la citation ;
+  sinon il est écarté. Les concepts restent à part du contenu (tables `concepts`, `concept_mentions`, schéma v3),
+  avec leur provenance (fournisseur, modèle, date).
+- **Graphe** : nœuds « concept » (hexagones cyan) reliés aux éléments qui les mentionnent, masqués par défaut,
+  activables dans les filtres ; un concept ouvre la recherche de son nom.
+
 ## 12. Modèle de sécurité — *Socle implémenté (Phase 1), renforcé à chaque phase*
 
 - **Capabilities Tauri minimales** : aucune permission `fs`, `shell` ni `http` pour la WebView. Seuls les
@@ -743,6 +757,24 @@ Phase 1  Fondation : shell, design system, i18n, routage, CI
 | Signature de marque en interface française | garder « Everything you know. Nothing forgotten. » ou traduire (« Tout ce que vous savez. Rien d'oublié. ») | garder l'anglais comme signature, traduire le texte explicatif | Phase 1, **validation du porteur** |
 | Signature de code Windows | certificat OV/EV, service de signature cloud, ou aucune (avertissement SmartScreen) | à arbitrer selon la diffusion visée | Phase 10, **décision du porteur** |
 | Passage à TypeScript 7 | dès que `typescript-eslint` le supporte | réévaluer à chaque phase | continu |
+
+### Décisions prises en Phase 9
+
+| Décision | Justification |
+|---|---|
+| Fournisseurs « sans entrées-sorties » derrière un trait, réseau dans un seul module | Chaque fournisseur se teste sur des réponses enregistrées, toute la chaîne contre un serveur local ; changer de fournisseur ne touche pas l'assistant (spec §14.2) |
+| Appels HTTP bruts plutôt que les SDK officiels | Aucun SDK Rust officiel pour Anthropic, OpenAI ou Gemini ; les formats sont isolés dans un module par fournisseur |
+| `ring` plutôt que `aws-lc-rs` comme cryptographie de rustls | Compilation sûre sur Windows MSVC (pas de CMake ni de NASM), plus rapide ; mêmes garanties TLS |
+| Gestionnaire d'identifiants de Windows seul compilé ; mémoire de session ailleurs | ARCHIVE vise Windows ; sous Linux (développement, CI), l'absence de coffre est le cas « indisponible », expliqué à l'utilisateur. Le vrai coffre de Windows est testé dans la CI Windows |
+| `keyring-core` épinglé à 1.0.1 | 1.1.0 est parue le 2026-11-20, trop récemment pour être adoptée pendant la phase |
+| Test de connexion = liste des modèles | Ne consomme aucun jeton et donne la liste des modèles du compte, d'où vient le choix du modèle (aucune liste figée) |
+| Modèle suggéré pour Anthropic seulement (`claude-opus-5-5`) | Tiré de la documentation officielle d'Anthropic, consultée pendant la phase ; celles d'OpenAI et de Google n'étaient pas joignables depuis l'environnement : leur modèle se choisit dans la liste du compte |
+| Repli d'Anthropic en cas de refus, seulement si la liste des modèles l'annonce | La documentation recommande `fallbacks: "default"` ; un modèle qui ne l'accepte pas répondrait par une erreur, d'où la condition `allowed_fallback_models` non vide |
+| OpenAI : Responses API avec `store: false` | API recommandée pour les nouveaux projets ; `store: false` évite la conservation des réponses chez le fournisseur |
+| Recherche des passages sur leur texte, puis sur les titres | Le titre est répété sur chaque passage de l'index : sans cette séparation, des passages sans rapport étaient envoyés pour leur seul titre (défaut trouvé par les tests) |
+| Étiquettes `[general]` / `[interpretation]` demandées au modèle, citations vérifiées par ARCHIVE | Spec §14.5 : un paragraphe n'est « issu d'ARCHIVE » que s'il cite un passage réellement envoyé ; ce que le modèle marque lui-même est montré comme tel |
+| Concepts par IA vérifiés dans le texte avant d'être enregistrés | Spec §10.3 et « ne jamais inventer » : un concept dont ni le nom ni la citation n'apparaissent dans le texte est écarté |
+| Validation native avec un build `test-endpoints` | Le parcours réel (clé, réseau, flux, canal Tauri, WebView) se vérifie sans clé ni réseau ; le code d'adresse modifiable est absent des builds distribués |
 
 ### Décisions prises en Phase 8
 

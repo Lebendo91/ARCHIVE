@@ -5,11 +5,12 @@
 
 ## Phase courante
 
-**Phase 8 — Graphe de connaissances et chronologie : terminée et validée localement** (branche `phase/8-graphe`) ;
-reste la CI sur la pull request, puis la fusion dans `main`. Ensuite : **Phase 9 — Assistant IA**, tâche **9.1**. La
-Phase 7 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#4 le 2026-11-23 (commit `48dd2ed`, CI de
-`main` au vert : runs 45125704392 et 45125704226). Le porteur du projet a demandé l'enchaînement autonome des
-phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
+**Phase 9 — Assistant IA : terminée et validée localement** (branche `phase/9-assistant`) ; reste la CI sur la pull
+request, puis la fusion dans `main`. Ensuite : **Phase 10 — Sauvegarde, sécurité, optimisation et packaging**, tâche
+**10.1**. La Phase 8 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#5 le 2026-11-23 (commit
+`b5b73c1`, CI de `main` au vert : runs 45187531267 et 45187531587). Le porteur du projet a demandé l'enchaînement
+autonome des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite
+d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|
@@ -21,9 +22,9 @@ phases ; une reprise automatique est programmée après chaque réinitialisation
 | 5 | Notes | ✅ Terminée |
 | 6 | Recherche intelligente | ✅ Terminée |
 | 7 | Moteur de mémoire | ✅ Terminée |
-| 8 | Graphe de connaissances et chronologie | ✅ Terminée (fusion en attente de la CI) |
-| 9 | Assistant IA | ▶ Prochaine |
-| 10 | Sauvegarde, sécurité, optimisation et packaging | À faire |
+| 8 | Graphe de connaissances et chronologie | ✅ Terminée |
+| 9 | Assistant IA | ✅ Terminée (fusion en attente de la CI) |
+| 10 | Sauvegarde, sécurité, optimisation et packaging | ▶ Prochaine |
 
 ---
 
@@ -34,6 +35,91 @@ phases ; une reprise automatique est programmée après chaque réinitialisation
    (ARCHITECTURE §16).
 2. **Signature de marque** : garder « Everything you know. Nothing forgotten. » en anglais (choix actuel,
    affiché dans « À propos »), ou la traduire.
+
+---
+
+## Phase 9 — Assistant IA (terminée le 2026-11-23)
+
+### Tâches réalisées
+
+- [x] **9.1** Décisions et dépendances (ARCHITECTURE §11) : trait `AiProvider` « sans entrées-sorties », réseau
+      dans un seul module (`reqwest`, rustls avec `ring`, vérificateur du système), clés dans le Gestionnaire
+      d'identifiants de Windows (`keyring-core`), flux par `Channel`, journal sans clé ni contenu, build
+      `test-endpoints` pour la validation native.
+- [x] **9.2** Configuration et secrets : Réglages › Intelligence artificielle ; ajout, défaut, suppression ; clé
+      saisie dans un champ masqué, rangée par le cœur, jamais relue par l'interface ; mémoire de session expliquée
+      quand le coffre manque ; test de connexion sur demande ; modèle choisi dans la liste du compte ou saisi ;
+      longueur maximale des réponses ; repli d'Anthropic ; préférences de confidentialité.
+- [x] **9.3** Fournisseurs : Anthropic (Messages API 2026-10-21, refus, repli), OpenAI (Responses API,
+      `store: false`), Gemini (`streamGenerateContent`, clé en en-tête) ; erreurs en catégories stables ; usage.
+- [x] **9.4** Contexte : portée choisie (documents, notes, espace, rien) ; passages FTS5 classés sur leur texte puis
+      les titres ; fenêtres et budgets ; aperçu exact avant l'envoi.
+- [x] **9.5** Conversations (schéma v4) : historique, nouvelle, effacer, supprimer, arrêter, régénérer, copier,
+      réponses interrompues à la fermeture marquées comme telles.
+- [x] **9.6** Citations vérifiées : liens seulement vers les passages envoyés (PDF ouvert à la page citée),
+      citations inventées signalées, paragraphes étiquetés ARCHIVE / connaissances générales / interprétation /
+      non sourcé.
+- [x] **9.7** Concepts par IA sur demande, vérifiés dans le texte ; nœuds « concept » dans le graphe.
+- [x] **9.8** Validation (ci-dessous), documentation, captures `docs/screenshots/phase-9/`.
+
+### Validation (critères de la spec §21, Phase 9)
+
+| Critère | Résultat | Preuve |
+|---|---|---|
+| Abstraction des fournisseurs | ✅ | Trait `AiProvider` ; tests Rust par fournisseur sur réponses enregistrées et de bout en bout contre un serveur HTTP local (flux coupé à 7 octets, erreurs, réseau coupé, annulation) |
+| Configuration de l'API | ✅ | Tests Rust (`config`), unitaires et de bout en bout (ajout, modèle de la liste, préférences, suppression) |
+| Stockage sécurisé des clés | ✅ | **Gestionnaire d'identifiants réel** testé sur `windows-latest` (run 45245455899 : `the_windows_credential_manager_keeps_and_forgets_a_key ... ok`) ; repli de session testé ; **natif** : clé absente de la base et du journal |
+| Test de connexion | ✅ | Seulement sur action ; **natif** : liste des modèles du serveur local, clé dans l'en-tête `x-api-key` |
+| Conversations | ✅ | Tests Rust (enregistrement, reprise, historique sans anciennes citations, interruption) ; unitaires et de bout en bout |
+| Sélection du contexte | ✅ | Tests Rust (portée, corbeille, budgets, syntaxe FTS5 neutralisée) ; **natif** : seul le passage de la fiche partagée part, numéroté S1 |
+| Récupération des documents | ✅ | Classement sur le texte des passages (défaut corrigé), début des éléments choisis, fenêtres autour des mots |
+| Citations | ✅ | Unitaires (vérification, étiquettes), de bout en bout (lien vers la page 2 du PDF, citation inventée signalée) ; **natif** : citation S1 vérifiée dans le vrai binaire |
+| Gestion des erreurs | ✅ | Clé refusée, quota, débit (avec délai), surcharge, modèle inconnu, réseau, délai, réponse illisible, flux interrompu, refus, filtres : tests Rust et unitaires |
+| Réponses en flux | ✅ | Canal Tauri ; **natif** : réponse affichée au fil de l'eau dans la WebView puis enregistrée complète avec son usage |
+
+### Tests exécutés
+
+| Suite | Résultat |
+|---|---|
+| Rust (`cargo test`) | 336 réussis, 3 ignorés (mesures de performance) ; `cargo clippy -D warnings` et `cargo fmt --check` propres |
+| Unitaires (Vitest) | 188 réussis (26 fichiers) |
+| De bout en bout (Playwright, axe) | 83 réussis, dont 3 nouveaux avec audits d'accessibilité |
+| Audit visuel | Scénario « assistant et réglages IA » aux 3 tailles (5 captures chacune), relu |
+| Validation native (`scripts/validate-native-phase9.py`) | **19/19** contrôles réussis (binaire `test-endpoints` sous Xvfb, faux fournisseur local, aucune clé réelle) |
+| CI Windows | Installateurs construits, démarrage vérifié, coffre réel testé (run 45245455899) |
+
+### Défauts corrigés en cours de phase
+
+- Le titre étant répété sur chaque passage de l'index, des passages sans rapport partaient pour leur seul titre :
+  classement séparé sur le texte, puis sur les titres (trouvé par un test Rust).
+- 86 espaces insécables brutes dans `fr.ts` (17 lignes venues de la Phase 8) : remplacées par `\u00a0`, et règle
+  ESLint `no-irregular-whitespace` étendue aux chaînes pour l'empêcher à l'avenir.
+- Le double du cœur renvoyait ses propres objets, modifiés ensuite sur place : le cache de requêtes ne voyait pas
+  les changements ; il renvoie désormais des copies, comme le vrai cœur (JSON).
+- Nom accessible des conversations sans leur texte visible (axe) ; zone de saisie qui glissait sous la fenêtre et
+  boutons désalignés des champs (audit visuel) : corrigés.
+
+### Dépendances ajoutées
+
+- Rust : `reqwest` 0.13.5 (déjà présent via Tauri ; TLS rustls sans fournisseur par défaut), `rustls` 0.23 avec
+  `ring`, `tokio` (macros, sync, time), `keyring-core` =1.0.1, `windows-native-keyring-store` 1.1 (Windows
+  seulement), `zeroize` 1.8.
+- Frontend : `marked` 17.0.6 (exacte, déjà installée via `@tiptap/markdown`).
+
+### Éléments reportés (volontairement, sans simulation)
+
+- Recherche sémantique par embeddings (prévue « s'ils sont activés ») : la récupération reste FTS5.
+- Outils de la spec §14.7 (résumés, fiches, quiz…) : à n'ajouter qu'une fois l'assistant de base éprouvé.
+- Coûts en euros : les tarifs changent ; seuls les jetons comptés par le fournisseur sont affichés.
+
+### Limites restantes
+
+- Les documentations d'OpenAI et de Google n'étaient pas joignables depuis l'environnement (réseau restreint) :
+  leurs formats suivent leurs API publiques connues, testés sur des réponses enregistrées. À vérifier avec une
+  vraie clé ; autoriser `platform.openai.com` et `ai.google.dev` dans le réseau de l'environnement permettrait de
+  les confronter à la documentation actuelle.
+- Hors Windows, pas de coffre : clés pour la session seulement (ARCHIVE vise Windows).
+- Extraction de concepts limitée aux 24 000 premiers caractères ; historique limité à 12 messages.
 
 ---
 
@@ -87,7 +173,7 @@ phases ; une reprise automatique est programmée après chaque réinitialisation
 | `npm run test:visual` (42 scénarios, 3 résolutions) | ✅ captures revues |
 | `scripts/validate-native-phase8.py` : binaire de production, vraie base SQLite, imports réels, note tapée, deux lancements sous Xvfb | ✅ 16/16 vérifications |
 | `cargo test --release --lib perf::graph_on_a_generated_corpus -- --ignored --nocapture` et `npm run test:perf` (mesures indicatives) | ✅ chiffres dans ARCHITECTURE §10 |
-| CI GitHub (Linux et Windows) | ⏳ sur la pull request |
+| CI GitHub (Linux et Windows) | ✅ pull request Lebendo91/ARCHIVE#5 : CI 45185064651 (Windows 45183053852 sur `602d24b`) ; `main` après fusion (`b5b73c1`) : CI 45187531267 et Windows 45187531587 |
 
 ### Défauts corrigés en cours de phase
 
@@ -820,22 +906,18 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-1. **Terminer la Phase 8** : pull request `phase/8-graphe` → `main`, CI verte (Linux et Windows), fusion par
-   merge commit, puis consigner les numéros des runs ici.
-2. **Phase 9 — Assistant IA** (spec §14 et §21), branche `phase/9-assistant` à créer depuis `main`. Prochaine
-   tâche : **9.1**. L'assistant reste facultatif : l'application fonctionne entièrement sans fournisseur, aucune clé
-   n'est demandée au démarrage, rien n'est envoyé sans une action explicite de l'utilisateur, qui choisit ce qui est
-   partagé. La table `ai_providers` (référence vers le secret, jamais le secret) existe depuis la Phase 2 ; l'index
-   plein texte par page (Phase 6) sert à retrouver les passages ; l'interface `ConceptExtractor` attend un
-   fournisseur (Phase 7).
+1. **Terminer la Phase 9** : pull request `phase/9-assistant` → `main`, CI verte (Linux et Windows, dont le test du
+   Gestionnaire d'identifiants), fusion par merge commit, puis consigner les numéros des runs ici.
+2. **Phase 10 — Sauvegarde, sécurité, optimisation et packaging** (spec §21), branche `phase/10-finalisation` à
+   créer depuis `main`. Prochaine tâche : **10.1**.
 
 | # | Tâche |
 |---|---|
-| **9.1** | Décisions et dépendances : trait Rust `AiProvider` (capacités, test de connexion, réponse en flux, erreurs, usage) ; client HTTPS (`reqwest` avec rustls) ; magasin d'identifiants du système (`keyring` : Gestionnaire d'identifiants Windows, Secret Service sous Linux) et comportement s'il est indisponible ; flux vers l'interface par `Channel` ; politique de journalisation (jamais de clé, jamais de contenu) ; CSP et capacités inchangées (le réseau passe par le cœur) ; moyen de tester sans clé réelle (serveur local simulé, adresse de base modifiable seulement dans les builds de test) |
-| 9.2 | Configuration et secrets : ajouter, modifier, retirer un fournisseur (Anthropic, OpenAI, Gemini), modèle, préférences ; la clé va dans le magasin du système, jamais dans SQLite, les journaux ou l'interface (qui ne la relit jamais) ; test de connexion sur action explicite ; écran Paramètres › IA ; tests Rust |
-| 9.3 | Fournisseurs : requêtes, flux et erreurs (authentification, quota, réseau, modèle inconnu, annulation) des trois API, derrière l'interface commune ; usage (jetons) quand il est fourni ; tests contre un serveur simulé |
-| 9.4 | Contexte et récupération : sélection par l'utilisateur de documents, de notes ou d'un espace ; passages pertinents tirés de l'index (par page), dans un budget ; aperçu de ce qui sera envoyé ; rien n'est envoyé automatiquement |
-| 9.5 | Conversations : stockage (conversations, messages, sources), historique, nouvelle conversation, effacement, régénération, copie, réponse en flux et interruption |
-| 9.6 | Citations : chaque source citée renvoie à un passage réellement fourni (document, page, extrait, cliquables) ; une citation inconnue est écartée et signalée ; sans appui trouvé, l'assistant le dit ; distinction entre ARCHIVE, connaissance générale du modèle et interprétation |
-| 9.7 | Concepts : extraction sur action explicite avec le fournisseur configuré (interface de la Phase 7), puis nœuds de concepts dans le graphe (report de la Phase 8) |
-| 9.8 | Validation (spec §21) : tests Rust, unitaires, de bout en bout avec axe, audit visuel, validation native (sans clé réelle), documentation, CI, fusion |
+| **10.1** | Décisions : format de sauvegarde (base SQLite cohérente par l'API de sauvegarde, fichiers stockés, manifeste avec empreintes), restauration sans écraser les données courantes sans confirmation, exclusion des secrets (spec : aucune clé dans les sauvegardes par défaut) |
+| 10.2 | Sauvegarde et restauration : commandes natives validées, sauvegarde manuelle, vérification d'intégrité, restauration après confirmation, tests Rust |
+| 10.3 | Export : export complet lisible (Markdown des notes, fichiers d'origine, métadonnées JSON) |
+| 10.4 | Validation des données et reprise après erreur : contrôle d'intégrité étendu, réparation guidée de l'index, messages clairs |
+| 10.5 | Revue de sécurité (capabilities, CSP, entrées des commandes, chemins, journal, secrets) et corrections |
+| 10.6 | Performances et mémoire : mesures sur corpus généré, optimisations mesurées |
+| 10.7 | Packaging Windows : installateurs MSI et NSIS, métadonnées, icônes, identifiant d'application (validation du porteur) |
+| 10.8 | Audit visuel final, documentation utilisateur, validation (spec §21), CI, fusion |

@@ -17,8 +17,9 @@ informations s'organisent selon leur contenu, leurs relations et leur contexte.
 
 ## État du projet
 
-**Phases 1 à 8 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
-et espaces de travail, Bibliothèque, Notes, recherche, moteur de mémoire, graphe de connaissances et chronologie.
+**Phases 1 à 9 implémentées** : fondation et design system, base de données et stockage local, vue d'ensemble
+et espaces de travail, Bibliothèque, Notes, recherche, moteur de mémoire, graphe de connaissances et chronologie,
+assistant IA facultatif (Anthropic, OpenAI ou Google Gemini, avec votre propre clé).
 On y importe ses documents (PDF, Word, texte, Markdown, CSV, JSON, images) sans jamais toucher aux originaux, on y
 rédige des notes riches, reliées entre elles et aux documents, et on retrouve tout avec `Ctrl+K`. En arrière-plan,
 sur l'appareil et sans IA, ARCHIVE décrit chaque contenu, en dégage les termes caractéristiques et suggère des
