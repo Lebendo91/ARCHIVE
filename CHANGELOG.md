@@ -20,6 +20,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
   redémarre et l'applique avant d'ouvrir la base ; les données remplacées sont gardées dans le dossier des
   sauvegardes, et un échec remet tout en place (ce qui ne peut pas l'être est gardé, jamais supprimé).
   L'historique des sauvegardes est conservé, et une notification au démarrage dit ce que la restauration a donné.
+- Export de toute la base ou d'un espace de travail (Paramètres › Stockage), lisible sans ARCHIVE, dans un
+  nouveau dossier : les fichiers d'origine sous leur nom, rangés par espace et dossier ; les notes en Markdown
+  avec leurs métadonnées en en-tête ; des tableaux CSV (documents, notes, espaces, relations) ; un fichier
+  `archive.json` complet. Ni la corbeille ni aucune clé n'y figurent ; un fichier manquant est signalé.
 
 ### Corrigé — Phase 10
 

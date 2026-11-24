@@ -1,6 +1,8 @@
 import type { AiProviderView } from '../types/bindings/AiProviderView';
 import type { BackupCheck } from '../types/bindings/BackupCheck';
 import type { BackupRecord } from '../types/bindings/BackupRecord';
+import type { ExportScope } from '../types/bindings/ExportScope';
+import type { ExportSummary } from '../types/bindings/ExportSummary';
 import type { ConceptMention } from '../types/bindings/ConceptMention';
 import type { AnswerDetails } from '../types/bindings/AnswerDetails';
 import type { AssistantEvent } from '../types/bindings/AssistantEvent';
@@ -162,6 +164,17 @@ export interface CoreDoubleState {
   restoredBackup: string | null;
   /** Backup files the next file pickers return, with what their verification finds. */
   backupPicks: { path: string; check: BackupCheck }[];
+  /** What the next folder dialogs of an export return: a folder, or `null` when cancelled. */
+  exportFolders: (string | null)[];
+  /** The exports of data written, with what the interface sent to the core. */
+  dataExports: {
+    scope: ExportScope;
+    markdown: Record<string, string>;
+    untitled: string;
+    folder: string;
+  }[];
+  /** Documents whose managed copy is missing (by id). */
+  missingFiles: string[];
 }
 
 /** An answer a provider writes in the double: its pieces, and how it ends. */
@@ -270,6 +283,9 @@ export function createCoreDouble(
     backupChecks: initial?.backupChecks ?? {},
     restoredBackup: initial?.restoredBackup ?? null,
     backupPicks: initial?.backupPicks ?? [],
+    exportFolders: initial?.exportFolders ?? [],
+    dataExports: initial?.dataExports ?? [],
+    missingFiles: initial?.missingFiles ?? [],
   };
 
   const fail = (code: string, message: string): never => {
@@ -2762,6 +2778,77 @@ export function createCoreDouble(
       return changed(null);
     },
     backup_reveal: () => null,
+    // --- Export (src-tauri/src/export): the double records what would be written -------------------------
+    export_notes_source: (args) => {
+      const scope = args?.scope as ExportScope;
+      return structuredClone(
+        state.notes
+          .filter(
+            ({ note }) =>
+              note.deletedAt === null &&
+              note.contentFormat === 'tiptap-json' &&
+              (scope.kind === 'all' || note.workspaceId === scope.id),
+          )
+          .map(({ note }) => ({ id: note.id, content: note.content })),
+      );
+    },
+    export_create: (args) => {
+      const scope = args?.scope as ExportScope;
+      const picked = state.exportFolders.length > 0 ? state.exportFolders.shift() : undefined;
+      if (picked === null) {
+        return changed(null); // dialog cancelled
+      }
+      const workspace =
+        scope.kind === 'workspace'
+          ? (state.workspaces.find((entry) => entry.workspace.id === scope.id)?.workspace ??
+            fail('not_found', 'workspace not found'))
+          : null;
+      const inScope = (workspaceId: string | null) =>
+        workspace === null || workspaceId === workspace.id;
+      const documents = state.documents.filter(
+        ({ document }) => document.deletedAt === null && inScope(document.workspaceId),
+      );
+      const notes = state.notes.filter(
+        ({ note }) => note.deletedAt === null && inScope(note.workspaceId),
+      );
+      const exported = new Set([
+        ...documents.map(({ document }) => document.id),
+        ...notes.map(({ note }) => note.id),
+      ]);
+      const missing = documents.filter(({ document }) => state.missingFiles.includes(document.id));
+      const total = documents.length + notes.length + 1;
+      const channel = args?.onProgress as { onmessage?: (event: unknown) => void } | undefined;
+      for (let done = 1; done <= total; done += 1) {
+        channel?.onmessage?.({ done, total });
+      }
+      const stamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '');
+      const folder = `${picked ?? 'C:\\Users\\Alice\\Documents'}\\ARCHIVE-export-${
+        workspace ? `${workspace.name}-` : ''
+      }${stamp}`;
+      state.dataExports.push({
+        scope,
+        markdown: args?.markdown as Record<string, string>,
+        untitled: String(args?.untitled),
+        folder,
+      });
+      const summary: ExportSummary = {
+        folder,
+        documents: documents.length - missing.length,
+        notes: notes.length,
+        workspaces: workspace ? 1 : state.workspaces.length,
+        relations: state.relations.filter(
+          (relation) => exported.has(relation.sourceId) && exported.has(relation.targetId),
+        ).length,
+        missingFiles: missing.map(({ document }) => document.title),
+      };
+      return changed(summary);
+    },
+    export_reveal: () => {
+      if (state.dataExports.length === 0) {
+        fail('not_found', 'no export yet');
+      }
+      return null;
+    },
     memory_item: (args) => memoryItemOf(args?.kind as LinkKind, String(args?.id)),
     memory_extract_concepts: (args) => {
       const kind = args?.kind as LinkKind;

@@ -9,6 +9,7 @@ pub mod backup;
 pub mod dashboard;
 pub mod diagnostics;
 pub mod documents;
+pub mod export;
 pub mod graph;
 pub mod import;
 pub mod library;

@@ -771,6 +771,34 @@ test.describe('@visual screenshots', () => {
       await shot('restore-confirmation');
     });
 
+    test(`export at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const electronics = seedWorkspace('Électronique', { color: 'blue', icon: 'cpu' });
+      const lost = seedDocument('schema-montage.png', {
+        title: 'Schéma du montage',
+        workspaceId: electronics.workspace.id,
+      });
+      await seedCore(page, {
+        workspaces: [electronics],
+        documents: [
+          seedDocument('cours-ne555.pdf', { workspaceId: electronics.workspace.id }),
+          lost,
+        ],
+        missingFiles: [lost.document.id],
+        exportFolders: ['D:\\Exports'],
+      });
+      await page.goto('/#/settings/storage');
+      await page.getByRole('combobox', { name: 'Contenu de l’export' }).selectOption({
+        label: 'Électronique',
+      });
+      await page.getByRole('button', { name: 'Exporter…' }).click();
+      await expect(page.getByRole('alert')).toContainText('n’a pas été exporté');
+      await page.getByRole('button', { name: 'Afficher le dossier' }).scrollIntoViewIfNeeded();
+      await waitForFonts(page);
+      await page.mouse.move(0, viewport.height - 1);
+      await page.screenshot({ path: `visual-audit/${size}/phase10-export.png` });
+    });
+
     test(`first run at ${size}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto('/');

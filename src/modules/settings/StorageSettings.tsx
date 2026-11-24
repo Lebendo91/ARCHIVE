@@ -8,6 +8,7 @@ import { useIntegrityCheck, useOpenStorageFolder, useStorageOverview } from '@/s
 import type { StorageFolder, StorageOverview } from '@/services/storage';
 import { toast } from '@/stores/toasts';
 import { BackupsCard } from './BackupsCard';
+import { ExportCard } from './ExportCard';
 import { SettingsSection } from './SettingsPanels';
 
 function SectionTitle({ children }: { children: ReactNode }) {
@@ -197,6 +198,7 @@ export function StorageSettings() {
         </>
       )}
       <BackupsCard />
+      <ExportCard />
     </SettingsSection>
   );
 }

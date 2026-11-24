@@ -8,6 +8,7 @@ pub mod backup;
 mod commands;
 pub mod db;
 pub mod error;
+pub mod export;
 pub mod import;
 mod logging;
 pub mod memory;
@@ -163,6 +164,9 @@ pub fn run() {
             commands::backup::backup_restore,
             commands::backup::backup_forget,
             commands::backup::backup_reveal,
+            commands::export::export_notes_source,
+            commands::export::export_create,
+            commands::export::export_reveal,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

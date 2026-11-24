@@ -11,7 +11,7 @@ use super::blocking;
 use crate::backup::{self, BackupCheck, BackupProgress, BackupRecord};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
-use crate::util::now_ms;
+use crate::util::{file_stamp, now_ms};
 
 /// The history of the backups, and where and when the last one was made (specification §15.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -23,27 +23,6 @@ pub struct BackupOverview {
     pub last_backup_at: Option<i64>,
     /// Folder of the last backup.
     pub location: Option<String>,
-}
-
-/// The date (UTC) of a timestamp, for the name of a backup: `2026-11-23-1830`.
-fn stamp(millis: i64) -> String {
-    let days = millis.div_euclid(86_400_000);
-    let seconds = millis.rem_euclid(86_400_000) / 1000;
-    // Days to civil date (H. Hinnant's algorithm).
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}-{:02}{:02}",
-        seconds / 3600,
-        (seconds % 3600) / 60
-    )
 }
 
 #[tauri::command]
@@ -75,7 +54,7 @@ pub async fn backup_create(
 ) -> AppResult<Option<BackupRecord>> {
     let database = state.database()?;
     let paths = state.paths.clone();
-    let file_name = format!("ARCHIVE-sauvegarde-{}.zip", stamp(now_ms()));
+    let file_name = format!("ARCHIVE-sauvegarde-{}.zip", file_stamp(now_ms()));
     let destination = tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -238,16 +217,4 @@ pub async fn backup_reveal(state: State<'_, AppState>, id: String) -> AppResult<
             .map_err(|error| AppError::Internal(format!("cannot show the backup: {error}")))
     })
     .await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::stamp;
-
-    #[test]
-    fn backup_names_carry_the_date() {
-        assert_eq!(stamp(0), "1970-01-01-0000");
-        assert_eq!(stamp(1_795_458_600_000), "2026-11-23-1830");
-        assert_eq!(stamp(951_782_400_000), "2000-02-29-0000");
-    }
 }

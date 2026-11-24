@@ -905,21 +905,40 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 10** (spec §16 et §21), branche `phase/10-finalisation`. Tâches 10.1 et 10.2 terminées (détail
-ci-dessous). Prochaine tâche : **10.3** (export complet lisible, dans un dossier choisi : `documents/` avec les
-fichiers d'origine, `notes/` en Markdown avec leurs métadonnées en tête, `metadata/*.csv`, `archive.json` ; toute
-la base ou un espace de travail ; ARCHITECTURE §7.1).
+**Phase 10** (spec §16 et §21), branche `phase/10-finalisation`. Tâches 10.1 à 10.3 terminées (détail
+ci-dessous). Prochaine tâche : **10.4** (validation des données et reprise après erreur : contrôle d'intégrité
+étendu aux fichiers gérés et à l'index, réparation guidée et sûre de ce qui peut l'être, messages clairs ; voir
+la spec §18 et ARCHITECTURE §7).
 
 | # | Tâche | État |
 |---|---|---|
 | 10.1 | Décisions : format de sauvegarde (base SQLite cohérente, fichiers gérés, manifeste avec empreintes), restauration jamais sans confirmation, aucun secret dans les sauvegardes | ✅ |
 | 10.2 | Sauvegarde et restauration : commandes natives validées, sauvegarde manuelle, vérification d'intégrité, historique, restauration après confirmation | ✅ |
-| 10.3 | Export : export complet lisible (Markdown des notes, fichiers d'origine, métadonnées JSON) | ▶ |
-| 10.4 | Validation des données et reprise après erreur : contrôle d'intégrité étendu, réparation guidée de l'index, messages clairs | |
+| 10.3 | Export : export complet lisible (Markdown des notes, fichiers d'origine, métadonnées JSON) | ✅ |
+| 10.4 | Validation des données et reprise après erreur : contrôle d'intégrité étendu, réparation guidée de l'index, messages clairs | ▶ |
 | 10.5 | Revue de sécurité (capabilities, CSP, entrées des commandes, chemins, journal, secrets) et corrections | |
 | 10.6 | Performances et mémoire : mesures sur corpus généré, optimisations mesurées | |
 | 10.7 | Packaging Windows : installateurs MSI et NSIS, métadonnées, icônes, identifiant d'application (validation du porteur) | |
 | 10.8 | Audit visuel final, documentation utilisateur, validation (spec §21), CI, fusion | |
+
+### 10.3 — Export lisible (terminée le 2026-11-24)
+
+- Cœur : `export/` (nouveau dossier `ARCHIVE-export-…`, écrit sous `.partial` puis renommé, jamais dans les
+  données d'ARCHIVE ; fichiers d'origine sous leur nom, rangés par espace et dossier ; notes en Markdown avec
+  en-tête YAML ; CSV RFC 4180 en UTF-8 avec BOM, protégés contre l'exécution de formules ; `archive.json`
+  complet ; ni corbeille ni secret ; copies manquantes signalées). Trois commandes (`commands/export.rs`).
+- Interface : carte « Exporter vos données » (toute la base ou un espace, progression de la conversion des notes
+  puis de l'écriture, résultat, dossier affiché, documents manquants nommés). Les notes TipTap sont converties
+  par la conversion de l'export d'une note.
+- Défaut trouvé par un test Rust et corrigé : un nom de fichier très long perdait son extension (la troncature
+  passait avant la séparation de l'extension).
+
+| Preuve | Résultat |
+|---|---|
+| Rust | 5 tests d'export (contenu complet et chemins, export d'un espace, jamais dans les données ni par-dessus un dossier, copie manquante, noms sûrs et uniques, cellules CSV) ; total 359 réussis |
+| Unitaires | 3 nouveaux dans `Phase10.test.tsx` (Markdown converti envoyé au cœur, export d'un espace et annulation, documents manquants nommés) et 1 pour `storedNoteToMarkdown` |
+| De bout en bout | 1 nouveau (`phase10.spec.ts`, export d'un espace, 2 audits axe) ; scénario visuel « export » aux 3 tailles, relu |
+| Validation native | **33/33** avec l'export : vrai dialogue de dossier GTK, fichiers identiques aux originaux, note convertie par la vraie WebView, CSV avec BOM, `archive.json`, aucune clé dans les fichiers exportés |
 
 ### 10.2 — Sauvegarde et restauration (terminée le 2026-11-24)
 
@@ -940,4 +959,4 @@ la base ou un espace de travail ; ARCHITECTURE §7.1).
 | Rust (`cargo test`) | 350 réussis, 3 ignorés ; dont 5 tests de sauvegarde (contenu et vérification ; fichiers altérés, étrangers ou trop récents refusés ; restauration et données gardées ; restauration impossible sans effet ; échec à mi-parcours tout remis en place) ; `clippy -D warnings` et `fmt` propres |
 | Unitaires (Vitest) | 10 nouveaux (`Phase10.test.tsx`) : création et progression, vérification et problèmes, confirmation, refus au dernier moment, fichier venu d'ailleurs, retrait, fichier introuvable, trois notifications de démarrage |
 | De bout en bout (Playwright, axe) | 2 nouveaux (`phase10.spec.ts`) avec 4 audits d'accessibilité ; scénario visuel « sauvegardes » aux 3 tailles, relu |
-| Validation native (`scripts/validate-native-phase10.py`) | **26/26** : vrai dialogue d'enregistrement GTK, ZIP contrôlé (éléments, empreintes, base saine, aucune clé), vérification, restauration avec **redémarrage réel** du binaire, données de la sauvegarde rétablies, données remplacées gardées, historique conservé, journal sans erreur ni clé |
+| Validation native (`scripts/validate-native-phase10.py`) | **26/26** (avant l'export ; 33/33 depuis) : vrai dialogue d'enregistrement GTK, ZIP contrôlé (éléments, empreintes, base saine, aucune clé), vérification, restauration avec **redémarrage réel** du binaire, données de la sauvegarde rétablies, données remplacées gardées, historique conservé, journal sans erreur ni clé |

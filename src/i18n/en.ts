@@ -1503,6 +1503,26 @@ export const en: Dictionary = {
         restoreStranded:
           'The restoration could not be applied, and part of your data could not be put back: nothing was deleted, it is kept in {folder}.',
       },
+      export: {
+        title: 'Export your data',
+        description:
+          'A copy readable without ARCHIVE, in a folder you choose: the original files, the notes in Markdown, CSV tables and a complete JSON file. The trash is not exported, nor any API key.',
+        scope: 'Content of the export',
+        scopeAll: 'The whole knowledge base',
+        scopeArchived: '{name} (archived)',
+        start: 'Export…',
+        converting: 'Preparing the notes: {done} / {total}',
+        progress: 'Exporting: {done} / {total} items',
+        done: 'Export complete.',
+        doneWithMissing: 'Export complete, but some documents are missing.',
+        last: 'Last export: {folder}',
+        reveal: 'Show the folder',
+        missingTitle: {
+          one: '{count} document was not exported: its managed copy cannot be found.',
+          other: '{count} documents were not exported: their managed copies cannot be found.',
+        },
+        missingHint: 'The integrity check on this page helps to understand what is missing.',
+      },
       description: 'Location and protection of your local data.',
       locationsTitle: 'Locations',
       locations: {

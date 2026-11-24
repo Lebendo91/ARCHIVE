@@ -370,7 +370,7 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
 
-### 7.1 Sauvegarde, restauration et export — *Sauvegarde et restauration implémentées (Phase 10) ; export prévu*
+### 7.1 Sauvegarde, restauration et export — *Implémenté (Phase 10)*
 
 - **Sauvegarde = un fichier ZIP ouvert** (spec §16.1), à l'emplacement choisi par l'utilisateur (dialogue
   d'enregistrement ouvert par le cœur) : `manifest.json`, `archive.db` et `files/…` (les copies gérées, avec leur
@@ -401,10 +401,31 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   dialogue du cœur, vérifié puis ajouté à l'historique), `backup_restore` (préparation puis redémarrage : la
   commande ne répond que si la sauvegarde ne peut pas être restaurée), `backup_forget` (l'historique seulement),
   `backup_reveal`. L'interface ne fournit jamais de chemin : seulement des identifiants de l'historique.
-- **Export** (spec §16.4) dans un dossier choisi, pour toute la base ou un espace de travail : fichiers d'origine
-  (`documents/`), notes en Markdown avec leurs métadonnées en tête (`notes/`), tableaux CSV des documents, notes et
-  espaces (`metadata/`), et un `archive.json` complet (espaces, dossiers, étiquettes, documents, notes, relations,
-  conversations). Lisibles sans ARCHIVE.
+- **Export** (spec §16.2 et §16.4, `export/`) de toute la base ou d'un espace de travail, dans un **nouveau
+  dossier** `ARCHIVE-export-<date>` (ou `ARCHIVE-export-<espace>-<date>`) créé dans le dossier choisi par
+  l'utilisateur (dialogue du cœur) : numéroté si le nom existe, écrit sous `….partial` puis renommé, supprimé en
+  cas d'échec ; jamais à l'intérieur du dossier de données d'ARCHIVE ; rien d'autre n'est touché.
+  - `documents/<espace>/<dossiers>/<nom d'origine>` : les copies gérées, sous leur nom d'origine ;
+    `notes/<espace>/<dossiers>/<titre>.md` : les notes en Markdown, avec un en-tête YAML (titre, identifiant,
+    dates ISO 8601, espace, dossier, étiquettes, favori ; valeurs écrites comme des chaînes JSON, donc du YAML
+    valide). Les éléments sans espace sont à la racine de `documents/` et `notes/`.
+  - Noms rendus sûrs pour Windows (caractères interdits, noms réservés, 100 caractères au plus en gardant
+    l'extension), numérotés « (2) », « (3) »… sans tenir compte de la casse, comme Windows.
+  - Les notes enregistrées en document TipTap sont converties en Markdown **par l'interface**, avec la conversion
+    de l'export d'une note (Phase 5), puis envoyées au cœur ; les notes Markdown ou texte sont écrites telles
+    quelles ; une note dont le document est illisible est écrite en texte brut plutôt que perdue.
+  - `metadata/documents.csv`, `notes.csv`, `workspaces.csv`, `relations.csv` : RFC 4180, UTF-8 avec BOM (pour
+    que les tableurs lisent les accents), fins de ligne CRLF. Une cellule qui commencerait comme une formule
+    (`=`, `+`, `-`, `@`, tabulation) est précédée d'une apostrophe, pour qu'un tableur ne l'exécute pas ;
+    `archive.json` garde la valeur exacte.
+  - `archive.json` (format `archive-export`, version 1) : espaces, dossiers, étiquettes, documents (avec leur
+    fichier), notes (avec leur Markdown), relations entre éléments exportés, concepts et leurs mentions, et,
+    pour un export complet seulement, les conversations de l'assistant.
+  - Ni la corbeille, ni aucun secret (la configuration des fournisseurs n'est pas exportée). Une copie gérée
+    manquante est nommée dans le résumé, laissée vide dans les tableaux (`file`) et `null` dans `archive.json` ;
+    le reste est exporté.
+  - Commandes : `export_notes_source`, `export_create` (dialogue de dossier du cœur, progression par `Channel`),
+    `export_reveal` (le dernier export de la session, gardé par le cœur : l'interface n'envoie jamais de chemin).
 
 ## 8. Pipeline d'import et moteur de mémoire — *Implémenté (Phases 4 et 7)*
 

@@ -4,7 +4,8 @@
 //! the application still starts in safe mode: the interface explains the problem and offers to retry,
 //! instead of crashing or touching the data (ARCHITECTURE.md §6.4).
 
-use std::sync::{Arc, PoisonError, RwLock};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use serde::Serialize;
 use ts_rs::TS;
@@ -59,6 +60,8 @@ pub struct AppState {
     pub storage: FileStore,
     database: RwLock<DatabaseState>,
     restore: Option<crate::backup::RestoreOutcome>,
+    /// The folder of the last export of this session, which the interface can show (it never sends a path).
+    pub last_export: Mutex<Option<PathBuf>>,
 }
 
 fn open_database(paths: &AppPaths) -> DatabaseState {
@@ -144,6 +147,7 @@ impl AppState {
             storage,
             database: RwLock::new(database),
             restore: restore.map(|restore| restore.outcome),
+            last_export: Mutex::new(None),
         }
     }
 

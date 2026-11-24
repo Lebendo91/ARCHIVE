@@ -276,6 +276,94 @@ describe('backups', () => {
   });
 });
 
+describe('export', () => {
+  it('exports the whole base: the notes are converted to Markdown here, the core writes them', async () => {
+    const electronics = seedWorkspace('Électronique');
+    const course = seedDocument('cours-ne555.pdf', { workspaceId: electronics.workspace.id });
+    const note = seedNote('Montage astable', { text: 'Le NE555 oscille.' });
+    const { calls, core } = mockNativeRuntime(
+      {},
+      { core: { workspaces: [electronics], documents: [course], notes: [note] } },
+    );
+    const { user } = renderApp('/settings/storage');
+    const scope = await screen.findByRole('combobox', { name: 'Contenu de l’export' });
+    expect(scope).toHaveValue('all');
+    await waitFor(() => {
+      expect(within(scope).getByRole('option', { name: 'Électronique' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Exporter…' }));
+    expect(await screen.findByText('Export terminé.')).toBeInTheDocument();
+    expect(screen.getByText(/^Dernier export.*ARCHIVE-export-/)).toBeInTheDocument();
+    expect(screen.getByText('1 document · 1 note · 1 espace · 0 relation')).toBeInTheDocument();
+    const [written] = core.dataExports;
+    expect(written?.scope).toEqual({ kind: 'all' });
+    expect(written?.markdown).toEqual({ [note.note.id]: 'Le NE555 oscille.' });
+    expect(written?.untitled).toBe('Sans titre');
+
+    await user.click(screen.getByRole('button', { name: 'Afficher le dossier' }));
+    await waitFor(() => {
+      expect(calls.some((call) => call.command === 'export_reveal')).toBe(true);
+    });
+  });
+
+  it('exports one workspace, and does nothing when the folder dialog is cancelled', async () => {
+    const electronics = seedWorkspace('Électronique');
+    const cooking = seedWorkspace('Cuisine');
+    const recipe = seedNote('Crêpes', { text: 'Farine', workspaceId: cooking.workspace.id });
+    const { core } = mockNativeRuntime(
+      {},
+      {
+        core: {
+          workspaces: [electronics, cooking],
+          notes: [recipe, seedNote('Hors espace', { text: 'Rien' })],
+          exportFolders: [null, 'D:\\Exports'],
+        },
+      },
+    );
+    const { user } = renderApp('/settings/storage');
+    const scope = await screen.findByRole('combobox', { name: 'Contenu de l’export' });
+    await waitFor(() => {
+      expect(within(scope).getByRole('option', { name: 'Cuisine' })).toBeInTheDocument();
+    });
+    await user.selectOptions(scope, 'Cuisine');
+
+    await user.click(screen.getByRole('button', { name: 'Exporter…' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Exporter…' })).toBeEnabled();
+    });
+    expect(core.dataExports).toEqual([]);
+    expect(screen.queryByText(/^Dernier export/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Exporter…' }));
+    expect(await screen.findByText('Export terminé.')).toBeInTheDocument();
+    expect(core.dataExports[0]?.scope).toEqual({ kind: 'workspace', id: cooking.workspace.id });
+    // Only the notes of the workspace went through the conversion.
+    expect(Object.keys(core.dataExports[0]?.markdown ?? {})).toEqual([recipe.note.id]);
+    expect(core.dataExports[0]?.folder).toMatch(/^D:\\Exports\\ARCHIVE-export-Cuisine-/);
+  });
+
+  it('names the documents that could not be exported', async () => {
+    const lost = seedDocument('perdu.pdf', { title: 'Document perdu' });
+    mockNativeRuntime(
+      {},
+      {
+        core: { documents: [lost, seedDocument('present.pdf')], missingFiles: [lost.document.id] },
+      },
+    );
+    const { user } = renderApp('/settings/storage');
+    await user.click(await screen.findByRole('button', { name: 'Exporter…' }));
+    expect(
+      await screen.findByText('Export terminé, mais des documents manquent.'),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(
+      '1 document n’a pas été exporté : sa copie gérée est introuvable.',
+    );
+    expect(alert).toHaveTextContent('Document perdu');
+  });
+});
+
 describe('restoration at start', () => {
   const KEPT =
     'C:\\Users\\Alice\\AppData\\Local\\io.github.lebendo91.archive\\backups\\before-restore-1';

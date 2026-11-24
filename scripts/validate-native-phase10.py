@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native validation of Phase 10 (backups): the production binary saves, verifies and restores a real backup.
+"""Native validation of Phase 10 (backup, export, restoration) on the production binary, with real data.
 
 Three launches under Xvfb, in a temporary data folder (`ARCHIVE_DATA_DIR`), never the user's data:
 1. The files of tests/fixtures/library are imported with Ctrl+O and a note is written with Ctrl+N. The binary is
@@ -7,12 +7,14 @@ Three launches under Xvfb, in a temporary data folder (`ARCHIVE_DATA_DIR`), neve
 2. A test key is typed in the settings: on Linux there is no credential store, so the core keeps it for the
    session only. In Settings › Storage a backup is created: the core's GTK save dialog receives a path, and the
    ZIP written there holds the manifest, the database and every managed file, each matching its SHA-256, a sound
-   database with the documents and the note, and no key anywhere. It is verified from the history. A second note
-   is written after the backup, then the backup is restored after the confirmation: ARCHIVE restarts by itself.
+   database with the documents and the note, and no key anywhere. It is verified from the history. The knowledge
+   base is exported into a folder chosen in the core's GTK folder dialog: the original files under their names,
+   the note converted to Markdown by the real web view, CSV tables, archive.json, and no key. A second note is
+   written after the backup, then the backup is restored after the confirmation: ARCHIVE restarts by itself.
 3. The restarted ARCHIVE applied the backup before opening the database: the note written after the backup is
    gone, the documents and their files are there, the replaced data is kept in backups/before-restore-…, the
-   history still lists the backups (the restored database is older than them), and the start tells the user. The
-   log holds the outcome, no error, no Content Security Policy violation, and never the key.
+   history still lists the backup (the restored database is older than it), and the start tells the user. The
+   log holds the outcomes, no error, no Content Security Policy violation, and never the key.
 
 Screenshots go to visual-audit/native-phase10/. Prerequisites: `npm run tauri build -- --no-bundle`, then Xvfb,
 xdotool and ImageMagick. Exit code 0 only if every check passes.
@@ -57,9 +59,14 @@ SETTINGS_TITLE = (600, 108)
 SETTINGS_STORAGE = (349, 180)
 CONTENT = (900, 500)
 # Settings › Storage scrolled to its end, before any backup, then with one backup in the history.
-CREATE_BACKUP = (649, 775)
-FIRST_VERIFY = (1038, 807)
-FIRST_RESTORE = (1143, 807)
+CREATE_BACKUP = (649, 561)
+FIRST_VERIFY = (1038, 593)
+FIRST_RESTORE = (1143, 593)
+# The export card, last of the page: its button once the page is scrolled to its end.
+EXPORT = (913, 819)
+# « Home » and « Open » in the GTK folder dialog (1096×822 at the top left, without window manager).
+FOLDER_DIALOG_HOME = (57, 59)
+FOLDER_DIALOG_OPEN = (1046, 798)
 
 
 def scroll_to_end(session: phase8.Session) -> None:
@@ -143,6 +150,64 @@ def zip_checks(path: pathlib.Path, scratch: pathlib.Path, documents: int) -> Non
     )
 
 
+def folder_dialog(session: phase8.Session, target: pathlib.Path, before: set[str]) -> bool:
+    """In the GTK folder dialog opened by the core: Home (the test's folder), the folder's name typed, Enter to go
+    into it, then « Open » chooses the folder shown."""
+    opened = wait_for(lambda: bool(set(session.windows()) - before), timeout=15)
+    time.sleep(2)
+    session.run("xdotool", "mousemove", "600", "400")
+    time.sleep(0.5)
+    session.click(FOLDER_DIALOG_HOME, pause=1.5)
+    session.type(target.name)
+    session.key("Return", pause=1.5)
+    session.click(FOLDER_DIALOG_OPEN, pause=1.5)
+    return opened and not set(session.windows()) - before
+
+
+def export_checks(exports: pathlib.Path, documents: pathlib.Path, imported: int) -> None:
+    written = sorted(path for path in exports.iterdir())
+    check(
+        "one export folder is written, complete (no partial folder left)",
+        len(written) == 1 and written[0].name.startswith("ARCHIVE-export-") and not written[0].name.endswith(".partial"),
+        [path.name for path in written],
+    )
+    if len(written) != 1:
+        return
+    root = written[0]
+    copies = sorted(path for path in (root / "documents").rglob("*") if path.is_file())
+    same = all((documents / path.name).read_bytes() == path.read_bytes() for path in copies)
+    check(
+        "the original files are exported under their original names, identical",
+        len(copies) == imported and same,
+        [path.name for path in copies],
+    )
+    note = root / "notes" / f"{NOTE_BEFORE}.md"
+    text = note.read_text(encoding="utf-8") if note.exists() else ""
+    check(
+        "the note is exported in Markdown (converted by the real web view), with its details in a YAML header",
+        text.startswith(f'---\ntitle: "{NOTE_BEFORE}"\n') and text.rstrip().endswith("Le NE555 oscille en montage astable."),
+        text[:300],
+    )
+    table = (root / "metadata" / "documents.csv").read_bytes() if (root / "metadata" / "documents.csv").exists() else b""
+    check(
+        "the tables are CSV in UTF-8 with a byte order mark",
+        table.startswith("\ufeffid,title,file,".encode()) and table.count(b"\r\n") == imported + 1,
+        table[:80],
+    )
+    archive = json.loads((root / "archive.json").read_text(encoding="utf-8")) if (root / "archive.json").exists() else {}
+    check(
+        "archive.json holds everything",
+        archive.get("format") == "archive-export"
+        and len(archive.get("documents", [])) == imported
+        and [item["title"] for item in archive.get("notes", [])] == [NOTE_BEFORE],
+        {key: archive.get(key) for key in ("format", "scope")},
+    )
+    check(
+        "the key is in no exported file",
+        all(KEY.encode() not in path.read_bytes() for path in root.rglob("*") if path.is_file()),
+    )
+
+
 def restarted_pid(old: int) -> int | None:
     found = subprocess.run(["pgrep", "-f", str(phase8.BINARY)], capture_output=True, text=True, check=False)
     pids = [int(pid) for pid in found.stdout.split() if int(pid) != old]
@@ -165,6 +230,8 @@ def main() -> int:
         shutil.copy2(phase8.FIXTURES / name, documents / name)
     backup = workdir / "Sauvegardes" / "ma-sauvegarde.zip"
     backup.parent.mkdir()
+    exports = workdir / "Exports"
+    exports.mkdir()
     restarted: int | None = None
     try:
         session = phase8.Session(data_dir, documents)
@@ -217,6 +284,19 @@ def main() -> int:
             verification = db.execute("SELECT verification FROM backups").fetchone()["verification"]
         check("verified from the history", verification == "valid", verification)
 
+        # The export, in a folder chosen in the core's dialog.
+        scroll_to_end(session)
+        session.shot("05-export-card")
+        before = set(session.windows())
+        session.click(EXPORT, pause=0.5)
+        check("the core opens its folder dialog", folder_dialog(session, exports, before))
+        wait_for(lambda: any(path.name.startswith("ARCHIVE-export-") and not path.name.endswith(".partial")
+                             for path in exports.iterdir()), timeout=30)
+        time.sleep(1.5)
+        scroll_to_end(session)
+        session.shot("06-export-done")
+        export_checks(exports, documents, imported)
+
         # After the backup: a second note. Then the restoration, which restarts ARCHIVE.
         write_note(session, NOTE_AFTER)
         session.click(SIDEBAR_SETTINGS, pause=1.5)
@@ -225,7 +305,7 @@ def main() -> int:
         check("the note written after the backup is saved", notes_now == 2, notes_now)
         scroll_to_end(session)
         session.click(FIRST_RESTORE, pause=1.5)
-        session.shot("05-restore-confirmation")
+        session.shot("07-restore-confirmation")
         check(
             "nothing is prepared before the confirmation",
             not (data_dir / "restore").exists() and session.count("SELECT count(*) FROM notes") == 2,
@@ -242,7 +322,7 @@ def main() -> int:
         check("ARCHIVE starts again by itself", restarted is not None)
         wait_for(lambda: bool(session.main_windows()), timeout=30)
         time.sleep(6)
-        session.shot("06-restored")
+        session.shot("08-restored")
         notes = [row[0] for row in session.database().execute("SELECT title FROM notes ORDER BY created_at")]
         check("the data is the backup's: the note written after it is gone", notes == [NOTE_BEFORE], notes)
         check(
@@ -268,7 +348,7 @@ def main() -> int:
         session.click(SIDEBAR_SETTINGS, pause=1.5)
         session.click(SETTINGS_STORAGE, pause=2.0)
         scroll_to_end(session)
-        session.shot("07-history-after-restoration")
+        session.shot("09-history-after-restoration")
     finally:
         if restarted is not None:
             try:
@@ -281,9 +361,9 @@ def main() -> int:
         if (data_dir / "logs").exists():
             shutil.copytree(data_dir / "logs", OUT / "logs", dirs_exist_ok=True)
         shutil.rmtree(workdir, ignore_errors=True)
-    check("the log records the backup, its verification and the restoration",
-          "backup created:" in log and "verified: valid" in log and "restoration of backup" in log
-          and "restored; the replaced data is in backups/before-restore-" in log)
+    check("the log records the backup, its verification, the export and the restoration",
+          "backup created:" in log and "verified: valid" in log and "export written:" in log
+          and "restoration of backup" in log and "restored; the replaced data is in backups/before-restore-" in log)
     check("the key is nowhere in the log", KEY not in log)
     errors = [line for line in log.splitlines() if "[ERROR]" in line]
     check("no error in the log", not errors, errors[:3])

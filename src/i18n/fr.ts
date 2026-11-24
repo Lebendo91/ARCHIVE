@@ -1541,6 +1541,27 @@ export const fr = {
         restoreStranded:
           'La restauration n’a pas pu être appliquée, et une partie de vos données n’a pas pu être remise en place\u00a0: rien n’a été supprimé, elle est gardée dans {folder}.',
       },
+      export: {
+        title: 'Exporter vos données',
+        description:
+          'Une copie lisible sans ARCHIVE, dans un dossier que vous choisissez\u00a0: les fichiers d’origine, les notes en Markdown, des tableaux CSV et un fichier JSON complet. La corbeille n’est pas exportée, ni aucune clé API.',
+        scope: 'Contenu de l’export',
+        scopeAll: 'Toute la base',
+        scopeArchived: '{name} (archivé)',
+        start: 'Exporter…',
+        converting: 'Préparation des notes\u00a0: {done} / {total}',
+        progress: 'Export en cours\u00a0: {done} / {total} éléments',
+        done: 'Export terminé.',
+        doneWithMissing: 'Export terminé, mais des documents manquent.',
+        last: 'Dernier export\u00a0: {folder}',
+        reveal: 'Afficher le dossier',
+        missingTitle: {
+          one: '{count} document n’a pas été exporté\u00a0: sa copie gérée est introuvable.',
+          other:
+            '{count} documents n’ont pas été exportés\u00a0: leurs copies gérées sont introuvables.',
+        },
+        missingHint: 'Le contrôle d’intégrité de cette page aide à comprendre ce qui manque.',
+      },
       description: 'Emplacement et protection de vos données locales.',
       locationsTitle: 'Emplacements',
       locations: {

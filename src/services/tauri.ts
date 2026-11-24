@@ -18,6 +18,10 @@ import type { BackupCheck } from '@/types/bindings/BackupCheck';
 import type { BackupOverview } from '@/types/bindings/BackupOverview';
 import type { BackupProgress } from '@/types/bindings/BackupProgress';
 import type { BackupRecord } from '@/types/bindings/BackupRecord';
+import type { ExportNoteSource } from '@/types/bindings/ExportNoteSource';
+import type { ExportProgress } from '@/types/bindings/ExportProgress';
+import type { ExportScope } from '@/types/bindings/ExportScope';
+import type { ExportSummary } from '@/types/bindings/ExportSummary';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
 import type { DashboardOverview } from '@/types/bindings/DashboardOverview';
@@ -214,6 +218,18 @@ export interface CommandSignatures {
   backup_restore: { args: { id: string }; result: BackupCheck };
   backup_forget: { args: { id: string }; result: null };
   backup_reveal: { args: { id: string }; result: null };
+  export_notes_source: { args: { scope: ExportScope }; result: ExportNoteSource[] };
+  /** Opens a folder dialog of the core; `null` when it is cancelled. */
+  export_create: {
+    args: {
+      scope: ExportScope;
+      markdown: Record<string, string>;
+      untitled: string;
+      onProgress: Channel<ExportProgress>;
+    };
+    result: ExportSummary | null;
+  };
+  export_reveal: { args: undefined; result: null };
   memory_extract_concepts: {
     args: { kind: LinkKind; id: string; providerId: string };
     result: ConceptExtraction;

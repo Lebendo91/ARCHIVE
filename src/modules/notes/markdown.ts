@@ -42,3 +42,16 @@ export function noteToMarkdown(content: JSONContent): string {
   editor.commands.setContent(content, { emitUpdate: false });
   return editor.getMarkdown();
 }
+
+/**
+ * Markdown of a note stored as a TipTap document, for an export; `null` when the stored document cannot be
+ * read (the core then writes the note's plain text rather than nothing).
+ */
+export function storedNoteToMarkdown(content: string): string | null {
+  try {
+    const document = JSON.parse(content) as JSONContent;
+    return document.type === 'doc' ? noteToMarkdown(withoutUnsafeLinks(document)) : null;
+  } catch {
+    return null;
+  }
+}

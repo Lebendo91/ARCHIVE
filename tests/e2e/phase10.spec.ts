@@ -127,3 +127,38 @@ test.describe('Backups', () => {
     await expect(item.getByText('Altérée')).toBeVisible();
   });
 });
+
+test.describe('Export', () => {
+  test('exports a workspace in open formats, and passes the accessibility audit', async ({
+    page,
+  }) => {
+    const base = knowledgeBase();
+    const [electronics] = base.workspaces;
+    const inWorkspace = seedNote('Montage astable', {
+      text: 'Le NE555 oscille.',
+      workspaceId: electronics?.workspace.id ?? null,
+    });
+    await seedCore(page, {
+      ...base,
+      notes: [...base.notes, inWorkspace],
+      exportFolders: ['D:\\Exports'],
+    });
+    await page.goto('/#/settings/storage');
+    const scope = page.getByRole('combobox', { name: 'Contenu de l’export' });
+    await expect(scope).toHaveValue('all');
+    await expect(scope.getByRole('option', { name: 'Électronique' })).toBeAttached();
+    await page.getByRole('heading', { name: 'Exporter vos données' }).scrollIntoViewIfNeeded();
+    await expectNoViolations(page, 'export card');
+
+    await scope.selectOption({ label: 'Électronique' });
+    await page.getByRole('button', { name: 'Exporter…' }).click();
+    await expect(page.getByText('Export terminé.').first()).toBeVisible();
+    await expect(page.getByText(/^Dernier export.*ARCHIVE-export-Électronique-/)).toBeVisible();
+    await expect(page.getByText('1 document · 1 note · 1 espace · 0 relation')).toBeVisible();
+    const [written] = (await coreState(page)).dataExports;
+    expect(written?.scope).toEqual({ kind: 'workspace', id: electronics?.workspace.id });
+    // The note of the workspace, converted to Markdown in the interface.
+    expect(written?.markdown).toEqual({ [inWorkspace.note.id]: 'Le NE555 oscille.' });
+    await expectNoViolations(page, 'export done');
+  });
+});

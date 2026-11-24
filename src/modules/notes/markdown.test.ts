@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { markdownToNote, noteToMarkdown } from './markdown';
+import { markdownToNote, noteToMarkdown, storedNoteToMarkdown } from './markdown';
 
 const SOURCE = `# Diodes
 
@@ -91,5 +91,15 @@ describe('Markdown conversion', () => {
     for (const absent of ['schema.png', 'pixel.gif', '<script', 'javascript:', 'file://']) {
       expect(stored).not.toContain(absent);
     }
+  });
+});
+
+describe('notes stored for an export', () => {
+  it('converts a stored TipTap document to Markdown, and refuses what cannot be read', () => {
+    const stored = JSON.stringify(markdownToNote('# Titre\n\nUn **mot** en gras.').content);
+    expect(storedNoteToMarkdown(stored)).toBe('# Titre\n\nUn **mot** en gras.');
+    // The core then writes the plain text of the note rather than nothing.
+    expect(storedNoteToMarkdown('{not json')).toBeNull();
+    expect(storedNoteToMarkdown('{"type":"paragraph"}')).toBeNull();
   });
 });
