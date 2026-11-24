@@ -19,6 +19,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 - Restauration après une confirmation qui montre la date et le contenu de la sauvegarde : ARCHIVE la vérifie,
   redémarre et l'applique avant d'ouvrir la base ; les données remplacées sont gardées dans le dossier des
   sauvegardes, et un échec remet tout en place (ce qui ne peut pas l'être est gardé, jamais supprimé).
+  L'historique des sauvegardes est conservé, et une notification au démarrage dit ce que la restauration a donné.
+
+### Corrigé — Phase 10
+
+- La tuile « Ouvrir l'assistant IA » de la Vue d'ensemble restait marquée « Bientôt disponible » alors que
+  l'assistant existe depuis la Phase 9 : elle ouvre désormais l'assistant.
+- « 7 fichier(s) » dans Paramètres › Stockage : vraies formes du singulier et du pluriel.
 
 ### Ajouté — Phase 9 : Assistant IA (2026-11-23)
 

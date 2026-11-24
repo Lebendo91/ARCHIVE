@@ -10,6 +10,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useId } from 'react';
+import { useNavigate } from 'react-router';
 import { formatCombination, getShortcut } from '@/app/shortcuts/shortcuts';
 import { QuickActionList, type QuickAction } from '@/components/actions/QuickActionList';
 import { ActivityList } from '@/components/activity/ActivityList';
@@ -132,9 +133,10 @@ function Onboarding() {
   );
 }
 
-/** Quick actions of spec §6.1. Those of modules not delivered yet are visibly unavailable. */
+/** Quick actions of spec §6.1. */
 function QuickActions() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const startImport = useStartImport();
   const createNote = useCreateNote();
   const actions: QuickAction[] = [
@@ -165,7 +167,14 @@ function QuickActions() {
         void createNote();
       },
     },
-    { id: 'assistant', icon: MessageSquareText, label: t('dashboard.openAssistant') },
+    {
+      id: 'assistant',
+      icon: MessageSquareText,
+      label: t('dashboard.openAssistant'),
+      onClick: () => {
+        void navigate('/assistant');
+      },
+    },
   ];
   return <QuickActionList actions={actions} className="grid-cols-2 xl:grid-cols-4" />;
 }

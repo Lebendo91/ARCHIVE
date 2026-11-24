@@ -73,7 +73,7 @@ function Locations({ overview }: { overview: StorageOverview }) {
 }
 
 function Usage({ overview }: { overview: StorageOverview }) {
-  const { t, locale } = useI18n();
+  const { t, tCount, locale } = useI18n();
   const size = (bytes: number) => formatFileSize(bytes, locale);
   const disk =
     overview.diskAvailableBytes !== null && overview.diskTotalBytes !== null
@@ -89,7 +89,7 @@ function Usage({ overview }: { overview: StorageOverview }) {
         <Row label={t('settings.storage.usage.database')}>{size(overview.databaseBytes)}</Row>
         <Row label={t('settings.storage.usage.files')}>
           <span className="text-fg-secondary">
-            {t('settings.storage.usage.filesCount', { count: overview.filesCount })}
+            {tCount('settings.storage.usage.filesCount', overview.filesCount)}
           </span>
           <span>{size(overview.filesBytes)}</span>
         </Row>

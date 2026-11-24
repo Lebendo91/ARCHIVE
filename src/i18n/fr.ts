@@ -1556,7 +1556,7 @@ export const fr = {
       usage: {
         database: 'Base de données',
         files: 'Fichiers importés',
-        filesCount: '{count} fichier(s)',
+        filesCount: { one: '{count} fichier', other: '{count} fichiers' },
         backups: 'Sauvegardes',
         logs: 'Journaux',
         total: 'Total utilisé par ARCHIVE',

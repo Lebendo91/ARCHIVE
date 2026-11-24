@@ -349,7 +349,12 @@ describe('overview', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Importer un document/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Nouvelle note/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /Ouvrir l’assistant IA/ })).toBeDisabled();
+    // Every quick action works: the assistant opens from here (Phase 9).
+    await user.click(screen.getByRole('button', { name: /Ouvrir l’assistant IA/ }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Assistant IA' }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Vue d’ensemble' }));
 
     await user.click(screen.getByRole('button', { name: 'Créer un espace de travail' }));
     expect(

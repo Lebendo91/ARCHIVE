@@ -1518,7 +1518,7 @@ export const en: Dictionary = {
       usage: {
         database: 'Database',
         files: 'Imported files',
-        filesCount: '{count} file(s)',
+        filesCount: { one: '{count} file', other: '{count} files' },
         backups: 'Backups',
         logs: 'Logs',
         total: 'Total used by ARCHIVE',

@@ -74,7 +74,7 @@ describe('settings', () => {
     expect(await screen.findByText(MOCK_READY_STATUS.dataDir)).toBeInTheDocument();
     expect(screen.getByText('2,5 Mo')).toBeInTheDocument();
     expect(screen.getByText('2,6 Mo')).toBeInTheDocument();
-    expect(screen.getByText('3 fichier(s)')).toBeInTheDocument();
+    expect(screen.getByText('3 fichiers')).toBeInTheDocument();
     expect(screen.getByText('128 Go sur 512 Go')).toBeInTheDocument();
 
     await user.click(

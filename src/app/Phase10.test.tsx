@@ -292,10 +292,12 @@ describe('restoration at start', () => {
     expect(notice).toHaveTextContent(`Les données remplacées sont gardées dans ${KEPT}.`);
     await user.click(screen.getByRole('link', { name: 'Paramètres' }));
     await screen.findByRole('heading', { level: 1, name: 'Général' });
-    // Told once: moving through the application does not tell it again.
-    expect(
-      useToastStore.getState().toasts.filter((item) => item.title.includes('a été restaurée')),
-    ).toHaveLength(1);
+    // Told once, and long enough to note the folder: moving through the application does not tell it again.
+    const told = useToastStore
+      .getState()
+      .toasts.filter((item) => item.title.includes('a été restaurée'));
+    expect(told).toHaveLength(1);
+    expect(told[0]?.duration).toBeGreaterThanOrEqual(30_000);
   });
 
   it('says when a restoration could not be applied and the data stayed as it was', async () => {

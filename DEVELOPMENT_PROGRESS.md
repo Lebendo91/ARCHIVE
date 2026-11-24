@@ -905,18 +905,39 @@ Les résultats complets sont dans [docs/ENVIRONMENT_AUDIT.md](docs/ENVIRONMENT_A
 
 ## ▶ Action suivante exacte
 
-**Phase 10** (spec §16 et §21), branche `phase/10-finalisation`. Décisions de la tâche 10.1 consignées dans
-ARCHITECTURE §7.1 (sauvegarde ZIP avec manifeste et empreintes, historique en table `backups` au schéma v5,
-vérification stricte, restauration appliquée au démarrage avant l'ouverture de la base, export lisible). Prochaine
-tâche : **10.2** (sauvegarde, vérification, historique et restauration, côté cœur puis Paramètres › Stockage).
+**Phase 10** (spec §16 et §21), branche `phase/10-finalisation`. Tâches 10.1 et 10.2 terminées (détail
+ci-dessous). Prochaine tâche : **10.3** (export complet lisible, dans un dossier choisi : `documents/` avec les
+fichiers d'origine, `notes/` en Markdown avec leurs métadonnées en tête, `metadata/*.csv`, `archive.json` ; toute
+la base ou un espace de travail ; ARCHITECTURE §7.1).
 
-| # | Tâche |
+| # | Tâche | État |
+|---|---|---|
+| 10.1 | Décisions : format de sauvegarde (base SQLite cohérente, fichiers gérés, manifeste avec empreintes), restauration jamais sans confirmation, aucun secret dans les sauvegardes | ✅ |
+| 10.2 | Sauvegarde et restauration : commandes natives validées, sauvegarde manuelle, vérification d'intégrité, historique, restauration après confirmation | ✅ |
+| 10.3 | Export : export complet lisible (Markdown des notes, fichiers d'origine, métadonnées JSON) | ▶ |
+| 10.4 | Validation des données et reprise après erreur : contrôle d'intégrité étendu, réparation guidée de l'index, messages clairs | |
+| 10.5 | Revue de sécurité (capabilities, CSP, entrées des commandes, chemins, journal, secrets) et corrections | |
+| 10.6 | Performances et mémoire : mesures sur corpus généré, optimisations mesurées | |
+| 10.7 | Packaging Windows : installateurs MSI et NSIS, métadonnées, icônes, identifiant d'application (validation du porteur) | |
+| 10.8 | Audit visuel final, documentation utilisateur, validation (spec §21), CI, fusion | |
+
+### 10.2 — Sauvegarde et restauration (terminée le 2026-11-24)
+
+- Cœur : `backup/` (ZIP ouvert : manifeste, instantané `VACUUM INTO`, copies gérées, SHA-256 par élément, aucun
+  secret), historique (table `backups`, schéma v5), vérification stricte, restauration préparée puis appliquée au
+  démarrage avant l'ouverture de la base ; données remplacées gardées dans `backups/before-restore-…` ; un échec
+  remet tout en place (ce qui ne peut pas l'être reste à part, jamais supprimé) ; historique reporté dans la base
+  restaurée. Sept commandes (`commands/backup.rs`), chemins choisis dans les dialogues du cœur uniquement.
+- Interface : carte « Sauvegardes » de Paramètres › Stockage (création avec progression, historique et états,
+  vérification, fichier venu d'ailleurs, restauration après confirmation datée avec contenu, problèmes nommés) ;
+  notification au démarrage, affichée une minute, sur ce que la restauration a donné.
+- Corrigés en passant : la tuile « Ouvrir l'assistant IA » de la Vue d'ensemble restait « Bientôt disponible »
+  depuis la Phase 9 (bouton mort, trouvé par la validation native) ; « 7 fichier(s) » remplacé par de vraies formes
+  plurielles ; contraste du chemin d'une sauvegarde (trouvé par axe).
+
+| Preuve | Résultat |
 |---|---|
-| **10.1** | Décisions : format de sauvegarde (base SQLite cohérente par l'API de sauvegarde, fichiers stockés, manifeste avec empreintes), restauration sans écraser les données courantes sans confirmation, exclusion des secrets (spec : aucune clé dans les sauvegardes par défaut) |
-| 10.2 | Sauvegarde et restauration : commandes natives validées, sauvegarde manuelle, vérification d'intégrité, restauration après confirmation, tests Rust |
-| 10.3 | Export : export complet lisible (Markdown des notes, fichiers d'origine, métadonnées JSON) |
-| 10.4 | Validation des données et reprise après erreur : contrôle d'intégrité étendu, réparation guidée de l'index, messages clairs |
-| 10.5 | Revue de sécurité (capabilities, CSP, entrées des commandes, chemins, journal, secrets) et corrections |
-| 10.6 | Performances et mémoire : mesures sur corpus généré, optimisations mesurées |
-| 10.7 | Packaging Windows : installateurs MSI et NSIS, métadonnées, icônes, identifiant d'application (validation du porteur) |
-| 10.8 | Audit visuel final, documentation utilisateur, validation (spec §21), CI, fusion |
+| Rust (`cargo test`) | 350 réussis, 3 ignorés ; dont 5 tests de sauvegarde (contenu et vérification ; fichiers altérés, étrangers ou trop récents refusés ; restauration et données gardées ; restauration impossible sans effet ; échec à mi-parcours tout remis en place) ; `clippy -D warnings` et `fmt` propres |
+| Unitaires (Vitest) | 10 nouveaux (`Phase10.test.tsx`) : création et progression, vérification et problèmes, confirmation, refus au dernier moment, fichier venu d'ailleurs, retrait, fichier introuvable, trois notifications de démarrage |
+| De bout en bout (Playwright, axe) | 2 nouveaux (`phase10.spec.ts`) avec 4 audits d'accessibilité ; scénario visuel « sauvegardes » aux 3 tailles, relu |
+| Validation native (`scripts/validate-native-phase10.py`) | **26/26** : vrai dialogue d'enregistrement GTK, ZIP contrôlé (éléments, empreintes, base saine, aucune clé), vérification, restauration avec **redémarrage réel** du binaire, données de la sauvegarde rétablies, données remplacées gardées, historique conservé, journal sans erreur ni clé |
