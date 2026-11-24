@@ -12,6 +12,7 @@ import { useI18n } from '@/i18n';
 import { ImportController } from '@/modules/library/ImportController';
 import { usePdfExtraction } from '@/modules/library/usePdfExtraction';
 import { useMemoryEvents } from '@/modules/memory/useMemoryEvents';
+import { useRestoreNotice } from '@/modules/settings/useRestoreNotice';
 import { useStartImport } from '@/modules/library/useStartImport';
 import { useCreateNote } from '@/modules/notes/useCreateNote';
 import { WorkspaceDialogs } from '@/modules/workspaces/WorkspaceDialogs';
@@ -22,6 +23,7 @@ import { Topbar } from './Topbar';
 
 /** Application frame: sidebar, top bar and the scrollable content area (specification §3.2). */
 export function AppShell() {
+  useRestoreNotice();
   const { t } = useI18n();
   const navigate = useNavigate();
   const { pathname } = useLocation();

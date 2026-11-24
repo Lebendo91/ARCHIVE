@@ -250,8 +250,11 @@ fn a_restoration_replaces_the_data_at_start_and_keeps_what_it_replaced() {
         .parent()
         .expect("parent")
         .join("sauvegarde.zip");
-    create(&database, &folder.paths, &backup, |_| {}).expect("backup");
-    // After the backup: a note written, the document's file gone.
+    let summary = create(&database, &folder.paths, &backup, |_| {}).expect("backup");
+    database
+        .write(|transaction| remember(transaction, &backup, &summary, None))
+        .expect("remembered");
+    // After the backup: a note written, another backup made, the document's file gone.
     database
         .write(|transaction| {
             notes::create(
@@ -268,26 +271,55 @@ fn a_restoration_replaces_the_data_at_start_and_keeps_what_it_replaced() {
             .map(|_| ())
         })
         .expect("note");
+    let later = backup.with_file_name("plus-tard.zip");
+    let later_summary = create(&database, &folder.paths, &later, |_| {}).expect("later backup");
+    database
+        .write(|transaction| remember(transaction, &later, &later_summary, Some(true)))
+        .expect("remembered");
     let stored = FileStore::new(&folder.paths)
         .path_for(&format!("{document}.pdf"))
         .expect("path");
     fs::remove_file(&stored).expect("file removed");
     assert_eq!(note_titles(&database), ["Montage astable", "Écrite après"]);
 
-    let check = stage_restore(&folder.paths, &backup).expect("staged");
+    let history = database.read(list).expect("history");
+    let check = stage_restore(&folder.paths, &backup, &history).expect("staged");
     assert!(check.valid(), "{check:?}");
     // Nothing changes until the next start.
     assert_eq!(note_titles(&database), ["Montage astable", "Écrite après"]);
     drop(database);
 
-    let outcome = apply_pending_restore(&folder.paths).expect("applied");
+    let restore = apply_pending_restore(&folder.paths).expect("applied");
+    let outcome = restore.outcome.clone();
     assert!(outcome.applied, "{outcome:?}");
     let database = open(&folder.paths);
     assert_eq!(note_titles(&database), ["Montage astable"]);
+
+    // The restored database was saved before any backup was remembered: the history is carried over, with the
+    // backup restored marked as verified (it was, before being extracted).
+    assert!(database.read(list).expect("history").is_empty());
+    let written = database
+        .write(|transaction| restore.carry_history(transaction))
+        .expect("carried");
+    assert_eq!(written, 2);
+    let carried = database.read(list).expect("history");
+    let find = |path: &Path| {
+        carried
+            .iter()
+            .find(|record| Path::new(&record.path) == path)
+            .cloned()
+            .expect("in the history")
+    };
+    let restored = find(&backup);
+    assert_eq!(restored.valid, Some(true));
+    assert!(restored.verified_at.is_some());
+    assert_eq!(restored.contents.notes, 1);
+    assert_eq!(find(&later).contents.notes, 2);
     assert!(stored.is_file(), "the file of the backup is back");
     assert!(!folder.paths.restore_dir.exists());
     // The replaced data is kept, with the note written after the backup.
-    let kept = folder.paths.data_dir.join(&outcome.detail);
+    let kept = PathBuf::from(outcome.kept_in.expect("kept"));
+    assert!(kept.starts_with(&folder.paths.backups_dir), "{kept:?}");
     let previous = Database::open(&kept.join("archive.db"), &folder.paths.tmp_dir)
         .expect("kept database")
         .0;
@@ -308,14 +340,27 @@ fn a_restoration_that_cannot_be_applied_changes_nothing() {
         .expect("parent")
         .join("sauvegarde.zip");
     create(&database, &folder.paths, &backup, |_| {}).expect("backup");
-    stage_restore(&folder.paths, &backup).expect("staged");
+    stage_restore(&folder.paths, &backup, &[]).expect("staged");
     drop(database);
     // The extracted database disappeared before the start.
     fs::remove_file(folder.paths.restore_dir.join(STAGING).join(DATABASE)).expect("removed");
-    let outcome = apply_pending_restore(&folder.paths).expect("tried");
+    let restore = apply_pending_restore(&folder.paths).expect("tried");
+    let outcome = &restore.outcome;
     assert!(!outcome.applied);
+    assert_eq!(outcome.kept_in, None, "everything is where it was");
+    assert!(
+        !folder.paths.restore_dir.exists(),
+        "the extracted copy is removed"
+    );
     let database = open(&folder.paths);
     assert_eq!(note_titles(&database), ["Montage astable"]);
+    // Not applied: the database kept its own history.
+    assert_eq!(
+        database
+            .write(|transaction| restore.carry_history(transaction))
+            .expect("nothing"),
+        0
+    );
     assert!(
         apply_pending_restore(&folder.paths).is_none(),
         "tried once only"
@@ -329,7 +374,67 @@ fn a_restoration_that_cannot_be_applied_changes_nothing() {
         .expect("parent")
         .join("faux.zip");
     fs::write(&fake, b"PK not really").expect("write");
-    let check = stage_restore(&folder.paths, &fake).expect("checked");
+    let check = stage_restore(&folder.paths, &fake, &[]).expect("checked");
     assert!(!check.valid());
+    assert!(!folder.paths.restore_dir.exists());
+}
+
+#[test]
+fn a_restoration_failing_half_way_puts_the_data_back() {
+    let folder = folder();
+    let database = open(&folder.paths);
+    seed(&folder, &database);
+    let backup = folder
+        .paths
+        .data_dir
+        .parent()
+        .expect("parent")
+        .join("sauvegarde.zip");
+    create(&database, &folder.paths, &backup, |_| {}).expect("backup");
+    database
+        .write(|transaction| {
+            notes::create(
+                transaction,
+                &NoteContent {
+                    title: "Écrite après".to_owned(),
+                    content: String::new(),
+                    content_format: NoteFormat::Plain,
+                    content_text: String::new(),
+                },
+                None,
+                None,
+            )
+            .map(|_| ())
+        })
+        .expect("note");
+    assert!(
+        stage_restore(&folder.paths, &backup, &[])
+            .expect("staged")
+            .valid()
+    );
+    drop(database);
+
+    // The database is set aside and the restored one put in its place, then the files cannot be: their
+    // folder is somewhere that does not exist.
+    let broken = AppPaths {
+        files_dir: folder.paths.data_dir.join("absent").join("files"),
+        ..folder.paths.clone()
+    };
+    let outcome = apply_pending_restore(&broken).expect("tried").outcome;
+    assert!(!outcome.applied);
+    assert_eq!(outcome.kept_in, None, "everything was put back");
+    let database = open(&folder.paths);
+    assert_eq!(note_titles(&database), ["Montage astable", "Écrite après"]);
+    let aside: Vec<_> = fs::read_dir(&folder.paths.backups_dir)
+        .expect("backups")
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("before-restore-")
+        })
+        .collect();
+    assert!(aside.is_empty(), "no folder left aside: {aside:?}");
     assert!(!folder.paths.restore_dir.exists());
 }

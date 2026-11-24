@@ -684,6 +684,93 @@ test.describe('@visual screenshots', () => {
       await page.screenshot({ path: `visual-audit/${size}/phase8-graph-empty.png` });
     });
 
+    test(`backups at ${size}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const contents = {
+        documents: 128,
+        notes: 46,
+        workspaces: 4,
+        tags: 12,
+        relations: 87,
+        conversations: 3,
+        files: 128,
+      };
+      const backup = (id: string, path: string, daysAgo: number) => ({
+        id,
+        path,
+        createdAt: Date.UTC(2026, 10, 22, 12, 0) - daysAgo * 86_400_000,
+        sizeBytes: 734_003_200 - daysAgo * 1_048_576,
+        schemaVersion: 5,
+        appVersion: '0.1.0',
+        contents,
+        verifiedAt: null,
+        valid: null,
+        available: true,
+      });
+      const verified = {
+        ...backup(
+          '0b9c1d2e-3f40-4a5b-8c6d-7e8f9a0b1c2d',
+          'D:\\Sauvegardes\\ARCHIVE-sauvegarde-2026-11-22-1200.zip',
+          0,
+        ),
+        valid: true,
+        verifiedAt: Date.UTC(2026, 10, 22, 12, 5),
+      };
+      const altered = backup(
+        '1c2d3e4f-5061-4728-9a3b-4c5d6e7f8091',
+        'D:\\Sauvegardes\\ARCHIVE-sauvegarde-2026-11-15-1200.zip',
+        7,
+      );
+      const missing = {
+        ...backup(
+          '2d3e4f50-6172-4839-8b4c-5d6e7f809102',
+          'E:\\Clé USB\\ARCHIVE-sauvegarde-2026-11-01-1200.zip',
+          21,
+        ),
+        available: false,
+      };
+      await seedCore(page, {
+        backups: [verified, altered, missing],
+        backupChecks: {
+          [altered.id]: {
+            summary: {
+              appVersion: altered.appVersion,
+              schemaVersion: altered.schemaVersion,
+              createdAt: altered.createdAt,
+              contents,
+              sizeBytes: altered.sizeBytes,
+            },
+            problems: [
+              {
+                kind: 'altered',
+                name: 'files/91/1c2d3e4f-5061-4728-9a3b-4c5d6e7f8091.pdf',
+              },
+            ],
+          },
+        },
+      });
+      const shot = async (name: string, fullPage = false) => {
+        await waitForFonts(page);
+        await page.mouse.move(0, viewport.height - 1);
+        await page.screenshot({ path: `visual-audit/${size}/phase10-${name}.png`, fullPage });
+      };
+      await page.goto('/#/settings/storage');
+      const history = page.getByRole('list', { name: 'Historique' });
+      await history.scrollIntoViewIfNeeded();
+      await expect(history.getByText('Introuvable')).toBeVisible();
+      await history.getByRole('listitem').nth(1).getByRole('button', { name: 'Vérifier' }).click();
+      await expect(page.getByText(/La sauvegarde du .* ne peut pas être restaurée/)).toBeVisible();
+      await page.getByRole('heading', { name: 'Sauvegardes', level: 3 }).scrollIntoViewIfNeeded();
+      await shot('backups');
+      await history
+        .getByRole('listitem')
+        .first()
+        .getByRole('button', { name: 'Restaurer…' })
+        .click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await shot('restore-confirmation');
+    });
+
     test(`first run at ${size}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto('/');

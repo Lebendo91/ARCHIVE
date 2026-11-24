@@ -9,6 +9,8 @@ export type RestoreOutcome = { applied: boolean,
  */
 backupCreatedAt: number, 
 /**
- * Where the data it replaced is kept (relative to the data folder), or why it failed.
+ * Folder holding the data that was in place: the data a restoration replaced, or, when a failed
+ * restoration could not put everything back, what is still there (never deleted). `None` when a failed
+ * restoration left the data as it was.
  */
-detail: string, };
+keptIn: string | null, };

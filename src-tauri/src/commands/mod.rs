@@ -5,6 +5,7 @@
 
 pub mod ai;
 pub mod app;
+pub mod backup;
 pub mod dashboard;
 pub mod diagnostics;
 pub mod documents;

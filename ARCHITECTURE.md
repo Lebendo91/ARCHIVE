@@ -370,7 +370,7 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   par le cœur. SQLite seul ne replie que les lettres ASCII.
 - **Exports** : noms assainis pour Windows (noms réservés `CON`, `NUL`…, caractères interdits, longueur).
 
-### 7.1 Sauvegarde, restauration et export — *Prévu (Phase 10)*
+### 7.1 Sauvegarde, restauration et export — *Sauvegarde et restauration implémentées (Phase 10) ; export prévu*
 
 - **Sauvegarde = un fichier ZIP ouvert** (spec §16.1), à l'emplacement choisi par l'utilisateur (dialogue
   d'enregistrement ouvert par le cœur) : `manifest.json`, `archive.db` et `files/…` (les copies gérées, avec leur
@@ -387,8 +387,20 @@ La variable `ARCHIVE_DATA_DIR` le remplace pour les tests et le développement.
   confirmation, le cœur extrait la sauvegarde (empreintes vérifiées) dans `restore/` et redémarre ARCHIVE. Au
   démarrage, **avant toute ouverture de la base** (aucune connexion ni verrou Windows), les données actuelles sont
   déplacées dans `backups/before-restore-<date>/` puis remplacées par celles de la sauvegarde. Rien n'est supprimé :
-  en cas d'échec, les déplacements sont annulés et l'écran de démarrage l'explique. Une sauvegarde d'un schéma plus
-  ancien est migrée normalement (avec sa copie de sécurité habituelle).
+  en cas d'échec, les déplacements sont annulés, et ce qui ne pourrait pas être remis en place reste dans ce
+  dossier. Une notification au démarrage dit ce qui s'est passé (`AppStatus.restore` : appliquée, ou non, et le
+  dossier qui garde les données). La restauration n'est tentée qu'une fois ; la copie extraite est ensuite
+  effacée (une nouvelle tentative extrait la sauvegarde à nouveau). Les dossiers `before-restore-…` ne sont pas
+  effacés automatiquement : leur taille compte dans celle du dossier des sauvegardes (Paramètres › Stockage).
+  L'historique des sauvegardes traverse la restauration : la base restaurée ne connaît que les sauvegardes
+  antérieures à elle ; l'historique courant est donc gardé dans le marqueur de restauration, puis réécrit dans la
+  base restaurée une fois ouverte (la sauvegarde restaurée y figure, vérifiée).
+  Une sauvegarde d'un schéma plus ancien est migrée normalement (avec sa copie de sécurité habituelle).
+- **Commandes** (`commands/backup.rs`) : `backup_overview`, `backup_create` (dialogue d'enregistrement du cœur,
+  extension `.zip` imposée, progression par `Channel`), `backup_verify`, `backup_open_file` (fichier choisi dans un
+  dialogue du cœur, vérifié puis ajouté à l'historique), `backup_restore` (préparation puis redémarrage : la
+  commande ne répond que si la sauvegarde ne peut pas être restaurée), `backup_forget` (l'historique seulement),
+  `backup_reveal`. L'interface ne fournit jamais de chemin : seulement des identifiants de l'historique.
 - **Export** (spec §16.4) dans un dossier choisi, pour toute la base ou un espace de travail : fichiers d'origine
   (`documents/`), notes en Markdown avec leurs métadonnées en tête (`notes/`), tableaux CSV des documents, notes et
   espaces (`metadata/`), et un `archive.json` complet (espaces, dossiers, étiquettes, documents, notes, relations,

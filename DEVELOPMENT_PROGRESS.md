@@ -7,9 +7,9 @@
 
 **Phase 10 — Sauvegarde, sécurité, optimisation et packaging : en cours** (branche `phase/10-finalisation`, créée
 depuis `main` à `350bf83`). La Phase 9 a été fusionnée dans `main` par la pull request Lebendo91/ARCHIVE#6 le
-2026-11-23 (commit `350bf83` ; CI de la pull request au vert : run 45254927340 ; CI de `main` lancée : runs
-45256167211 et 45256167237, à consigner une fois terminés). Le porteur du projet a demandé l'enchaînement autonome
-des phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
+2026-11-23 (commit `350bf83` ; CI de la pull request au vert : run 45254927340 ; CI de `main` au vert : runs
+45256167211 « CI » et 45256167237 « Windows build »). Le porteur du projet a demandé l'enchaînement autonome des
+phases ; une reprise automatique est programmée après chaque réinitialisation de sa limite d'utilisation.
 
 | Phase | Intitulé | Statut |
 |---|---|---|

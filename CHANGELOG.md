@@ -6,6 +6,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Le 
 
 ## [Non publié]
 
+### Ajouté — Phase 10 : Sauvegarde, sécurité, optimisation et packaging (en cours)
+
+- Sauvegardes (Paramètres › Stockage) : un fichier ZIP ouvert, rangé où l'utilisateur le choisit, avec la base de
+  données (copie cohérente) et une copie de chaque document, un manifeste et l'empreinte SHA-256 de chaque
+  élément ; aucune clé API n'y figure. Progression affichée pendant l'écriture.
+- Historique des sauvegardes (schéma de base v5) : date, taille, contenu, état (vérifiée, altérée, non vérifiée,
+  introuvable), affichage dans l'explorateur, retrait de l'historique sans toucher au fichier.
+- Vérification stricte d'une sauvegarde, de l'historique ou d'un fichier venu d'ailleurs : éléments attendus
+  seulement, empreintes recalculées, intégrité de la base, version trop récente refusée ; chaque problème est
+  nommé.
+- Restauration après une confirmation qui montre la date et le contenu de la sauvegarde : ARCHIVE la vérifie,
+  redémarre et l'applique avant d'ouvrir la base ; les données remplacées sont gardées dans le dossier des
+  sauvegardes, et un échec remet tout en place (ce qui ne peut pas l'être est gardé, jamais supprimé).
+
 ### Ajouté — Phase 9 : Assistant IA (2026-11-23)
 
 - Couche IA indépendante du fournisseur, facultative : Anthropic (Messages API), OpenAI (Responses API, sans

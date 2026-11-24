@@ -1452,6 +1452,57 @@ export const en: Dictionary = {
       upcoming: ['Light and system themes', 'Limited accent customization'],
     },
     storage: {
+      backup: {
+        title: 'Backups',
+        description:
+          'A backup holds the database and a copy of every document, in a ZIP file you keep wherever you want. API keys are never in it.',
+        automatic:
+          'ARCHIVE also copies the database to its backups folder before each update of its structure.',
+        create: 'Create a backup',
+        open: 'Verify a backup file…',
+        progress: 'Backing up: {done} / {total} items',
+        created: 'Backup created.',
+        last: 'Last backup: {date}',
+        location: 'Location: {folder}',
+        none: 'No backup yet.',
+        historyTitle: 'History',
+        counts: {
+          documents: { one: '{count} document', other: '{count} documents' },
+          notes: { one: '{count} note', other: '{count} notes' },
+          workspaces: { one: '{count} workspace', other: '{count} workspaces' },
+          relations: { one: '{count} relationship', other: '{count} relationships' },
+        },
+        valid: 'Verified',
+        invalid: 'Altered',
+        unverified: 'Not verified',
+        missing: 'Missing',
+        verify: 'Verify',
+        verified: 'Backup intact: every file matches its fingerprint.',
+        restore: 'Restore…',
+        reveal: 'Show in folder',
+        forget: 'Remove from the history',
+        forgotten: 'Removed from the history. The file was not touched.',
+        problemsTitle: 'This file cannot be restored',
+        problemsTitleOf: 'The backup of {date} cannot be restored',
+        problems: {
+          not_a_backup: 'This file is not an ARCHIVE backup.',
+          too_new: 'It was made by a newer version of ARCHIVE.',
+          unexpected_entry: 'It holds an unexpected item: {name}.',
+          missing_entry: 'An item is missing: {name}.',
+          altered: 'An item was changed since the backup: {name}.',
+          database_damaged: 'Its database is damaged.',
+        },
+        restoreDialog: {
+          title: 'Restore the backup of {date}?',
+          description:
+            'The current data (documents, notes, workspaces, relations, conversations) will be replaced by the data of this backup: {contents}. ARCHIVE restarts to apply it, and your current data is kept in its backups folder.',
+          confirm: 'Restore and restart',
+        },
+        restored: 'The backup of {date} was restored. The replaced data is kept in {folder}.',
+        restoreFailed: 'The restoration could not be applied: your current data is unchanged.',
+        restoreStranded:
+          'The restoration could not be applied, and part of your data could not be put back: nothing was deleted, it is kept in {folder}.',
+      },
       description: 'Location and protection of your local data.',
       locationsTitle: 'Locations',
       locations: {
@@ -1482,10 +1533,6 @@ export const en: Dictionary = {
       integrityOk: 'No problem found.',
       integrityProblems: 'Problems found: {count}',
       integrityCheckedAt: 'Checked on {date}.',
-      backupsTitle: 'Backups',
-      backupsAutomatic:
-        'Before each update of the database structure, ARCHIVE automatically places a copy of it in the backups folder.',
-      backupsUpcoming: 'Full backup, restore and export will come with an upcoming module.',
       unavailable: 'Storage information is only available in the desktop application.',
     },
     ai: {

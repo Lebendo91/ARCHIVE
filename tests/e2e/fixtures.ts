@@ -42,6 +42,7 @@ function nativeRuntimeDouble(
     lastMigration: null,
     failure: null,
     dataDir,
+    restore: null,
   };
   const status = () =>
     sessionStorage.getItem('archive-e2e-scenario') === 'safe-mode'

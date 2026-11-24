@@ -51,6 +51,7 @@ export const MOCK_READY_STATUS: AppStatus = {
   lastMigration: null,
   failure: null,
   dataDir: 'C:\\Users\\Alice\\AppData\\Local\\io.github.lebendo91.archive',
+  restore: null,
 };
 
 export const MOCK_STORAGE: StorageOverview = {

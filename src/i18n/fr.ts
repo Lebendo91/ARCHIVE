@@ -1488,6 +1488,59 @@ export const fr = {
       upcoming: ['Thèmes clair et système', 'Personnalisation limitée de l’accent'],
     },
     storage: {
+      backup: {
+        title: 'Sauvegardes',
+        description:
+          'Une sauvegarde contient la base de données et une copie de chaque document, dans un fichier ZIP que vous rangez où vous voulez. Les clés API n’y figurent jamais.',
+        automatic:
+          'ARCHIVE copie aussi la base dans son dossier des sauvegardes avant chaque mise à jour de sa structure.',
+        create: 'Créer une sauvegarde',
+        open: 'Vérifier un fichier de sauvegarde…',
+        progress: 'Sauvegarde en cours\u00a0: {done} / {total} éléments',
+        created: 'Sauvegarde créée.',
+        last: 'Dernière sauvegarde\u00a0: {date}',
+        location: 'Emplacement\u00a0: {folder}',
+        none: 'Aucune sauvegarde pour l’instant.',
+        historyTitle: 'Historique',
+        counts: {
+          documents: { one: '{count} document', other: '{count} documents' },
+          notes: { one: '{count} note', other: '{count} notes' },
+          workspaces: { one: '{count} espace', other: '{count} espaces' },
+          relations: { one: '{count} relation', other: '{count} relations' },
+        },
+        valid: 'Vérifiée',
+        invalid: 'Altérée',
+        unverified: 'Non vérifiée',
+        missing: 'Introuvable',
+        verify: 'Vérifier',
+        verified: 'Sauvegarde intacte\u00a0: chaque fichier correspond à son empreinte.',
+        restore: 'Restaurer…',
+        reveal: 'Afficher dans le dossier',
+        forget: 'Retirer de l’historique',
+        forgotten: 'Retirée de l’historique. Le fichier n’a pas été touché.',
+        problemsTitle: 'Ce fichier ne peut pas être restauré',
+        problemsTitleOf: 'La sauvegarde du {date} ne peut pas être restaurée',
+        problems: {
+          not_a_backup: 'Ce fichier n’est pas une sauvegarde d’ARCHIVE.',
+          too_new: 'Elle a été faite par une version plus récente d’ARCHIVE.',
+          unexpected_entry: 'Elle contient un élément inattendu\u00a0: {name}.',
+          missing_entry: 'Un élément manque\u00a0: {name}.',
+          altered: 'Un élément a été modifié depuis la sauvegarde\u00a0: {name}.',
+          database_damaged: 'Sa base de données est endommagée.',
+        },
+        restoreDialog: {
+          title: 'Restaurer la sauvegarde du {date}\u00a0?',
+          description:
+            'Les données actuelles (documents, notes, espaces, relations, conversations) seront remplacées par celles de cette sauvegarde\u00a0: {contents}. ARCHIVE redémarre pour l’appliquer, et vos données actuelles sont gardées dans son dossier des sauvegardes.',
+          confirm: 'Restaurer et redémarrer',
+        },
+        restored:
+          'La sauvegarde du {date} a été restaurée. Les données remplacées sont gardées dans {folder}.',
+        restoreFailed:
+          'La restauration n’a pas pu être appliquée\u00a0: vos données actuelles sont inchangées.',
+        restoreStranded:
+          'La restauration n’a pas pu être appliquée, et une partie de vos données n’a pas pu être remise en place\u00a0: rien n’a été supprimé, elle est gardée dans {folder}.',
+      },
       description: 'Emplacement et protection de vos données locales.',
       locationsTitle: 'Emplacements',
       locations: {
@@ -1518,11 +1571,6 @@ export const fr = {
       integrityOk: 'Aucun problème détecté.',
       integrityProblems: 'Problèmes détectés\u00a0: {count}',
       integrityCheckedAt: 'Vérification effectuée le {date}.',
-      backupsTitle: 'Sauvegardes',
-      backupsAutomatic:
-        'Avant chaque mise à jour de la structure de la base, ARCHIVE en dépose automatiquement une copie dans le dossier des sauvegardes.',
-      backupsUpcoming:
-        'La sauvegarde complète, la restauration et l’export arrivent avec un prochain module.',
       unavailable:
         'Les informations de stockage ne sont disponibles que dans l’application de bureau.',
     },

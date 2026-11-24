@@ -1,4 +1,6 @@
 import type { AiProviderView } from '../types/bindings/AiProviderView';
+import type { BackupCheck } from '../types/bindings/BackupCheck';
+import type { BackupRecord } from '../types/bindings/BackupRecord';
 import type { ConceptMention } from '../types/bindings/ConceptMention';
 import type { AnswerDetails } from '../types/bindings/AnswerDetails';
 import type { AssistantEvent } from '../types/bindings/AssistantEvent';
@@ -152,6 +154,14 @@ export interface CoreDoubleState {
   >;
   /** Concepts recorded for an item, by `kind:id`. */
   concepts: Record<string, ConceptMention[]>;
+  /** History of the backups. */
+  backups: BackupRecord[];
+  /** What the verification of a backup finds, by id: a valid backup when not given. */
+  backupChecks: Record<string, BackupCheck>;
+  /** The backup whose restoration was prepared (the real core then restarts). */
+  restoredBackup: string | null;
+  /** Backup files the next file pickers return, with what their verification finds. */
+  backupPicks: { path: string; check: BackupCheck }[];
 }
 
 /** An answer a provider writes in the double: its pieces, and how it ends. */
@@ -256,6 +266,10 @@ export function createCoreDouble(
     aiSent: initial?.aiSent ?? [],
     aiConceptReplies: initial?.aiConceptReplies ?? {},
     concepts: initial?.concepts ?? {},
+    backups: initial?.backups ?? [],
+    backupChecks: initial?.backupChecks ?? {},
+    restoredBackup: initial?.restoredBackup ?? null,
+    backupPicks: initial?.backupPicks ?? [],
   };
 
   const fail = (code: string, message: string): never => {
@@ -2646,6 +2660,108 @@ export function createCoreDouble(
       state.openedUrls.push(url);
       return changed(null);
     },
+    // --- Backups (src-tauri/src/backup): files on disk the double only describes ------------------------
+    backup_overview: () => {
+      const backups = [...state.backups].sort((a, b) => b.createdAt - a.createdAt);
+      const last = backups[0];
+      return {
+        backups: structuredClone(backups),
+        lastBackupAt: last?.createdAt ?? null,
+        location: last ? last.path.slice(0, last.path.lastIndexOf('\\')) : null,
+      };
+    },
+    backup_create: (args) => {
+      const channel = args?.onProgress as { onmessage?: (event: unknown) => void } | undefined;
+      const files = state.documents.length;
+      for (let done = 1; done <= files + 1; done += 1) {
+        channel?.onmessage?.({ done, total: files + 1 });
+      }
+      const at = Date.now();
+      const record: BackupRecord = {
+        id: crypto.randomUUID(),
+        path: `C:\\Users\\Alice\\Documents\\ARCHIVE-sauvegarde-${String(at)}.zip`,
+        createdAt: at,
+        sizeBytes: 1_048_576 + files * 250_000,
+        schemaVersion: 5,
+        appVersion: '0.1.0',
+        contents: {
+          documents: state.documents.filter((entry) => entry.document.deletedAt === null).length,
+          notes: state.notes.filter((entry) => entry.note.deletedAt === null).length,
+          workspaces: state.workspaces.length,
+          tags: state.tags.length,
+          relations: state.relations.length,
+          conversations: state.conversations.length,
+          files,
+        },
+        verifiedAt: null,
+        valid: null,
+        available: true,
+      };
+      state.backups.push(record);
+      return changed(structuredClone(record));
+    },
+    backup_verify: (args) => {
+      const record =
+        state.backups.find((candidate) => candidate.id === args?.id) ??
+        fail('not_found', 'backup not found');
+      const check: BackupCheck = state.backupChecks[record.id] ?? {
+        summary: {
+          appVersion: record.appVersion,
+          schemaVersion: record.schemaVersion,
+          createdAt: record.createdAt,
+          contents: record.contents,
+          sizeBytes: record.sizeBytes,
+        },
+        problems: [],
+      };
+      record.verifiedAt = Date.now();
+      record.valid = check.problems.length === 0;
+      return changed(structuredClone(check));
+    },
+    backup_open_file: () => {
+      const pick = state.backupPicks.shift();
+      if (!pick) {
+        return changed(null); // dialog cancelled
+      }
+      const { summary, problems } = pick.check;
+      if (summary === null) {
+        return changed([null, structuredClone(pick.check)]);
+      }
+      // Remembered by its path, as the core does.
+      const existing = state.backups.find((candidate) => candidate.path === pick.path);
+      const record: BackupRecord = {
+        id: existing?.id ?? crypto.randomUUID(),
+        path: pick.path,
+        createdAt: summary.createdAt,
+        sizeBytes: summary.sizeBytes,
+        schemaVersion: summary.schemaVersion,
+        appVersion: summary.appVersion,
+        contents: summary.contents,
+        verifiedAt: Date.now(),
+        valid: problems.length === 0,
+        available: true,
+      };
+      state.backups = [...state.backups.filter((candidate) => candidate !== existing), record];
+      return changed([structuredClone(record), structuredClone(pick.check)]);
+    },
+    backup_restore: (args) => {
+      const record =
+        state.backups.find((candidate) => candidate.id === args?.id) ??
+        fail('not_found', 'backup not found');
+      const check = state.backupChecks[record.id];
+      if (check && check.problems.length > 0) {
+        return changed(structuredClone(check));
+      }
+      // The core prepares the restoration and restarts ARCHIVE: the interface never gets an answer.
+      state.restoredBackup = record.id;
+      changed(null);
+      return new Promise<never>(() => undefined);
+    },
+    backup_forget: (args) => {
+      state.backups = state.backups.filter((candidate) => candidate.id !== args?.id);
+      return changed(null);
+    },
+    backup_reveal: () => null,
     memory_item: (args) => memoryItemOf(args?.kind as LinkKind, String(args?.id)),
     memory_extract_concepts: (args) => {
       const kind = args?.kind as LinkKind;

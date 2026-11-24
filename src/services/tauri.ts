@@ -14,6 +14,10 @@ import type { ConversationSummary } from '@/types/bindings/ConversationSummary';
 import type { ProviderCreate } from '@/types/bindings/ProviderCreate';
 import type { ProviderPatch } from '@/types/bindings/ProviderPatch';
 import type { AppInfo } from '@/types/bindings/AppInfo';
+import type { BackupCheck } from '@/types/bindings/BackupCheck';
+import type { BackupOverview } from '@/types/bindings/BackupOverview';
+import type { BackupProgress } from '@/types/bindings/BackupProgress';
+import type { BackupRecord } from '@/types/bindings/BackupRecord';
 import type { AppSettings } from '@/types/bindings/AppSettings';
 import type { AppStatus } from '@/types/bindings/AppStatus';
 import type { DashboardOverview } from '@/types/bindings/DashboardOverview';
@@ -202,6 +206,14 @@ export interface CommandSignatures {
     result: AssistantStarted;
   };
   assistant_stop: { args: { conversationId: string }; result: boolean };
+  backup_overview: { args: undefined; result: BackupOverview };
+  backup_create: { args: { onProgress: Channel<BackupProgress> }; result: BackupRecord | null };
+  backup_verify: { args: { id: string }; result: BackupCheck };
+  backup_open_file: { args: undefined; result: [BackupRecord | null, BackupCheck] | null };
+  /** Restarts ARCHIVE when the backup can be restored; returns its problems otherwise. */
+  backup_restore: { args: { id: string }; result: BackupCheck };
+  backup_forget: { args: { id: string }; result: null };
+  backup_reveal: { args: { id: string }; result: null };
   memory_extract_concepts: {
     args: { kind: LinkKind; id: string; providerId: string };
     result: ConceptExtraction;

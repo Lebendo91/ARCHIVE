@@ -50,12 +50,15 @@ pub struct AppStatus {
     pub last_migration: Option<MigrationReport>,
     pub failure: Option<StartupFailure>,
     pub data_dir: String,
+    /// A restoration applied (or tried) at this start, to tell the user once.
+    pub restore: Option<crate::backup::RestoreOutcome>,
 }
 
 pub struct AppState {
     pub paths: AppPaths,
     pub storage: FileStore,
     database: RwLock<DatabaseState>,
+    restore: Option<crate::backup::RestoreOutcome>,
 }
 
 fn open_database(paths: &AppPaths) -> DatabaseState {
@@ -119,17 +122,28 @@ fn open_database(paths: &AppPaths) -> DatabaseState {
 
 impl AppState {
     pub fn initialize(paths: AppPaths) -> Self {
+        // A restoration prepared by the user is applied before anything opens the database (ARCHITECTURE §7.1).
+        let restore = crate::backup::apply_pending_restore(&paths);
         let storage = FileStore::new(&paths);
         match storage.cleanup_tmp() {
             Ok(0) => {}
             Ok(removed) => log::info!("removed {removed} leftover temporary files"),
             Err(error) => log::warn!("could not clean the temporary directory: {error}"),
         }
-        let database = RwLock::new(open_database(&paths));
+        let database = open_database(&paths);
+        if let (Some(restore), DatabaseState::Ready { database, .. }) = (&restore, &database) {
+            // The restored database only knows the backups made before it (ARCHITECTURE §7.1).
+            match database.write(|transaction| restore.carry_history(transaction)) {
+                Ok(0) => {}
+                Ok(count) => log::info!("backup history carried over the restoration: {count}"),
+                Err(error) => log::error!("the backup history could not be carried over: {error}"),
+            }
+        }
         Self {
             paths,
             storage,
-            database,
+            database: RwLock::new(database),
+            restore: restore.map(|restore| restore.outcome),
         }
     }
 
@@ -166,6 +180,7 @@ impl AppState {
             last_migration,
             failure,
             data_dir: AppPaths::display(&self.paths.data_dir),
+            restore: self.restore.clone(),
         }
     }
 

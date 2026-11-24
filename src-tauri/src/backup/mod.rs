@@ -459,16 +459,53 @@ pub fn verify(path: &Path, scratch: &Path, extract_to: Option<&Path>) -> AppResu
     })
 }
 
+/// A backup of the history, carried over a restoration: the restored database only knows the backups made before
+/// it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HistoryEntry {
+    path: String,
+    created_at: i64,
+    size_bytes: i64,
+    schema_version: i64,
+    app_version: String,
+    contents: BackupContents,
+    verified_at: Option<i64>,
+    valid: Option<bool>,
+}
+
+impl From<&BackupRecord> for HistoryEntry {
+    fn from(record: &BackupRecord) -> Self {
+        Self {
+            path: record.path.clone(),
+            created_at: record.created_at,
+            size_bytes: record.size_bytes,
+            schema_version: record.schema_version,
+            app_version: record.app_version.clone(),
+            contents: record.contents,
+            verified_at: record.verified_at,
+            valid: record.valid,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RestoreMarker {
     source: String,
     created_at: i64,
     prepared_at: i64,
+    #[serde(default)]
+    history: Vec<HistoryEntry>,
 }
 
-/// Checks a backup and extracts it, ready to be applied at the next start.
-pub fn stage_restore(paths: &AppPaths, backup: &Path) -> AppResult<BackupCheck> {
+/// Checks a backup and extracts it, ready to be applied at the next start. `history` is the current history of
+/// the backups, carried into the restored database.
+pub fn stage_restore(
+    paths: &AppPaths,
+    backup: &Path,
+    history: &[BackupRecord],
+) -> AppResult<BackupCheck> {
     if paths.restore_dir.exists() {
         fs::remove_dir_all(&paths.restore_dir)?;
     }
@@ -477,10 +514,29 @@ pub fn stage_restore(paths: &AppPaths, backup: &Path) -> AppResult<BackupCheck> 
     let check = verify(backup, &paths.tmp_dir, Some(&staging))?;
     match &check.summary {
         Some(summary) if check.valid() => {
-            let marker = RestoreMarker {
-                source: backup.to_string_lossy().into_owned(),
+            let source = backup.to_string_lossy().into_owned();
+            let prepared_at = now_ms();
+            // The backup restored was just verified: so it appears in the history.
+            let mut history: Vec<HistoryEntry> = history
+                .iter()
+                .filter(|record| record.path != source)
+                .map(HistoryEntry::from)
+                .collect();
+            history.push(HistoryEntry {
+                path: source.clone(),
                 created_at: summary.created_at,
-                prepared_at: now_ms(),
+                size_bytes: i64::try_from(summary.size_bytes).unwrap_or(i64::MAX),
+                schema_version: summary.schema_version,
+                app_version: summary.app_version.clone(),
+                contents: summary.contents,
+                verified_at: Some(prepared_at),
+                valid: Some(true),
+            });
+            let marker = RestoreMarker {
+                source,
+                created_at: summary.created_at,
+                prepared_at,
+                history,
             };
             let text = serde_json::to_vec(&marker)
                 .map_err(|error| AppError::Internal(error.to_string()))?;
@@ -502,12 +558,65 @@ pub struct RestoreOutcome {
     /// Date of the backup restored.
     #[ts(type = "number")]
     pub backup_created_at: i64,
-    /// Where the data it replaced is kept (relative to the data folder), or why it failed.
-    pub detail: String,
+    /// Folder holding the data that was in place: the data a restoration replaced, or, when a failed
+    /// restoration could not put everything back, what is still there (never deleted). `None` when a failed
+    /// restoration left the data as it was.
+    pub kept_in: Option<String>,
+}
+
+/// A restoration tried at this start: what to tell the user, and the history of the backups to carry into the
+/// restored database once it is open.
+#[derive(Debug, Clone)]
+pub struct StartRestore {
+    pub outcome: RestoreOutcome,
+    history: Vec<HistoryEntry>,
+}
+
+impl StartRestore {
+    /// Puts back into the restored database the backups it does not know, or knows with older details. Nothing
+    /// when the restoration was not applied: the database is the one that had this history. Returns the number
+    /// of backups written.
+    pub fn carry_history(&self, transaction: &Transaction<'_>) -> AppResult<usize> {
+        if !self.outcome.applied {
+            return Ok(0);
+        }
+        let mut written = 0;
+        for entry in &self.history {
+            if entry.path.is_empty() || entry.path.len() > 4096 || entry.size_bytes < 0 {
+                continue;
+            }
+            let contents = serde_json::to_string(&entry.contents)
+                .map_err(|error| AppError::Internal(error.to_string()))?;
+            let verification = entry
+                .valid
+                .map(|valid| if valid { "valid" } else { "invalid" });
+            written += transaction.execute(
+                "INSERT INTO backups (id, path, created_at, size_bytes, schema_version, app_version,
+                                      contents_json, verified_at, verification)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                 ON CONFLICT (path) DO UPDATE SET created_at = excluded.created_at,
+                   size_bytes = excluded.size_bytes, schema_version = excluded.schema_version,
+                   app_version = excluded.app_version, contents_json = excluded.contents_json,
+                   verified_at = excluded.verified_at, verification = excluded.verification",
+                params![
+                    new_id(),
+                    entry.path,
+                    entry.created_at,
+                    entry.size_bytes,
+                    entry.schema_version,
+                    entry.app_version,
+                    contents,
+                    entry.verified_at,
+                    verification
+                ],
+            )?;
+        }
+        Ok(written)
+    }
 }
 
 /// Applies a prepared restoration. Runs at start, before the database is opened: nothing holds its files.
-pub fn apply_pending_restore(paths: &AppPaths) -> Option<RestoreOutcome> {
+pub fn apply_pending_restore(paths: &AppPaths) -> Option<StartRestore> {
     let marker_path = paths.restore_dir.join(MARKER);
     let marker: RestoreMarker = serde_json::from_slice(&fs::read(&marker_path).ok()?).ok()?;
     // Whatever happens, the restoration is tried once only.
@@ -515,7 +624,9 @@ pub fn apply_pending_restore(paths: &AppPaths) -> Option<RestoreOutcome> {
     let staging = paths.restore_dir.join(STAGING);
     let kept_name = format!("before-restore-{}", now_ms());
     let kept = paths.backups_dir.join(&kept_name);
+    // What was moved aside (from, to), and whether the restored database took the place of the current one.
     let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut database_placed = false;
     let result = (|| -> io::Result<()> {
         if !staging.join(DATABASE).is_file() {
             return Err(io::Error::new(
@@ -532,55 +643,60 @@ pub fn apply_pending_restore(paths: &AppPaths) -> Option<RestoreOutcome> {
         for path in current.into_iter().filter(|path| path.exists()) {
             let target = kept.join(path.file_name().unwrap_or_default());
             fs::rename(&path, &target)?;
-            moved.push((target, path));
+            moved.push((path, target));
         }
         fs::rename(staging.join(DATABASE), &paths.database_file)?;
+        database_placed = true;
         let staged_files = staging.join("files");
         if staged_files.exists() {
-            fs::rename(&staged_files, &paths.files_dir)?;
+            fs::rename(&staged_files, &paths.files_dir)
         } else {
-            fs::create_dir_all(&paths.files_dir)?;
+            fs::create_dir_all(&paths.files_dir)
         }
-        Ok(())
     })();
-    match result {
-        Ok(()) => {
-            let _ = fs::remove_dir_all(&paths.restore_dir);
-            log::info!(
-                "backup of {} restored; the replaced data is in backups/{kept_name}",
-                marker.created_at
-            );
-            Some(RestoreOutcome {
-                applied: true,
-                backup_created_at: marker.created_at,
-                detail: format!("backups/{kept_name}"),
-            })
+    // The extracted copy is not needed any more: a new attempt extracts the backup again.
+    let _ = fs::remove_dir_all(&paths.restore_dir);
+    if let Err(error) = result {
+        log::error!("the restoration could not be applied: {error}");
+        // Back as it was: the restored database out (it is a copy of the backup), the data in place again.
+        if database_placed {
+            let _ = fs::remove_file(&paths.database_file);
         }
-        Err(error) => {
-            // Back as it was: the restored database out, the current data in again.
-            if !moved.is_empty() {
-                let _ = fs::remove_file(&paths.database_file);
-                if paths.files_dir.exists()
-                    && moved
-                        .iter()
-                        .any(|(_, original)| original == &paths.files_dir)
-                {
-                    let _ = fs::remove_dir_all(&paths.files_dir);
-                }
+        let mut stranded = false;
+        for (original, aside) in moved.into_iter().rev() {
+            if let Err(error) = fs::rename(&aside, &original) {
+                stranded = true;
+                log::error!(
+                    "{} could not be put back, it stays in backups/{kept_name}: {error}",
+                    original.file_name().unwrap_or_default().to_string_lossy()
+                );
             }
-            for (kept_path, original) in moved.into_iter().rev() {
-                let _ = fs::rename(&kept_path, &original);
-            }
-            log::error!(
-                "the restoration could not be applied, the current data is unchanged: {error}"
-            );
-            Some(RestoreOutcome {
+        }
+        if !stranded {
+            // Empty again: removed. Anything left in it is kept.
+            let _ = fs::remove_dir(&kept);
+        }
+        return Some(StartRestore {
+            outcome: RestoreOutcome {
                 applied: false,
                 backup_created_at: marker.created_at,
-                detail: error.to_string(),
-            })
-        }
+                kept_in: stranded.then(|| kept.display().to_string()),
+            },
+            history: Vec::new(),
+        });
     }
+    log::info!(
+        "backup of {} restored; the replaced data is in backups/{kept_name}",
+        marker.created_at
+    );
+    Some(StartRestore {
+        outcome: RestoreOutcome {
+            applied: true,
+            backup_created_at: marker.created_at,
+            kept_in: Some(kept.display().to_string()),
+        },
+        history: marker.history,
+    })
 }
 
 fn record(row: &rusqlite::Row<'_>) -> rusqlite::Result<BackupRecord> {

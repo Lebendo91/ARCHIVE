@@ -156,6 +156,13 @@ pub fn run() {
             commands::ai::assistant_regenerate,
             commands::ai::assistant_stop,
             commands::ai::memory_extract_concepts,
+            commands::backup::backup_overview,
+            commands::backup::backup_create,
+            commands::backup::backup_verify,
+            commands::backup::backup_open_file,
+            commands::backup::backup_restore,
+            commands::backup::backup_forget,
+            commands::backup::backup_reveal,
             commands::notes::notes_import_markdown_pick,
             commands::notes::notes_export_markdown,
         ])

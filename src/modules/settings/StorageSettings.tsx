@@ -1,12 +1,13 @@
 import { CircleAlert, CircleCheck, FolderOpen, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Badge, Button, Card, Skeleton } from '@/components/ui';
+import { Button, Card, Skeleton } from '@/components/ui';
 import { formatDateTime, formatFileSize, useI18n, type MessageKey } from '@/i18n';
 import { MemoryOverviewCard } from '@/modules/memory/MemoryOverviewCard';
 import { errorMessageKey } from '@/services/errors';
 import { useIntegrityCheck, useOpenStorageFolder, useStorageOverview } from '@/services/queries';
 import type { StorageFolder, StorageOverview } from '@/services/storage';
 import { toast } from '@/stores/toasts';
+import { BackupsCard } from './BackupsCard';
 import { SettingsSection } from './SettingsPanels';
 
 function SectionTitle({ children }: { children: ReactNode }) {
@@ -159,20 +160,6 @@ function Integrity() {
   );
 }
 
-function Backups() {
-  const { t } = useI18n();
-  return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <SectionTitle>{t('settings.storage.backupsTitle')}</SectionTitle>
-        <Badge>{t('common.comingSoon')}</Badge>
-      </div>
-      <p className="text-sm text-fg-secondary">{t('settings.storage.backupsAutomatic')}</p>
-      <p className="text-sm text-fg-secondary">{t('settings.storage.backupsUpcoming')}</p>
-    </Card>
-  );
-}
-
 /**
  * Storage section (specification §15.3): real locations and sizes, folder access, integrity check, and the
  * processing of the memory engine.
@@ -209,7 +196,7 @@ export function StorageSettings() {
           <MemoryOverviewCard />
         </>
       )}
-      <Backups />
+      <BackupsCard />
     </SettingsSection>
   );
 }
